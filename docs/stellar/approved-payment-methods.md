@@ -46,12 +46,14 @@
 - Only USDC from **Circle's official issuer** is accepted:
   - Production: `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN`
   - Sandbox (testnet): `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`
+- In payment requests, responses and events, `asset` is `USDC` and `assetIssuer` is the Circle issuer address above for the current network.
 - The merchant account needs a USDC trustline (see [settlement.md](./settlement.md#which-assets-we-accept)).
 - Note: USDC payments are still being built. This status is the policy for when it is live.
 
 ### XLM: `pilot only`
 
 - Stellar's own currency. It needs no trustline, so it is the easiest asset for testing.
+- XLM has no issuer, so in payment requests, responses and events `asset` is `XLM` and `assetIssuer` is `null`.
 - Its price changes with the market, so an amount in XLM can be worth more or less tomorrow. For that reason:
   - **Schools** can use it in sandbox and in agreed pilots.
   - **Students** cannot use it for tuition, so they are protected from price changes.
@@ -68,7 +70,11 @@
 
 ## Not accepted
 
-These are `not allowed`. Payments sent this way are not matched to a payment request, and are refunded where possible.
+These are `not allowed`. What happens depends on how the payment is sent:
+
+- **Other blockchains** (and testnet money in production) **never reach** the merchant account, because it only exists on the Stellar network. Nothing arrives, so there is nothing to match or refund.
+- **Other Stellar assets** sent with a valid memo **are matched** to the payment request, which becomes `failed` with reason `wrong_asset`. They are then refunded in the asset they arrived in, the same as in [settlement.md](./settlement.md#when-amounts-dont-match).
+- **Everything else** on this list is refused or refunded where possible.
 
 - **Any other Stellar asset**, including tokens named "USDC" from any issuer other than Circle's official one.
 - **USDC or other crypto on other blockchains** (for example Ethereum, Solana or Bitcoin). PlugLytics only accepts payments on the Stellar network.
