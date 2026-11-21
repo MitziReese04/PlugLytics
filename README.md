@@ -501,13 +501,13 @@ GitHub Actions workflows are not yet present in this repository.
 
 See [PROPOSAL.md](./PROPOSAL.md) for the PlugLytics grant proposal, Stellar Payments integration opportunity, planned roadmap, impact, budget categories, and evaluation metrics.
 
-The current project uses synthetic payment data. No live Stellar Payments or Stellar network integration is claimed.
+The current project uses synthetic payment data. Stellar **testnet** payments work (see [Try Stellar testnet payments](#try-stellar-testnet-payments)); production (real-money) payments are not enabled.
 
 See [docs/stellar/payments-api.md](./docs/stellar/payments-api.md) for the planned Stellar Payments API: the payment flow, endpoints, error codes, sandbox vs production setup, and testnet friendbot testing.
 
 ## Stellar Payments
 
-Planned Stellar Payments documentation (not implemented yet):
+Stellar **testnet** payments work: students can pay an invoice from the dashboard, and admins can see every payment request. **Production (real-money) payments are not enabled yet.** Some features in these documents are still planned:
 
 - [Payments API](./docs/stellar/payments-api.md): payment flow, endpoints, customer API keys, webhook registration, error codes, and sandbox vs production
 - [Webhooks](./docs/stellar/webhooks.md): event types, example payloads, signature verification, retries, and duplicate handling
@@ -515,6 +515,41 @@ Planned Stellar Payments documentation (not implemented yet):
 - [Approved payment methods](./docs/stellar/approved-payment-methods.md): which methods are accepted (USDC, XLM, anchors), who can use them, amount limits, and what is not accepted
 - [Refunds and chargebacks](./docs/stellar/refunds-and-chargebacks.md): who can request a refund, the refund procedure, partial refunds, anchor and card on-ramp disputes, and record-keeping
 - [Pilot budget and grant](./docs/stellar/pilot-budget-and-grant.md): pilot budget by category, grant amount, milestones, and reporting dates
+
+### Try Stellar testnet payments
+
+Testnet is Stellar's test network. Its XLM has **no real value**, so nothing here costs money.
+
+1. **Create a testnet merchant account** (it receives the payments):
+   - Open the [Stellar Laboratory](https://laboratory.stellar.org), switch to **Testnet**, and generate a keypair.
+   - Fund it with friendbot, which gives a new testnet account 10,000 test XLM:
+
+     ```bash
+     curl "https://friendbot.stellar.org?addr=YOUR_MERCHANT_PUBLIC_KEY"
+     ```
+
+2. **Add it to your `.env`** (never to `.env.example` or any committed file):
+
+   ```bash
+   STELLAR_ENV=sandbox
+   SANDBOX_MERCHANT_PUBLIC_KEY=<merchant G... key>
+   SANDBOX_MERCHANT_SECRET_KEY=<merchant S... key>
+   SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string>
+   ```
+
+3. **Start PlugLytics:** run `npm run seed` (once, or after pulling new database changes) and then `npm run dev`.
+4. **Create a payer account** in a testnet wallet: for example, generate a second keypair in the Stellar Laboratory (Testnet) or use any wallet that supports testnet. Fund it with friendbot the same way.
+5. **Sign in as a student who owes money**, for example `student6@pluglytics.local` / `Demo123!`. (The default demo student has nothing left to pay.)
+6. In the dashboard's **Payments** section, click **Pay with Stellar (Testnet)** on an invoice. Copy the **destination address**, **amount**, **asset** and **memo** with the copy buttons.
+7. **Send the payment from the payer wallet:** send exactly that amount of XLM to the destination address, with the memo as a **text memo**. Without the memo, the payment cannot be matched to the invoice. Send it before the request expires (30 minutes).
+   - Sandbox prices use a fixed test rate (1 USD = 2.5 XLM), so a 3,596 USD invoice asks for 8,990 XLM. That fits within the 10,000 test XLM friendbot gives.
+8. The page checks every few seconds and shows **Completed** once the payment is found. If too little arrived, a different asset was used, or the request expired, it shows **Failed** with the reason.
+9. **Sign in as the admin** (`admin@pluglytics.local` / `Demo123!`) to see the request in **Stellar Payments**, with a link to the transaction on [stellar.expert](https://stellar.expert/explorer/testnet).
+
+Notes:
+
+- The testnet is reset from time to time. After a reset, fund new accounts with friendbot again.
+- Only testnet works. With `STELLAR_ENV=production`, the server refuses to create payment requests.
 
 ## Roadmap
 
