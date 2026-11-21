@@ -64,6 +64,7 @@ The demo repository includes realistic synthetic data for:
 - [Tests](#tests)
 - [CI](#ci)
 - [Grant proposal](#grant-proposal)
+- [Try Stellar testnet payments](#try-stellar-testnet-payments)
 - [Roadmap](#roadmap)
 - [Information still needed](#information-still-needed)
 - [License](#license)
@@ -516,40 +517,32 @@ Stellar **testnet** payments work: students can pay an invoice from the dashboar
 - [Refunds and chargebacks](./docs/stellar/refunds-and-chargebacks.md): who can request a refund, the refund procedure, partial refunds, anchor and card on-ramp disputes, and record-keeping
 - [Pilot budget and grant](./docs/stellar/pilot-budget-and-grant.md): pilot budget by category, grant amount, milestones, and reporting dates
 
-### Try Stellar testnet payments
+## Try Stellar testnet payments
 
-Testnet is Stellar's test network. Its XLM has **no real value**, so nothing here costs money.
+Testnet is Stellar's test network. Its XLM has **no real value**, so nothing here costs money. Production (real-money) payments are not enabled.
 
-1. **Create a testnet merchant account** (it receives the payments):
-   - Open the [Stellar Laboratory](https://laboratory.stellar.org), switch to **Testnet**, and generate a keypair.
-   - Fund it with friendbot, which gives a new testnet account 10,000 test XLM:
-
-     ```bash
-     curl "https://friendbot.stellar.org?addr=YOUR_MERCHANT_PUBLIC_KEY"
-     ```
-
-2. **Add it to your `.env`** (never to `.env.example` or any committed file):
+1. **Copy the Stellar settings into `.env`.** Copy the Stellar lines (everything from `# --- Stellar merchant credentials ---` down) from `.env.example` into your `.env`, and keep `STELLAR_ENV=sandbox`. Never put real keys in `.env.example` or any committed file.
+2. **Create a testnet merchant account** (it receives the payments): open the [Stellar Laboratory](https://laboratory.stellar.org), switch to **Testnet**, and generate a keypair.
+3. **Fund it with Friendbot**, which gives a new testnet account 10,000 test XLM:
 
    ```bash
-   STELLAR_ENV=sandbox
+   curl "https://friendbot.stellar.org?addr=YOUR_MERCHANT_PUBLIC_KEY"
+   ```
+
+4. **Add the `SANDBOX_` keys** in `.env`, replacing the placeholders:
+
+   ```bash
    SANDBOX_MERCHANT_PUBLIC_KEY=<merchant G... key>
    SANDBOX_MERCHANT_SECRET_KEY=<merchant S... key>
    SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string>
    ```
 
-3. **Start PlugLytics:** run `npm run seed` (once, or after pulling new database changes) and then `npm run dev`.
-4. **Create a payer account** in a testnet wallet: for example, generate a second keypair in the Stellar Laboratory (Testnet) or use any wallet that supports testnet. Fund it with friendbot the same way.
-5. **Sign in as a student who owes money**, for example `student6@pluglytics.local` / `Demo123!`. (The default demo student has nothing left to pay.)
-6. In the dashboard's **Payments** section, click **Pay with Stellar (Testnet)** on an invoice. Copy the **destination address**, **amount**, **asset** and **memo** with the copy buttons.
-7. **Send the payment from the payer wallet:** send exactly that amount of XLM to the destination address, with the memo as a **text memo**. Without the memo, the payment cannot be matched to the invoice. Send it before the request expires (30 minutes).
-   - Sandbox prices use a fixed test rate (1 USD = 2.5 XLM), so a 3,596 USD invoice asks for 8,990 XLM. That fits within the 10,000 test XLM friendbot gives.
-8. The page checks every few seconds and shows **Completed** once the payment is found. If too little arrived, a different asset was used, or the request expired, it shows **Failed** with the reason.
-9. **Sign in as the admin** (`admin@pluglytics.local` / `Demo123!`) to see the request in **Stellar Payments**, with a link to the transaction on [stellar.expert](https://stellar.expert/explorer/testnet).
+5. **Restart the server** so it reads the new settings: stop `npm run dev` and start it again. (Run `npm run seed` first if you have not seeded since pulling.)
+6. **Log in as the demo student** (`student@pluglytics.local` / `Demo123!`). In the **Payments** section, click **Pay with Stellar (Testnet)** on the unpaid 50 USD invoice. It asks for 125 XLM (sandbox rate: 1 USD = 2.5 XLM). Copy the **destination address**, **amount** and **memo**.
+7. **Pay with a second testnet account:** generate another keypair in the Stellar Laboratory (Testnet) or use a wallet that supports testnet, fund it with Friendbot, and send exactly that amount of XLM to the destination address with the memo as a **text memo**, within 30 minutes. Without the memo, the payment cannot be matched.
+8. The page checks every few seconds and shows **Completed** once the payment is found, or **Failed** with the reason. Log in as `admin@pluglytics.local` / `Demo123!` to see the request in **Stellar Payments**, linked to the transaction on [stellar.expert](https://stellar.expert/explorer/testnet).
 
-Notes:
-
-- The testnet is reset from time to time. After a reset, fund new accounts with friendbot again.
-- Only testnet works. With `STELLAR_ENV=production`, the server refuses to create payment requests.
+The testnet is reset from time to time. After a reset, fund new accounts with Friendbot again.
 
 ## Roadmap
 
