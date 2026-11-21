@@ -51,7 +51,7 @@ The extension refreshes role-permitted terms and dates from the authenticated Pl
 Potential integration scope:
 
 1. Create a documented merchant-payment adapter for invoice and payment imports.
-2. Reconcile payment, refund, and chargeback records against student invoices.
+2. Reconcile payment, refund, and dispute records (Stellar payments have no chargebacks; disputes come through anchors or card on-ramps) against student invoices.
 3. Extend aging and collection reports without exposing individual student data in public views.
 4. Support payment-method and scholarship analysis.
 5. Produce auditable daily, weekly, and monthly financial summaries.
@@ -79,7 +79,7 @@ PlugLytics is built around least-privilege access. Student and instructor report
 | --- | --- | --- |
 | 1 | Grant-aligned repository, demo, and documentation | Complete |
 | 2 | Stellar Payments sandbox/payment-adapter specification | 30 days |
-| 3 | Secure invoice reconciliation and webhook ingestion | 60 days |
+| 3 | Secure invoice reconciliation and signed outgoing webhooks with per-customer secrets | 60 days |
 | 4 | Pilot payment and aging dashboards | 90 days |
 | 5 | Pilot with one school or training provider | 120 days |
 | 6 | Security, accessibility, and deployment hardening | 180 days |
