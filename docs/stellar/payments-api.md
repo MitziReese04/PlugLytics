@@ -10,6 +10,7 @@
 - [Sandbox vs production](#sandbox-vs-production)
 - [API conventions](#api-conventions)
 - [Endpoints](#endpoints)
+- [How payments are detected and webhooks are sent](#how-payments-are-detected-and-webhooks-are-sent)
 - [Error codes](#error-codes)
 - [Testing with the testnet friendbot](#testing-with-the-testnet-friendbot)
 - [Security rules](#security-rules)
@@ -74,13 +75,13 @@ Every payment, of either type, follows the same four steps.
   - the asset is the same as the request's asset
   - the amount is equal to or more than the requested amount
   - the transaction succeeded and was made before the request expired
-- The check runs when the client calls `POST /api/v1/payments/:id/confirm`, and also in the background.
+- PlugLytics watches Horizon for new payments in the background, and the client can also trigger the check with `POST /api/v1/payments/:id/confirm` (see [How payments are detected and webhooks are sent](#how-payments-are-detected-and-webhooks-are-sent)).
 
 ### 4. Mark paid
 
 - The request's status changes from `pending` to `completed`, and the Stellar transaction hash is saved as proof.
 - For pay-per-use, the item is unlocked. For a subscription, the seats are activated for the period.
-- If a webhook URL is set up, PlugLytics sends a signed `payment.completed` event (see [webhooks.md](./webhooks.md)).
+- If the customer has set up a webhook URL, PlugLytics sends a signed `payment.completed` event to it (see [webhooks.md](./webhooks.md)).
 
 ### Payment statuses
 
@@ -135,7 +136,7 @@ const stellar = loadStellarConfig();
 The payment endpoints follow the same rules as the rest of the PlugLytics API.
 
 - **Base path:** `/api/v1/payments` (and `/api/v1/subscriptions`)
-- **Authentication:** send `Authorization: Bearer <JWT>` (get a token from `POST /api/v1/auth/login`). The webhook endpoint is the one exception.
+- **Authentication:** send `Authorization: Bearer <JWT>` (get a token from `POST /api/v1/auth/login`). Every payment endpoint requires it.
 - **Amounts** are strings with up to 7 decimal places (for example `"25.0000000"`), because Stellar uses 7 decimal places and strings avoid rounding errors.
 - **Times** are ISO 8601 UTC strings.
 - **Response envelope:** every response has `data`, `meta` and `error`.
@@ -174,7 +175,6 @@ To keep the examples below short, only the `data` part is shown for success resp
 | POST | `/api/v1/payments/:id/cancel` | Admin | Cancel a pending request |
 | POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
 | GET | `/api/v1/subscriptions/:id` | Admin | Get a subscription and its current period |
-| POST | `/api/v1/payments/webhooks/stellar` | Signed webhook (no JWT) | Receive payment events |
 
 ### GET `/api/v1/payments/config`
 
@@ -334,39 +334,25 @@ Response `201` (`data`):
 
 Returns the subscription, its current period and its latest payment request, in the same shape as the create response.
 
-### POST `/api/v1/payments/webhooks/stellar`
+## How payments are detected and webhooks are sent
 
-Receives payment events. It uses a signature instead of a JWT.
+PlugLytics **does not receive webhooks**. Stellar has no "payment received" callback, so PlugLytics watches the network itself, and then **sends** webhooks to the customer.
 
-- Header `X-PlugLytics-Signature`: `v1=<hex>`, an HMAC-SHA256 of `<timestamp>.<raw body>`, signed with `WEBHOOK_SIGNING_SECRET`. The timestamp is sent in the `X-PlugLytics-Timestamp` header.
-- Requests with a missing or wrong signature, or a timestamp more than 5 minutes old, are rejected with `401`.
-- See [webhooks.md](./webhooks.md#verifying-the-signature) for the full signing rules and a code example.
+### Watching Horizon for incoming payments
 
-Request:
+- PlugLytics watches the merchant account's payments on Horizon:
+  - **Streaming (main method):** it keeps a live connection open to `GET {horizonUrl}/accounts/{merchantPublicKey}/payments?cursor=now` (Server-Sent Events). Horizon pushes each new payment as soon as its ledger closes.
+  - **Polling (backup):** every minute, and whenever the stream reconnects, it asks the same endpoint for anything newer than the last `paging_token` it saved, so no payment is missed while the stream was down.
+- For each incoming payment, PlugLytics reads the transaction's memo and looks up the payment request with that memo. The memo links the Stellar payment to the payment ID.
+- It then runs the checks from [step 3 of the payment flow](#3-confirm-on-horizon) (destination, memo, asset, amount, success, expiry) and sets the status to `completed`, or to `failed` with a `reason`.
+- `POST /api/v1/payments/:id/confirm` runs the same check for a single request on demand. It is useful for testing, or if you don't want to wait.
 
-```json
-{
-  "id": "evt_01JD9A4R7T",
-  "type": "payment.completed",
-  "createdAt": "2026-11-21T12:04:32.000Z",
-  "environment": "sandbox",
-  "data": {
-    "paymentId": "pay_01JD8Z6Q4K",
-    "status": "completed",
-    "transactionHash": "3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889",
-    "paidAt": "2026-11-21T12:04:31.000Z"
-  }
-}
-```
+### Sending webhooks to the customer
 
-- Events: `payment.pending`, `payment.completed`, `payment.failed` (with `reason`: `expired`, `cancelled`, `underpaid` or `wrong_asset`), `refund.issued`, `settlement.completed`. See [webhooks.md](./webhooks.md#event-types) for full payloads.
-- PlugLytics never trusts the webhook by itself: it always re-checks the transaction on Horizon before changing a status.
-
-Response `200` (`data`):
-
-```json
-{ "received": true }
-```
+- After a status changes, PlugLytics sends a signed `POST` to the **customer's own webhook URL**.
+- Events: `payment.pending`, `payment.completed`, `payment.failed` (with `reason`: `expired`, `cancelled`, `underpaid` or `wrong_asset`), `refund.issued`, `settlement.completed`.
+- Each request is signed with `WEBHOOK_SIGNING_SECRET`: header `X-PlugLytics-Signature: v1=<hex>`, an HMAC-SHA256 of `<timestamp>.<raw body>`, with the timestamp in `X-PlugLytics-Timestamp`.
+- See [webhooks.md](./webhooks.md) for the payloads, how the customer verifies the signature, retry rules and duplicate handling.
 
 ## Error codes
 
@@ -377,7 +363,6 @@ Response `200` (`data`):
 | 400 | `UNSUPPORTED_ASSET` | The asset is not in `supportedAssets` |
 | 401 | `AUTH_REQUIRED` | No Bearer token was sent |
 | 401 | `AUTH_INVALID` | The token is invalid or expired |
-| 401 | `WEBHOOK_SIGNATURE_INVALID` | The webhook signature is missing or wrong |
 | 403 | `FORBIDDEN` | Your role cannot use this endpoint |
 | 404 | `PAYMENT_NOT_FOUND` | No payment request has that ID |
 | 404 | `SUBSCRIPTION_NOT_FOUND` | No subscription has that ID |
@@ -444,5 +429,5 @@ SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string>
 - **Never commit real secret keys.** Keep them only in `.env`, which is listed in `.gitignore`. `.env.example` holds placeholders only.
 - Use **different** keys for sandbox and production. Never use a production key on testnet, or the reverse.
 - Never log, return or display the merchant secret key or the webhook signing secret.
-- Always confirm payments on Horizon. Never mark a payment paid based only on what the client or a webhook says.
+- Always confirm payments on Horizon. Never mark a payment paid based only on what the client says.
 - Check the network passphrase so a testnet payment can never be accepted in production.
