@@ -46,7 +46,11 @@ Good to know:
 - **XLM's price goes up and down.** A course price of `25 XLM` may be worth a different amount of money tomorrow. For real customers, **USDC is recommended**, so prices stay stable.
 - **An asset is more than its code.** On Stellar, an asset is a code **plus** the issuer's account. Anyone can create a fake token called "USDC". We only accept USDC from Circle's official issuer:
   - Public network issuer: `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN`
-  - Always double-check this against Circle's official documentation before going live. The testnet issuer is different, so look it up in Circle's docs too.
+    - Source: <https://www.circle.com/usdc-multichain/stellar>
+  - Testnet issuer: `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`
+    - Source: Circle developer docs, "Transfer USDC on Stellar" quickstart
+    - Get free testnet USDC from the Circle Faucet at <https://faucet.circle.com> (your testnet account needs a USDC trustline first).
+  - Always double-check these against Circle's official documentation before going live.
 - **USDC needs a trustline.** Before the merchant account can receive USDC, it must add a **trustline** to the USDC issuer (a one-time setting that says "this account accepts this asset"). XLM needs no trustline.
 - The list of accepted assets is returned by `GET /api/v1/payments/config` as `supportedAssets`. A payment in any other asset (or from a different issuer) is treated as `wrong_asset`.
 

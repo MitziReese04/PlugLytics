@@ -78,7 +78,7 @@ Every payment, of either type, follows the same four steps.
 
 ### 4. Mark paid
 
-- The request's status changes from `pending` to `paid`, and the Stellar transaction hash is saved as proof.
+- The request's status changes from `pending` to `completed`, and the Stellar transaction hash is saved as proof.
 - For pay-per-use, the item is unlocked. For a subscription, the seats are activated for the period.
 - If a webhook URL is set up, PlugLytics sends a signed `payment.completed` event (see [webhooks.md](./webhooks.md)).
 
@@ -87,7 +87,7 @@ Every payment, of either type, follows the same four steps.
 | Status | Meaning |
 | --- | --- |
 | `pending` | Created and waiting for the user to pay |
-| `paid` | A matching payment was found on Horizon |
+| `completed` | A matching payment was found on Horizon |
 | `expired` | No matching payment arrived before `expiresAt` |
 | `cancelled` | Cancelled before payment |
 | `underpaid` | A payment with the right memo arrived, but for less than the requested amount |
@@ -235,7 +235,7 @@ Lists payment requests, newest first.
 
 Query parameters (all optional):
 
-- `status`: `pending`, `paid`, `expired`, `cancelled` or `underpaid`
+- `status`: `pending`, `completed`, `expired`, `cancelled` or `underpaid`
 - `type`: `pay_per_use` or `subscription`
 - `page`: page number, starting at 1
 
@@ -256,7 +256,7 @@ Response `200` when paid (`data`):
 ```json
 {
   "id": "pay_01JD8Z6Q4K",
-  "status": "paid",
+  "status": "completed",
   "amount": "25.0000000",
   "amountReceived": "25.0000000",
   "asset": "XLM",
@@ -423,7 +423,7 @@ SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string>
 
 1. Log in as the demo admin and call `POST /api/v1/payments` with a small amount, such as `"5.0000000"`.
 2. In the Stellar Laboratory (Testnet), use the **customer** account to send a payment to `destination` with the exact `amount` and the `memo` from the response (memo type: text).
-3. Call `POST /api/v1/payments/:id/confirm`. The status should change to `paid`.
+3. Call `POST /api/v1/payments/:id/confirm`. The status should change to `completed`.
 4. Open `https://horizon-testnet.stellar.org/transactions/<transactionHash>` to see the proof on the network.
 
 ### Good to know
