@@ -148,7 +148,8 @@ Created by the daily reconciliation. One report per asset, per day.
 | `settlementId` | `set_01JD9D2P5R` | Report ID (same as in the `settlement.completed` event) |
 | `periodStart` / `periodEnd` | `2026-11-21T00:00:00Z` / `2026-11-22T00:00:00Z` | Time covered (UTC) |
 | `environment` | `sandbox` | `sandbox` or `production` |
-| `asset` | `XLM` | Asset this report covers |
+| `asset` | `XLM` | Asset code this report covers |
+| `assetIssuer` | `null` | Issuer of the asset: `null` for XLM, Circle's issuer address for USDC |
 | `paymentCount` | `12` | Number of completed payments |
 | `grossAmount` | `340.0000000` | Total received |
 | `refundCount` / `refundedAmount` | `1` / `25.0000000` | Refunds sent |
@@ -160,11 +161,11 @@ Created by the daily reconciliation. One report per asset, per day.
 
 The `settlement.completed` webhook event carries exactly these fields (see [webhooks.md](./webhooks.md#settlementcompleted)). In the event, `environment` is at the top level, like in every event.
 
-Each report also has a line-by-line list, which can be exported as CSV:
+Each report also has a line-by-line list, which can be exported as CSV. The `assetIssuer` column is empty for XLM:
 
 ```
-date,paymentId,type,memo,asset,amountExpected,amountReceived,transactionHash,ledger,result
-2026-11-21,pay_01JD8Z6Q4K,pay_per_use,PL-7F3K9Q,XLM,25.0000000,25.0000000,3389e9f0...8889,1234567,matched
+date,paymentId,type,memo,asset,assetIssuer,amountExpected,amountReceived,transactionHash,ledger,result
+2026-11-21,pay_01JD8Z6Q4K,pay_per_use,PL-7F3K9Q,XLM,,25.0000000,25.0000000,3389e9f0...8889,1234567,matched
 ```
 
 ### Weekly report

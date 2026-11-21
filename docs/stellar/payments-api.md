@@ -193,9 +193,16 @@ Response `200` (`data`):
   "horizonUrl": "https://horizon-testnet.stellar.org",
   "networkPassphrase": "Test SDF Network ; September 2015",
   "merchantPublicKey": "GABC...XYZ",
-  "supportedAssets": ["XLM"]
+  "supportedAssets": [
+    { "asset": "XLM", "assetIssuer": null },
+    { "asset": "USDC", "assetIssuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5" }
+  ]
 }
 ```
+
+- Each asset is a code **plus** its issuer. `assetIssuer` is `null` for XLM, which is Stellar's native asset and has no issuer.
+- USDC uses Circle's issuer for the current network: the testnet issuer above in sandbox, and `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN` in production (see [settlement.md](./settlement.md#which-assets-we-accept)).
+- USDC is planned for production. It appears in this list only once it is enabled on the server.
 
 ### POST `/api/v1/payments`
 
@@ -209,6 +216,7 @@ Request:
   "description": "Course analytics export - CS101, Fall term",
   "amount": "25.0000000",
   "asset": "XLM",
+  "assetIssuer": null,
   "reference": "export-cs101-fall"
 }
 ```
@@ -217,6 +225,7 @@ Request:
 - `description`: required, 1-200 characters
 - `amount`: required, greater than 0, up to 7 decimal places
 - `asset`: optional, defaults to `XLM`
+- `assetIssuer`: optional. Must be `null` (or left out) for `XLM`. For `USDC`, you can leave it out and PlugLytics fills in Circle's issuer for the current network. If you send it, it must match an entry in `supportedAssets`.
 - `reference`: optional, your own ID for this charge (also used to stop duplicate requests)
 
 Response `201` (`data`):
@@ -229,6 +238,7 @@ Response `201` (`data`):
   "description": "Course analytics export - CS101, Fall term",
   "amount": "25.0000000",
   "asset": "XLM",
+  "assetIssuer": null,
   "destination": "GABC...XYZ",
   "memo": "PL-7F3K9Q",
   "memoType": "text",
@@ -240,6 +250,50 @@ Response `201` (`data`):
   "transactionHash": null
 }
 ```
+
+#### USDC example
+
+The same request in USDC (sandbox). Leaving out `assetIssuer` would give the same result, because PlugLytics fills in Circle's issuer.
+
+Request:
+
+```json
+{
+  "type": "pay_per_use",
+  "description": "Course analytics export - CS101, Fall term",
+  "amount": "25.0000000",
+  "asset": "USDC",
+  "assetIssuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "reference": "export-cs101-fall-usdc"
+}
+```
+
+Response `201` (`data`):
+
+```json
+{
+  "id": "pay_01JDB4N2RS",
+  "type": "pay_per_use",
+  "status": "pending",
+  "description": "Course analytics export - CS101, Fall term",
+  "amount": "25.0000000",
+  "asset": "USDC",
+  "assetIssuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "destination": "GABC...XYZ",
+  "memo": "PL-K4V8TZ",
+  "memoType": "text",
+  "paymentUri": "web+stellar:pay?destination=GABC...XYZ&amount=25.0000000&asset_code=USDC&asset_issuer=GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5&memo=PL-K4V8TZ&memo_type=MEMO_TEXT",
+  "network": "sandbox",
+  "createdAt": "2026-11-21T12:00:00.000Z",
+  "expiresAt": "2026-11-21T12:30:00.000Z",
+  "paidAt": null,
+  "transactionHash": null
+}
+```
+
+- The `paymentUri` includes `asset_code` and `asset_issuer`, so the wallet sends the right USDC.
+- The merchant account needs a USDC trustline first (see [settlement.md](./settlement.md#which-assets-we-accept)). A USDC payment from any other issuer is `failed` with reason `wrong_asset`.
+- In production, `assetIssuer` would be `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN`.
 
 ### GET `/api/v1/payments`
 
@@ -273,6 +327,7 @@ Response `200` when completed (`data`):
   "amount": "25.0000000",
   "amountReceived": "25.0000000",
   "asset": "XLM",
+  "assetIssuer": null,
   "paidAt": "2026-11-21T12:04:31.000Z",
   "transactionHash": "3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889",
   "ledger": 1234567
@@ -297,6 +352,7 @@ Request:
   "seats": 50,
   "pricePerSeat": "2.0000000",
   "asset": "XLM",
+  "assetIssuer": null,
   "period": "monthly"
 }
 ```
@@ -322,6 +378,7 @@ Response `201` (`data`):
     "status": "pending",
     "amount": "100.0000000",
     "asset": "XLM",
+    "assetIssuer": null,
     "destination": "GABC...XYZ",
     "memo": "PL-Q2M8XA",
     "memoType": "text",
@@ -460,7 +517,7 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | --- | --- | --- |
 | 400 | `INVALID_JSON` | The request body is not valid JSON |
 | 400 | `VALIDATION_ERROR` | A field is missing or invalid (for example `amount` is `0`) |
-| 400 | `UNSUPPORTED_ASSET` | The asset is not in `supportedAssets` |
+| 400 | `UNSUPPORTED_ASSET` | The `asset` and `assetIssuer` pair is not in `supportedAssets` |
 | 401 | `AUTH_REQUIRED` | No Bearer token was sent |
 | 401 | `AUTH_INVALID` | The token is invalid or expired |
 | 403 | `FORBIDDEN` | Your role cannot use this endpoint |

@@ -106,6 +106,7 @@ Every event has the same outer shape:
     "status": "pending",
     "amount": "25.0000000",
     "asset": "XLM",
+    "assetIssuer": null,
     "destination": "GABC...XYZ",
     "memo": "PL-7F3K9Q",
     "expiresAt": "2026-11-21T12:30:00.000Z",
@@ -129,6 +130,7 @@ Every event has the same outer shape:
     "amount": "25.0000000",
     "amountReceived": "25.0000000",
     "asset": "XLM",
+    "assetIssuer": null,
     "memo": "PL-7F3K9Q",
     "sourceAccount": "GCUS...TMR",
     "transactionHash": "3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889",
@@ -156,6 +158,7 @@ For a subscription payment, `data.type` is `subscription` and `data` also includ
     "amount": "25.0000000",
     "amountReceived": "0",
     "asset": "XLM",
+    "assetIssuer": null,
     "memo": "PL-7F3K9Q",
     "transactionHash": null,
     "reference": "export-cs101-fall"
@@ -183,6 +186,7 @@ For a subscription payment, `data.type` is `subscription` and `data` also includ
     "paymentId": "pay_01JD8Z6Q4K",
     "amount": "25.0000000",
     "asset": "XLM",
+    "assetIssuer": null,
     "destination": "GCUS...TMR",
     "reason": "customer_request",
     "transactionHash": "a1f0c6c3e8d14b2b9f2e7d5c4b3a291817161514131211100f0e0d0c0b0a0908",
@@ -208,6 +212,7 @@ For a subscription payment, `data.type` is `subscription` and `data` also includ
     "periodStart": "2026-11-21T00:00:00.000Z",
     "periodEnd": "2026-11-22T00:00:00.000Z",
     "asset": "XLM",
+    "assetIssuer": null,
     "paymentCount": 12,
     "grossAmount": "340.0000000",
     "refundCount": 1,
@@ -440,7 +445,7 @@ const body = JSON.stringify({
   type: "payment.completed",
   createdAt: new Date().toISOString(),
   environment: "sandbox",
-  data: { paymentId: "pay_test_1", status: "completed", amount: "5.0000000", asset: "XLM" }
+  data: { paymentId: "pay_test_1", status: "completed", amount: "5.0000000", asset: "XLM", assetIssuer: null }
 });
 const ts = Math.floor(Date.now() / 1000);
 const sig = crypto.createHmac("sha256", secret).update(ts + "." + body).digest("hex");
