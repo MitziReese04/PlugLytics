@@ -31,8 +31,8 @@
 
 | Method | Who can use it | Minimum amount | Maximum amount | Status |
 | --- | --- | --- | --- | --- |
-| **Stellar USDC** (Circle issuer only) | School, Student | `USDC_MIN_AMOUNT` (placeholder) | `USDC_MAX_AMOUNT` (placeholder) | `approved` |
-| **XLM** (Stellar's native asset) | School | `XLM_MIN_AMOUNT` (placeholder) | `XLM_MAX_AMOUNT` (placeholder) | `pilot only` |
+| **Stellar USDC** (Circle issuer only) | School, Student | `USDC_MIN_AMOUNT` (placeholder) | `USDC_MAX_AMOUNT` (placeholder) | `approved` (planned default for production) |
+| **XLM** (Stellar's native asset) | School | `XLM_MIN_AMOUNT` (placeholder) | `XLM_MAX_AMOUNT` (placeholder) | `approved` (default for sandbox and the pilot) |
 | **Stellar anchors** (local currency on/off-ramps) | School, Student | `ANCHOR_MIN_AMOUNT` (placeholder) | `ANCHOR_MAX_AMOUNT` (placeholder) | `pilot only` |
 
 - Instructors cannot use any method, because they never pay through PlugLytics.
@@ -43,6 +43,7 @@
 ### Stellar USDC: `approved`
 
 - A US-dollar stablecoin. 1 USDC is designed to stay worth 1 USD, so prices stay stable. This makes it the **recommended** method for subscriptions and tuition.
+- USDC is the **planned default asset for production**, because of its stable dollar value.
 - Only USDC from **Circle's official issuer** is accepted:
   - Production: `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN`
   - Sandbox (testnet): `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`
@@ -50,14 +51,14 @@
 - The merchant account needs a USDC trustline (see [settlement.md](./settlement.md#which-assets-we-accept)).
 - Note: USDC payments are still being built. This status is the policy for when it is live.
 
-### XLM: `pilot only`
+### XLM: `approved`
 
 - Stellar's own currency. It needs no trustline, so it is the easiest asset for testing.
 - XLM has no issuer, so in payment requests, responses and events `asset` is `XLM` and `assetIssuer` is `null`.
 - Its price changes with the market, so an amount in XLM can be worth more or less tomorrow. For that reason:
-  - **Schools** can use it in sandbox and in agreed pilots.
+  - **Schools** can use it. It is the default asset for sandbox and the pilot.
   - **Students** cannot use it for tuition, so they are protected from price changes.
-- XLM is the default asset in sandbox (see [payments-api.md](./payments-api.md#post-apiv1payments)).
+- XLM is the default asset for sandbox and the pilot. USDC is the planned default for production (see [payments-api.md](./payments-api.md#post-apiv1payments)).
 
 ### Stellar anchors: `pilot only`
 

@@ -319,7 +319,7 @@ Response `200` (`data`):
 
 - Each asset is a code **plus** its issuer. `assetIssuer` is `null` for XLM, which is Stellar's native asset and has no issuer.
 - USDC uses Circle's issuer for the current network: the testnet issuer above in sandbox, and `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN` in production (see [settlement.md](./settlement.md#which-assets-we-accept)).
-- USDC is planned for production. It appears in this list only once it is enabled on the server.
+- XLM is approved and the default asset for sandbox and the pilot. USDC is approved and the planned default for production, because of its stable dollar value. USDC appears in this list only once it is enabled on the server.
 
 ### POST `/api/v1/payments`
 
@@ -342,7 +342,7 @@ Request:
 - `description`: required, 1-200 characters
 - `amount`: the amount in the asset, greater than 0, up to 7 decimal places. Required unless `invoiceId` is sent.
 - `invoiceId`: optional. Send it instead of `amount` to charge an invoice: PlugLytics converts the invoice's `finalAmount` into the asset and locks the rate (see [From invoice to payment request](#from-invoice-to-payment-request)). Send `amount` or `invoiceId`, not both.
-- `asset`: optional, defaults to `XLM`
+- `asset`: optional. Defaults to `XLM` in sandbox and the pilot. `USDC` is the planned default for production.
 - `assetIssuer`: optional. Must be `null` (or left out) for `XLM`. For `USDC`, you can leave it out and PlugLytics fills in Circle's issuer for the current network. If you send it, it must match an entry in `supportedAssets`.
 - `reference`: optional, your own ID for this charge (also used to stop duplicate requests)
 - `relatedPaymentId`: optional, the ID of a `failed` payment request that this new request follows up. Use it to ask for the remaining amount after an underpayment. The related request stays `failed`.

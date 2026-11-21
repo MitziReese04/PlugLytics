@@ -38,8 +38,8 @@ This means:
 
 | Asset | What it is | Status | Why |
 | --- | --- | --- | --- |
-| `XLM` | Stellar's own currency (the "native" asset) | Supported now (default) | Works on every account with no setup. Good for testing. |
-| `USDC` | A US-dollar stablecoin issued by Circle | Planned for production | 1 USDC is designed to stay worth 1 USD, so prices don't change with the market |
+| `XLM` | Stellar's own currency (the "native" asset) | Approved. Default asset for sandbox and the pilot. | Works on every account with no setup. Good for testing. |
+| `USDC` | A US-dollar stablecoin issued by Circle | Approved. Planned default asset for production. | 1 USDC is designed to stay worth 1 USD, so prices don't change with the market |
 
 Good to know:
 
