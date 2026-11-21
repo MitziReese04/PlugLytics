@@ -147,15 +147,18 @@ Created by the daily reconciliation. One report per asset, per day.
 | --- | --- | --- |
 | `settlementId` | `set_01JD9D2P5R` | Report ID (same as in the `settlement.completed` event) |
 | `periodStart` / `periodEnd` | `2026-11-21T00:00:00Z` / `2026-11-22T00:00:00Z` | Time covered (UTC) |
-| `environment` | `production` | `sandbox` or `production` |
-| `asset` | `USDC` | Asset this report covers |
+| `environment` | `sandbox` | `sandbox` or `production` |
+| `asset` | `XLM` | Asset this report covers |
 | `paymentCount` | `12` | Number of completed payments |
 | `grossAmount` | `340.0000000` | Total received |
 | `refundCount` / `refundedAmount` | `1` / `25.0000000` | Refunds sent |
 | `feesPaid` | `0.0000100` | Network fees we paid (XLM, for refunds and withdrawals) |
 | `netAmount` | `315.0000000` | `grossAmount` − `refundedAmount` |
-| `matchedCount` | `12` | Items that matched |
-| `exceptionCount` | `0` | Items that did not match (must be 0 to close the day cleanly) |
+| `matchedCount` | `13` | Payments and refunds that matched (here 12 payments + 1 refund) |
+| `exceptionCount` | `0` | Payments and refunds that did not match (must be 0 to close the day cleanly) |
+| `paymentIds` | `["pay_01JD8Z6Q4K", "pay_01JD8ZB2MQ", ...]` | IDs of the completed payments in this report |
+
+The `settlement.completed` webhook event carries exactly these fields (see [webhooks.md](./webhooks.md#settlementcompleted)). In the event, `environment` is at the top level, like in every event.
 
 Each report also has a line-by-line list, which can be exported as CSV:
 

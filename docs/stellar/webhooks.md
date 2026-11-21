@@ -195,13 +195,19 @@ For a subscription payment, `data.type` is `subscription` and `data` also includ
     "grossAmount": "340.0000000",
     "refundCount": 1,
     "refundedAmount": "25.0000000",
+    "feesPaid": "0.0000100",
     "netAmount": "315.0000000",
+    "matchedCount": 13,
+    "exceptionCount": 0,
     "paymentIds": ["pay_01JD8Z6Q4K", "pay_01JD8ZB2MQ"]
   }
 }
 ```
 
-- `netAmount` = `grossAmount` − `refundedAmount`.
+- The fields are the same as the daily settlement report (see [settlement.md](./settlement.md#daily-report)). `environment` is at the top level, like in every event.
+- `netAmount` = `grossAmount` − `refundedAmount`. `feesPaid` is always in XLM.
+- `matchedCount` and `exceptionCount` count payments **and** refunds. If `exceptionCount` is more than 0, an admin must review the day (see [settlement.md](./settlement.md#when-amounts-dont-match)).
+- `paymentIds` lists every completed payment in the report. It is shortened to two here.
 - Use this event for accounting and reconciliation, not to unlock features. Use `payment.completed` for that.
 
 ### `subscription.activated`
