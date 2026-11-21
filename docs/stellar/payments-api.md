@@ -144,6 +144,7 @@ When `status` is `failed`, the payment request also has a `reason`:
 - Problems are fixed with a **new payment record** that points back to the failed one with `relatedPaymentId`:
   - **Underpaid:** PlugLytics creates a new `pending` request for the remaining amount (see [`POST /api/v1/payments`](#post-apiv1payments) with `relatedPaymentId`), or refunds the partial amount instead.
   - **Paid after expiry:** an admin creates a new `completed` record for the late transaction (see [`POST /api/v1/payments/:id/accept-late-payment`](#post-apiv1paymentsidaccept-late-payment)).
+  - **Paid without a memo:** an admin matches the transaction by hand, which creates a new `completed` record (see [`POST /api/v1/payments/:id/match-transaction`](#post-apiv1paymentsidmatch-transaction)).
 - Every payment record has a `relatedPaymentId` field. It is `null` unless the record follows up an earlier, failed request.
 
 ## Sandbox vs production
@@ -223,6 +224,7 @@ To keep the examples below short, only the `data` part is shown for success resp
 | POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
 | POST | `/api/v1/payments/:id/cancel` | Admin | Cancel a pending request |
 | POST | `/api/v1/payments/:id/accept-late-payment` | Admin | Record a payment that arrived after expiry as a new `completed` payment |
+| POST | `/api/v1/payments/:id/match-transaction` | Admin | Record a payment that arrived without a memo as a new `completed` payment |
 | POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
 | GET | `/api/v1/subscriptions/:id` | Admin, or customer API key (own school, read-only) | Get a subscription and its current period |
 | POST | `/api/v1/webhooks` | Admin | Register a webhook URL and get its signing secret (shown once) |
@@ -470,6 +472,55 @@ Response `201` (`data`):
 }
 ```
 
+### POST `/api/v1/payments/:id/match-transaction`
+
+Use this when a payment arrived **without a memo** (or with a memo that matches no request), and an admin has found which payment request it was meant for, using the sender's account, the amount and the time.
+
+- `:id` is the payment request the money was meant for. It **stays as it was**: this endpoint never changes its status.
+- That request must already be `failed` (usually `expired`, or `cancelled`). If it is still `pending`, cancel it first with `POST /api/v1/payments/:id/cancel`. Otherwise a later payment with its memo could complete it, and the same charge would be paid twice.
+- PlugLytics creates a **new** payment record with status `completed` and `relatedPaymentId` set to `:id`.
+- It sends `payment.completed` for the **new** record (and `subscription.activated` if it is a subscription payment).
+
+Request:
+
+```json
+{
+  "transactionHash": "4d8a2c6e0b9f7a3d5c1e8b6a4f2d0c9e7b5a3f1d8c6e4a2b0f9d7c5e3a1b8f6d",
+  "note": "Sent without a memo; matched by sender account and amount, confirmed by the school"
+}
+```
+
+- `transactionHash`: required, the Stellar transaction that arrived without a memo
+- `note`: required, how the transaction was matched to this request (saved for audits)
+
+Before creating the record, PlugLytics checks the transaction on Horizon:
+
+- it succeeded and was sent to the merchant account (correct destination)
+- its asset and issuer are the same as the request's `asset` and `assetIssuer`
+- its amount is equal to or more than the request's amount
+- it has no memo, or a memo that matches no payment request
+- it is not already linked to another payment record (not already used)
+
+Response `201` (`data`):
+
+```json
+{
+  "id": "pay_01JDE9M4NP",
+  "type": "pay_per_use",
+  "status": "completed",
+  "amount": "25.0000000",
+  "amountReceived": "25.0000000",
+  "asset": "XLM",
+  "assetIssuer": null,
+  "paidAt": "2026-11-21T12:20:44.000Z",
+  "transactionHash": "4d8a2c6e0b9f7a3d5c1e8b6a4f2d0c9e7b5a3f1d8c6e4a2b0f9d7c5e3a1b8f6d",
+  "ledger": 1235210,
+  "relatedPaymentId": "pay_01JDE2F5GH",
+  "note": "Sent without a memo; matched by sender account and amount, confirmed by the school",
+  "acceptedBy": "admin@pluglytics.local"
+}
+```
+
 ### POST `/api/v1/subscriptions`
 
 Creates a seat subscription and the payment request for its first period.
@@ -658,9 +709,9 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 409 | `PAYMENT_ALREADY_COMPLETED` | You tried to cancel a request that is already completed |
 | 409 | `PAYMENT_NOT_PENDING` | The request is expired or cancelled |
 | 409 | `DUPLICATE_REFERENCE` | A request with the same `reference` already exists |
-| 409 | `RELATED_PAYMENT_NOT_FAILED` | `relatedPaymentId`, or the `:id` in `accept-late-payment`, is not a `failed` payment request |
+| 409 | `RELATED_PAYMENT_NOT_FAILED` | `relatedPaymentId`, or the `:id` in `accept-late-payment` or `match-transaction`, is not a `failed` payment request |
 | 409 | `TRANSACTION_ALREADY_LINKED` | The transaction is already linked to another payment record |
-| 422 | `TRANSACTION_MISMATCH` | The transaction is not on Horizon, did not succeed, or does not match the request's memo, asset, issuer or amount |
+| 422 | `TRANSACTION_MISMATCH` | The transaction is not on Horizon, did not succeed, or does not match the request's memo, asset, issuer or amount (for `match-transaction`: it has a memo that belongs to another request) |
 | 502 | `HORIZON_UNAVAILABLE` | Horizon could not be reached or returned an error. Try again later. |
 | 503 | `STELLAR_NOT_CONFIGURED` | `STELLAR_ENV` or a required credential is missing on the server |
 | 500 | `INTERNAL_ERROR` | An unexpected server error occurred |

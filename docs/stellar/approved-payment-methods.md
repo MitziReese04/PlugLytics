@@ -84,7 +84,7 @@ These are `not allowed`. What happens depends on how the payment is sent:
 - **Claimable balances** (Stellar payments that the receiver must claim). Only direct payments to the merchant account are matched.
 - **Payments by instructors.** Instructors have no payment flow.
 
-Payments **without the memo** are not matched automatically. They are handled as exceptions: an admin either links them by hand or refunds them (see [settlement.md](./settlement.md#when-amounts-dont-match)).
+Payments **without the memo** are not matched automatically. They are handled as exceptions: an admin either matches them to the right request with [`POST /api/v1/payments/:id/match-transaction`](./payments-api.md#post-apiv1paymentsidmatch-transaction), or refunds them (see [settlement.md](./settlement.md#when-amounts-dont-match)).
 
 ## Rules for all methods
 
