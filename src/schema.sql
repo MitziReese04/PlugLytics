@@ -176,7 +176,8 @@ CREATE TABLE IF NOT EXISTS payments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   invoice_id INTEGER NOT NULL,
   amount REAL NOT NULL,
-  method TEXT NOT NULL CHECK(method IN ('cash','card','bank','scholarship')),
+  -- Scholarships are not payments: they reduce the price through invoices.scholarship_amount.
+  method TEXT NOT NULL CHECK(method IN ('cash','card','bank')),
   paid_at TEXT NOT NULL,
   FOREIGN KEY (invoice_id) REFERENCES invoices(id)
 );

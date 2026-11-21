@@ -183,3 +183,17 @@ describe("toAssetAmount", () => {
     expect(() => toAssetAmount(finalAmount, rate)).toThrow(RangeError);
   });
 });
+
+describe("payments table", () => {
+  test("does not accept scholarships as a payment method", () => {
+    const memory = new Database(":memory:");
+    memory.exec(fs.readFileSync(path.resolve(__dirname, "../src/schema.sql"), "utf8"));
+    memory.pragma("foreign_keys = OFF");
+    const insert = memory.prepare("INSERT INTO payments (invoice_id, amount, method, paid_at) VALUES (1, 100, ?, '2026-01-01')");
+    expect(() => insert.run("scholarship")).toThrow(/CHECK constraint failed/);
+    for (const method of ["cash", "card", "bank"]) {
+      expect(() => insert.run(method)).not.toThrow();
+    }
+    memory.close();
+  });
+});
