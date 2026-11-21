@@ -80,7 +80,7 @@ Every payment, of either type, follows the same four steps.
 
 - The request's status changes from `pending` to `paid`, and the Stellar transaction hash is saved as proof.
 - For pay-per-use, the item is unlocked. For a subscription, the seats are activated for the period.
-- If a webhook URL is set up, PlugLytics sends a signed `payment.paid` event.
+- If a webhook URL is set up, PlugLytics sends a signed `payment.completed` event (see [webhooks.md](./webhooks.md)).
 
 ### Payment statuses
 
@@ -330,21 +330,28 @@ Returns the subscription, its current period and its latest payment request, in 
 
 Receives payment events. It uses a signature instead of a JWT.
 
-- Header `X-PlugLytics-Signature`: an HMAC-SHA256 of the raw request body, signed with `WEBHOOK_SIGNING_SECRET`, written as hex.
-- Requests with a missing or wrong signature are rejected with `401`.
+- Header `X-PlugLytics-Signature`: `v1=<hex>`, an HMAC-SHA256 of `<timestamp>.<raw body>`, signed with `WEBHOOK_SIGNING_SECRET`. The timestamp is sent in the `X-PlugLytics-Timestamp` header.
+- Requests with a missing or wrong signature, or a timestamp more than 5 minutes old, are rejected with `401`.
+- See [webhooks.md](./webhooks.md#verifying-the-signature) for the full signing rules and a code example.
 
 Request:
 
 ```json
 {
-  "event": "payment.paid",
-  "paymentId": "pay_01JD8Z6Q4K",
-  "transactionHash": "3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889",
-  "occurredAt": "2026-11-21T12:04:31.000Z"
+  "id": "evt_01JD9A4R7T",
+  "type": "payment.completed",
+  "createdAt": "2026-11-21T12:04:32.000Z",
+  "environment": "sandbox",
+  "data": {
+    "paymentId": "pay_01JD8Z6Q4K",
+    "status": "completed",
+    "transactionHash": "3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889",
+    "paidAt": "2026-11-21T12:04:31.000Z"
+  }
 }
 ```
 
-- Events: `payment.paid`, `payment.expired`, `payment.underpaid`, `subscription.activated`, `subscription.past_due`.
+- Events: `payment.pending`, `payment.completed`, `payment.failed` (with `reason`: `expired`, `cancelled`, `underpaid` or `wrong_asset`), `refund.issued`, `settlement.completed`. See [webhooks.md](./webhooks.md#event-types) for full payloads.
 - PlugLytics never trusts the webhook by itself: it always re-checks the transaction on Horizon before changing a status.
 
 Response `200` (`data`):
