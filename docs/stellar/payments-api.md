@@ -269,7 +269,7 @@ To keep the examples below short, only the `data` part is shown for success resp
 | --- | --- | --- | --- |
 | GET | `/api/v1/payments/config` | Any signed-in user | Show the active network and merchant public key |
 | POST | `/api/v1/payments` | Student (own invoice, **built, sandbox only**); Admin (pay-per-use, planned) | Create a payment request |
-| GET | `/api/v1/payments` | Admin, or customer API key (own school, read-only) | List payment requests |
+| GET | `/api/v1/payments` | Admin (**built**), or customer API key (own school, read-only, planned) | List payment requests |
 | GET | `/api/v1/payments/invoices` | Student (**built**) | List your own invoices with what is still due and the latest Stellar payment request |
 | GET | `/api/v1/payments/:id` | Student (own invoice, **built**), Admin (**built**), or customer API key (own school, read-only, planned) | Get one payment request, checking Horizon first while it is pending |
 | POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
@@ -509,16 +509,18 @@ Response `201` (`data`):
 
 ### GET `/api/v1/payments`
 
-Lists payment requests, newest first.
+Lists payment requests, newest first. **Built for admins** (students and instructors get `403`). Used by the admin dashboard's Stellar Payments view.
 
 Query parameters (all optional):
 
 - `status`: `pending`, `completed` or `failed`
 - `reason`: only used with `status=failed`. One of `expired`, `cancelled`, `underpaid` or `wrong_asset` (for example `?status=failed&reason=expired`)
-- `type`: `pay_per_use` or `subscription`
-- `page`: page number, starting at 1
+- `type`: `pay_per_use` or `subscription` (planned, not built yet)
+- `page`: page number, starting at 1. Each page has up to 25 requests.
 
-Response `200`: `data` is an array of payment request objects (the same shape as above), and `meta.total` is the number of matching requests.
+Response `200`: `data` is an array of payment request objects (the same shape as above), and `meta.total` is the number of matching requests, with `meta.page` and `meta.pageSize`. Unknown or invalid filters return `400 VALIDATION_ERROR`.
+
+The list shows statuses **as stored**. It does not ask Horizon, so a request can show `pending` until someone opens it with `GET /api/v1/payments/:id`.
 
 ### GET `/api/v1/payments/:id`
 

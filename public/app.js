@@ -159,6 +159,7 @@ async function startSession() {
   renderCatalog();
   await renderWidgets();
   if (state.role === "student") await loadInvoices();
+  if (state.role === "admin") await loadAdminPayments();
 }
 
 function populateTerms(terms) {
@@ -707,4 +708,95 @@ byId("closePaymentPanel").addEventListener("click", () => {
   stopPaymentPolling();
   payment.current = null;
   byId("paymentPanel").hidden = true;
+});
+
+// ---------------------------------------------------------------------------
+// Admin: Stellar payment requests
+// ---------------------------------------------------------------------------
+
+const adminPayments = { page: 1, total: 0, pageSize: 25 };
+
+const PAYMENT_STATUS_LABELS = { pending: "Pending", completed: "Completed", failed: "Failed" };
+const REASON_LABELS = { expired: "expired", cancelled: "cancelled", underpaid: "underpaid", wrong_asset: "wrong asset" };
+
+// Only testnet requests can be created so far; a production request would
+// link to the public network instead.
+function explorerTxUrl(hash, network) {
+  const explorerNetwork = network === "production" ? "public" : "testnet";
+  return `https://stellar.expert/explorer/${explorerNetwork}/tx/${encodeURIComponent(hash)}`;
+}
+
+function shortHash(hash) {
+  return hash.length > 16 ? `${hash.slice(0, 8)}…${hash.slice(-6)}` : hash;
+}
+
+function setAdminPaymentsMessage(text, isError = false) {
+  const message = byId("adminPaymentsMessage");
+  message.textContent = text;
+  message.classList.toggle("widget-error", isError);
+}
+
+async function loadAdminPayments() {
+  byId("adminPaymentsSection").hidden = false;
+  const params = new URLSearchParams({ page: String(adminPayments.page) });
+  const status = byId("adminPaymentStatus").value;
+  if (status) params.set("status", status);
+  setAdminPaymentsMessage("");
+  try {
+    const result = await api(`/payments?${params.toString()}`);
+    adminPayments.total = result.meta.total;
+    adminPayments.pageSize = result.meta.pageSize || adminPayments.pageSize;
+    renderAdminPayments(result.data);
+  } catch (error) {
+    byId("adminPaymentRows").innerHTML = "";
+    byId("adminPaymentsCount").textContent = "";
+    setAdminPaymentsMessage(`Unable to load Stellar payments: ${error.message}`, true);
+  }
+}
+
+function renderAdminPayments(rows) {
+  const status = byId("adminPaymentStatus").value;
+  const pages = Math.max(1, Math.ceil(adminPayments.total / adminPayments.pageSize));
+  byId("adminPaymentsCount").textContent =
+    `${adminPayments.total} payment request${adminPayments.total === 1 ? "" : "s"}${status ? ` (${PAYMENT_STATUS_LABELS[status].toLowerCase()})` : ""}`;
+  byId("adminPaymentsPage").textContent = `Page ${adminPayments.page} of ${pages}`;
+  byId("adminPaymentsPrev").disabled = adminPayments.page <= 1;
+  byId("adminPaymentsNext").disabled = adminPayments.page >= pages;
+
+  const body = byId("adminPaymentRows");
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="6" class="muted-cell">No payment requests${status ? " with this status" : " yet"}.</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((row) => {
+    const label = PAYMENT_STATUS_LABELS[row.status] || row.status;
+    const reason = row.reason ? ` · ${REASON_LABELS[row.reason] || row.reason}` : "";
+    const tx = row.transactionHash
+      ? `<a href="${escapeHtml(explorerTxUrl(row.transactionHash, row.network))}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(row.transactionHash)}"><code>${escapeHtml(shortHash(row.transactionHash))}</code><span class="visually-hidden"> (opens stellar.expert in a new tab)</span></a>`
+      : `<span class="muted-cell">—</span>`;
+    return `<tr>
+      <td>${escapeHtml(new Date(row.createdAt).toLocaleString())}</td>
+      <td><span class="payment-status payment-status-${escapeHtml(row.status)}">${escapeHtml(label + reason)}</span></td>
+      <td><code>${escapeHtml(row.amount)}</code></td>
+      <td>${escapeHtml(row.asset)}</td>
+      <td><code>${escapeHtml(row.memo)}</code></td>
+      <td>${tx}</td>
+    </tr>`;
+  }).join("");
+}
+
+byId("adminPaymentStatus").addEventListener("change", () => {
+  adminPayments.page = 1;
+  loadAdminPayments();
+});
+byId("adminPaymentsRefresh").addEventListener("click", () => loadAdminPayments());
+byId("adminPaymentsPrev").addEventListener("click", () => {
+  if (adminPayments.page > 1) {
+    adminPayments.page -= 1;
+    loadAdminPayments();
+  }
+});
+byId("adminPaymentsNext").addEventListener("click", () => {
+  adminPayments.page += 1;
+  loadAdminPayments();
 });

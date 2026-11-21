@@ -216,6 +216,55 @@ const hasCompletedRequest = db.prepare(
   "SELECT 1 FROM payment_requests WHERE invoice_id = ? AND status = 'completed' LIMIT 1"
 );
 
+// Admin list of payment requests, newest first, with an optional status filter.
+// Returns statuses as stored: it does not ask Horizon (open a request with
+// GET /:id to check a pending one).
+const LIST_PAGE_SIZE = 25;
+const listSchema = z
+  .object({
+    status: z.enum(["pending", "completed", "failed"]).optional(),
+    reason: z.enum(["expired", "cancelled", "underpaid", "wrong_asset"]).optional(),
+    page: z.coerce.number().int().min(1).default(1),
+  })
+  .strict()
+  .refine((query) => !query.reason || !query.status || query.status === "failed", {
+    message: "reason can only be used with status=failed",
+    path: ["reason"],
+  });
+
+router.get("/", authenticate, authorize("admin"), (req, res) => {
+  const parsed = listSchema.safeParse(req.query);
+  if (!parsed.success) {
+    return sendError(res, 400, "VALIDATION_ERROR", "Invalid filters", parsed.error.flatten());
+  }
+  const { status, reason, page } = parsed.data;
+  const where = [];
+  const params = { limit: LIST_PAGE_SIZE, offset: (page - 1) * LIST_PAGE_SIZE };
+  if (status) { where.push("status = @status"); params.status = status; }
+  if (reason) { where.push("status = 'failed' AND reason = @reason"); params.reason = reason; }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  const total = db.prepare(`SELECT COUNT(*) AS n FROM payment_requests ${whereSql}`).get(params).n;
+  const rows = db.prepare(`
+    SELECT * FROM payment_requests ${whereSql}
+    ORDER BY created_at DESC, id DESC
+    LIMIT @limit OFFSET @offset
+  `).all(params);
+
+  let network = null;
+  try {
+    network = loadStellarConfig().env;
+  } catch (error) {
+    network = null;
+  }
+  const filtersApplied = {};
+  if (status) filtersApplied.status = status;
+  if (reason) filtersApplied.reason = reason;
+  return sendSuccess(res, rows.map((row) => toResponse(row, network)), {
+    page, total, filtersApplied, pageSize: LIST_PAGE_SIZE,
+  });
+});
+
 router.get("/invoices", authenticate, authorize("student"), (req, res) => {
   const studentId = studentIdFor(req.user.id);
   if (studentId === null) return sendSuccess(res, [], { total: 0 });

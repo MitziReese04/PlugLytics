@@ -6,6 +6,7 @@ function sendSuccess(res, data, meta = {}, status = 200) {
       generatedAt: meta.generatedAt || new Date().toISOString(),
       page: meta.page || 1,
       total: meta.total ?? (Array.isArray(data) ? data.length : 0),
+      ...(meta.pageSize ? { pageSize: meta.pageSize } : {}),
     },
     error: null,
   });

@@ -417,6 +417,17 @@ main { min-width: 0; }
 .memo-warning { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
 .payment-status-line { margin: 12px 0 0; font-size: 13px; }
 .payment-status-line small { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+/* Admin: Stellar payments */
+.admin-payments-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 12px; }
+.dashboard-page .admin-payments-toolbar label { display: grid; gap: 4px; min-width: 170px; color: var(--muted); font-size: 12px; }
+.dashboard-page .admin-payments-toolbar select { min-height: 40px; padding: 8px 10px; }
+.admin-payments-toolbar .muted-cell { align-self: center; font-size: 12px; }
+.dashboard-page .admin-payments-table code { font-size: 12px; }
+.dashboard-page .admin-payments-table a { color: var(--primary); text-decoration: none; }
+.dashboard-page .admin-payments-table a:hover, .dashboard-page .admin-payments-table a:focus-visible { text-decoration: underline; }
+.dashboard-page .admin-payments-table td { white-space: nowrap; }
+.admin-payments-pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; font-size: 12px; }
+.dashboard-page .admin-payments-pager button:disabled { opacity: .5; cursor: not-allowed; }
 .dashboard-page input:focus, .dashboard-page select:focus, .dashboard-page button:focus-visible, .filter-panel summary:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;

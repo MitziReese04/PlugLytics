@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PlugLytics Dashboard</title>
-  <link rel="stylesheet" href="./styles.css?v=7">
+  <link rel="stylesheet" href="./styles.css?v=8">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="dashboard-page">
@@ -109,8 +109,43 @@
           <p class="payment-status-line">Status: <span id="paymentStatus" class="payment-status" role="status" aria-live="polite"></span> <small id="paymentExpiry"></small></p>
         </section>
       </section>
+      <section id="adminPaymentsSection" class="widget-card payments-section" aria-labelledby="adminPaymentsHeading" hidden>
+        <div class="widget-card-heading">
+          <div>
+            <h2 id="adminPaymentsHeading">Stellar Payments</h2>
+            <p>Payment requests created through Stellar, newest first. Statuses are shown as last checked.</p>
+          </div>
+          <span class="testnet-badge">TESTNET – no real money</span>
+        </div>
+        <div class="admin-payments-toolbar">
+          <label>Status
+            <select id="adminPaymentStatus">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+          </label>
+          <button id="adminPaymentsRefresh" class="outline-button" type="button">Refresh</button>
+          <span id="adminPaymentsCount" class="muted-cell" role="status" aria-live="polite"></span>
+        </div>
+        <p id="adminPaymentsMessage" class="payments-message"></p>
+        <div class="payments-table-wrap">
+          <table class="invoice-table admin-payments-table">
+            <thead>
+              <tr><th scope="col">Created</th><th scope="col">Status</th><th scope="col">Amount</th><th scope="col">Asset</th><th scope="col">Memo</th><th scope="col">Transaction</th></tr>
+            </thead>
+            <tbody id="adminPaymentRows"></tbody>
+          </table>
+        </div>
+        <div class="admin-payments-pager">
+          <button id="adminPaymentsPrev" class="outline-button" type="button">Previous</button>
+          <span id="adminPaymentsPage" class="muted-cell"></span>
+          <button id="adminPaymentsNext" class="outline-button" type="button">Next</button>
+        </div>
+      </section>
     </main>
   </div>
-  <script src="./app.js?v=6"></script>
+  <script src="./app.js?v=7"></script>
 </body>
 </html>
