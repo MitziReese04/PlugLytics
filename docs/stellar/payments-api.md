@@ -32,7 +32,7 @@ PlugLytics supports two kinds of payment.
 
 - The customer pays once for a single item, such as one report export or one analytics run.
 - One payment request equals one charge.
-- Once paid, the item is unlocked.
+- Once the payment is completed, the item is unlocked.
 
 ### Seats / subscription
 
@@ -48,7 +48,7 @@ PlugLytics supports two kinds of payment.
 Every payment, of either type, follows the same four steps.
 
 ```
-1. Create payment request  ->  2. User pays  ->  3. Confirm on Horizon  ->  4. Mark paid
+1. Create payment request  ->  2. User pays  ->  3. Confirm on Horizon  ->  4. Mark completed
 ```
 
 ### 1. Create a payment request
@@ -77,7 +77,7 @@ Every payment, of either type, follows the same four steps.
   - the transaction succeeded and was made before the request expired
 - PlugLytics watches Horizon for new payments in the background, and the client can also trigger the check with `POST /api/v1/payments/:id/confirm` (see [How payments are detected and webhooks are sent](#how-payments-are-detected-and-webhooks-are-sent)).
 
-### 4. Mark paid
+### 4. Mark completed
 
 - The request's status changes from `pending` to `completed`, and the Stellar transaction hash is saved as proof.
 - For pay-per-use, the item is unlocked. For a subscription, the seats are activated for the period.
@@ -171,7 +171,7 @@ To keep the examples below short, only the `data` part is shown for success resp
 | POST | `/api/v1/payments` | Admin | Create a pay-per-use payment request |
 | GET | `/api/v1/payments` | Admin | List payment requests |
 | GET | `/api/v1/payments/:id` | Admin | Get one payment request |
-| POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark paid if a match is found |
+| POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
 | POST | `/api/v1/payments/:id/cancel` | Admin | Cancel a pending request |
 | POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
 | GET | `/api/v1/subscriptions/:id` | Admin | Get a subscription and its current period |
@@ -259,7 +259,7 @@ Asks Horizon right away whether a matching payment has arrived. Calling it more 
 
 Request body: none.
 
-Response `200` when paid (`data`):
+Response `200` when completed (`data`):
 
 ```json
 {
@@ -327,7 +327,7 @@ Response `201` (`data`):
 ```
 
 - The amount is `seats x pricePerSeat` (here 50 x 2 = 100).
-- When the payment is marked paid, the subscription becomes `active` and `currentPeriodStart` / `currentPeriodEnd` are filled in.
+- When the payment is completed, the subscription becomes `active` and `currentPeriodStart` / `currentPeriodEnd` are filled in.
 - Subscription statuses: `pending`, `active`, `past_due`, `cancelled`.
 
 ### GET `/api/v1/subscriptions/:id`
@@ -366,10 +366,9 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 403 | `FORBIDDEN` | Your role cannot use this endpoint |
 | 404 | `PAYMENT_NOT_FOUND` | No payment request has that ID |
 | 404 | `SUBSCRIPTION_NOT_FOUND` | No subscription has that ID |
-| 409 | `PAYMENT_ALREADY_PAID` | You tried to cancel a request that is already paid |
+| 409 | `PAYMENT_ALREADY_COMPLETED` | You tried to cancel a request that is already completed |
 | 409 | `PAYMENT_NOT_PENDING` | The request is expired or cancelled |
 | 409 | `DUPLICATE_REFERENCE` | A request with the same `reference` already exists |
-| 422 | `PAYMENT_UNDERPAID` | A matching payment arrived, but for less than the requested amount |
 | 502 | `HORIZON_UNAVAILABLE` | Horizon could not be reached or returned an error. Try again later. |
 | 503 | `STELLAR_NOT_CONFIGURED` | `STELLAR_ENV` or a required credential is missing on the server |
 | 500 | `INTERNAL_ERROR` | An unexpected server error occurred |
@@ -429,5 +428,5 @@ SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string>
 - **Never commit real secret keys.** Keep them only in `.env`, which is listed in `.gitignore`. `.env.example` holds placeholders only.
 - Use **different** keys for sandbox and production. Never use a production key on testnet, or the reverse.
 - Never log, return or display the merchant secret key or the webhook signing secret.
-- Always confirm payments on Horizon. Never mark a payment paid based only on what the client says.
+- Always confirm payments on Horizon. Never mark a payment completed based only on what the client says.
 - Check the network passphrase so a testnet payment can never be accepted in production.
