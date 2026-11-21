@@ -100,6 +100,14 @@ When `status` is `failed`, the payment request also has a `reason`:
 | `underpaid` | A payment with the right memo arrived, but for less than the requested amount |
 | `wrong_asset` | A payment with the right memo arrived, but in a different asset or from a different issuer |
 
+### `failed` is final
+
+- A `failed` payment request **never changes status again**. Nothing reopens it, and later payments with its memo do not complete it.
+- Problems are fixed with a **new payment record** that points back to the failed one with `relatedPaymentId`:
+  - **Underpaid:** PlugLytics creates a new `pending` request for the remaining amount (see [`POST /api/v1/payments`](#post-apiv1payments) with `relatedPaymentId`), or refunds the partial amount instead.
+  - **Paid after expiry:** an admin creates a new `completed` record for the late transaction (see [`POST /api/v1/payments/:id/accept-late-payment`](#post-apiv1paymentsidaccept-late-payment)).
+- Every payment record has a `relatedPaymentId` field. It is `null` unless the record follows up an earlier, failed request.
+
 ## Sandbox vs production
 
 PlugLytics chooses the network with the `STELLAR_ENV` environment variable.
@@ -174,6 +182,7 @@ To keep the examples below short, only the `data` part is shown for success resp
 | GET | `/api/v1/payments/:id` | Admin | Get one payment request |
 | POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
 | POST | `/api/v1/payments/:id/cancel` | Admin | Cancel a pending request |
+| POST | `/api/v1/payments/:id/accept-late-payment` | Admin | Record a payment that arrived after expiry as a new `completed` payment |
 | POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
 | GET | `/api/v1/subscriptions/:id` | Admin | Get a subscription and its current period |
 | POST | `/api/v1/webhooks` | Admin | Register a webhook URL and get its signing secret (shown once) |
@@ -227,6 +236,22 @@ Request:
 - `asset`: optional, defaults to `XLM`
 - `assetIssuer`: optional. Must be `null` (or left out) for `XLM`. For `USDC`, you can leave it out and PlugLytics fills in Circle's issuer for the current network. If you send it, it must match an entry in `supportedAssets`.
 - `reference`: optional, your own ID for this charge (also used to stop duplicate requests)
+- `relatedPaymentId`: optional, the ID of a `failed` payment request that this new request follows up. Use it to ask for the remaining amount after an underpayment. The related request stays `failed`.
+
+Follow-up example: request `pay_01JDC2H6UV` asked for 25 XLM, only 20 XLM arrived, so it is `failed` with reason `underpaid`. A new request asks for the remaining 5 XLM:
+
+```json
+{
+  "type": "pay_per_use",
+  "description": "Remaining amount for CS101 analytics export",
+  "amount": "5.0000000",
+  "asset": "XLM",
+  "assetIssuer": null,
+  "relatedPaymentId": "pay_01JDC2H6UV"
+}
+```
+
+The response is a normal `pending` payment request with its own new memo and `"relatedPaymentId": "pay_01JDC2H6UV"`.
 
 Response `201` (`data`):
 
@@ -247,7 +272,8 @@ Response `201` (`data`):
   "createdAt": "2026-11-21T12:00:00.000Z",
   "expiresAt": "2026-11-21T12:30:00.000Z",
   "paidAt": null,
-  "transactionHash": null
+  "transactionHash": null,
+  "relatedPaymentId": null
 }
 ```
 
@@ -287,7 +313,8 @@ Response `201` (`data`):
   "createdAt": "2026-11-21T12:00:00.000Z",
   "expiresAt": "2026-11-21T12:30:00.000Z",
   "paidAt": null,
-  "transactionHash": null
+  "transactionHash": null,
+  "relatedPaymentId": null
 }
 ```
 
@@ -330,7 +357,8 @@ Response `200` when completed (`data`):
   "assetIssuer": null,
   "paidAt": "2026-11-21T12:04:31.000Z",
   "transactionHash": "3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889",
-  "ledger": 1234567
+  "ledger": 1234567,
+  "relatedPaymentId": null
 }
 ```
 
@@ -339,6 +367,52 @@ Response `200` when nothing has arrived yet: the same shape with `"status": "pen
 ### POST `/api/v1/payments/:id/cancel`
 
 Cancels a `pending` request. Payments sent after cancelling are not matched. Response `200` contains the request with `"status": "failed"` and `"reason": "cancelled"`.
+
+### POST `/api/v1/payments/:id/accept-late-payment`
+
+Use this when a correct payment arrived **after** `expiresAt`, and an admin has decided to accept it instead of refunding it.
+
+- `:id` is the expired request. It **stays** `failed` with reason `expired`.
+- PlugLytics creates a **new** payment record with status `completed` and `relatedPaymentId` set to `:id`.
+- It sends `payment.completed` for the **new** record (and `subscription.activated` if it is a subscription payment).
+
+Request:
+
+```json
+{
+  "transactionHash": "9b1e5d3a7c2f8e4b0a6d1c9f5e3b7a2d8c4f0e6b1a9d5c3f7e2b8a4d0c6f1e9b",
+  "note": "Customer paid 2 hours late; accepted by finance"
+}
+```
+
+- `transactionHash`: required, the late Stellar transaction
+- `note`: required, why the late payment was accepted (saved for audits)
+
+Before creating the record, PlugLytics checks the transaction on Horizon:
+
+- it succeeded and was sent to the merchant account
+- its memo, asset, issuer and amount match the expired request
+- it is not already linked to another payment record
+
+Response `201` (`data`):
+
+```json
+{
+  "id": "pay_01JDC7W3XY",
+  "type": "pay_per_use",
+  "status": "completed",
+  "amount": "25.0000000",
+  "amountReceived": "25.0000000",
+  "asset": "XLM",
+  "assetIssuer": null,
+  "paidAt": "2026-11-21T14:31:07.000Z",
+  "transactionHash": "9b1e5d3a7c2f8e4b0a6d1c9f5e3b7a2d8c4f0e6b1a9d5c3f7e2b8a4d0c6f1e9b",
+  "ledger": 1236012,
+  "relatedPaymentId": "pay_01JDC5T8LM",
+  "note": "Customer paid 2 hours late; accepted by finance",
+  "acceptedBy": "admin@pluglytics.local"
+}
+```
 
 ### POST `/api/v1/subscriptions`
 
@@ -527,6 +601,9 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 409 | `PAYMENT_ALREADY_COMPLETED` | You tried to cancel a request that is already completed |
 | 409 | `PAYMENT_NOT_PENDING` | The request is expired or cancelled |
 | 409 | `DUPLICATE_REFERENCE` | A request with the same `reference` already exists |
+| 409 | `RELATED_PAYMENT_NOT_FAILED` | `relatedPaymentId`, or the `:id` in `accept-late-payment`, is not a `failed` payment request |
+| 409 | `TRANSACTION_ALREADY_LINKED` | The transaction is already linked to another payment record |
+| 422 | `TRANSACTION_MISMATCH` | The transaction is not on Horizon, did not succeed, or does not match the request's memo, asset, issuer or amount |
 | 502 | `HORIZON_UNAVAILABLE` | Horizon could not be reached or returned an error. Try again later. |
 | 503 | `STELLAR_NOT_CONFIGURED` | `STELLAR_ENV` or a required credential is missing on the server |
 | 500 | `INTERNAL_ERROR` | An unexpected server error occurred |

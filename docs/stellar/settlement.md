@@ -125,6 +125,7 @@ Runs every Monday for the previous week (Monday to Sunday, UTC).
    The closing balance must equal the real balance from `GET {horizonUrl}/accounts/{merchantPublicKey}`.
 3. **Re-check every open item** from the week's daily runs and close the ones that have been fixed.
 4. **Look for gaps**: every payment request that was `completed` during the week must have exactly one matching transaction hash.
+5. **Check follow-ups**: every `underpaid` or late `expired` request must have a linked follow-up (`relatedPaymentId`) or a refund. If not, it stays an open exception.
 
 ### Rules for comparing amounts
 
@@ -186,18 +187,19 @@ Every item that is not `matched` becomes an **exception**. An admin must review 
 
 | Problem | What it looks like | What to do |
 | --- | --- | --- |
-| **Underpaid** | Right memo, but less than the requested amount | Payment stays `failed` with `reason: underpaid`. Contact the customer. Either they send the difference with the same memo, or we refund what they sent. |
+| **Underpaid** | Right memo, but less than the requested amount | The request is `failed` with `reason: underpaid` and **stays that way**. Contact the customer, then either create a new request for the remaining amount with `relatedPaymentId` set to the failed one (see [payments-api.md](./payments-api.md#post-apiv1payments)), or refund what they sent. A later payment with the old memo does not complete the old request. |
 | **Overpaid** | Right memo, but more than the requested amount | Payment is `completed`. Refund the extra amount, or record it as a credit if the customer agrees. |
 | **Wrong asset** | Right memo, but a different asset or a fake issuer | Payment is `failed` with `reason: wrong_asset`. Refund it in the **same asset** it arrived in. Never treat a fake "USDC" as real. |
 | **No memo or unknown memo** | Money arrived, but we can't tell which request it is for | Put it in the `unmatched_onchain` list. Use the sender's account, amount and time to find the customer, then link it by hand or refund it. |
 | **Duplicate payment** | Two payments with the same memo | Keep the first, refund the second. |
-| **Paid after expiry** | Correct payment, but it arrived after `expiresAt` | Contact the customer. Either accept it (and mark it completed by hand) or refund it. |
+| **Paid after expiry** | Correct payment, but it arrived after `expiresAt` | The request stays `failed` with `reason: expired`. Contact the customer, then either refund the payment, or accept it with `POST /api/v1/payments/:id/accept-late-payment` (see [payments-api.md](./payments-api.md#post-apiv1paymentsidaccept-late-payment)). That creates a **new** `completed` record linked with `relatedPaymentId` and sends `payment.completed` for it. |
 | **Record without a transaction** | Our database says `completed`, but there is no matching transaction on Horizon | **Serious.** Do not unlock more features for this customer. Check if the wrong network was used or the record was changed by mistake, and escalate. |
 | **Balance doesn't match** | Weekly balance check fails | Check for missing fees, withdrawals or refunds that were not recorded. Do not close the week until it is explained. |
 
 ### Rules for handling exceptions
 
-- **Never edit a payment record without a note.** Every manual change must record who made it, when, and why.
+- **`failed` is final.** Never change a failed payment request back to `pending` or to `completed`. Follow it up with a new, linked record (`relatedPaymentId`) or a refund.
+- **Every manual action needs a note.** Each follow-up request, accepted late payment or refund must record who did it, when, and why.
 - **Refunds go back to the account that paid**, in the same asset, and are recorded like any other refund (so they appear in reconciliation too).
 - **Fix problems by adding new records** (refunds, adjustments), not by deleting old ones. This keeps the history complete for audits.
 - **Close exceptions within 7 days.** Exceptions open for longer are flagged in the weekly report.
