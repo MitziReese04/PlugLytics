@@ -350,7 +350,7 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 ### Sending webhooks to the customer
 
 - After a status changes, PlugLytics sends a signed `POST` to the **customer's own webhook URL**.
-- Events: `payment.pending`, `payment.completed`, `payment.failed` (with `reason`: `expired`, `cancelled`, `underpaid` or `wrong_asset`), `refund.issued`, `settlement.completed`.
+- Events: `payment.pending`, `payment.completed`, `payment.failed` (with `reason`: `expired`, `cancelled`, `underpaid` or `wrong_asset`), `refund.issued`, `settlement.completed`, `subscription.activated`, `subscription.past_due`.
 - Each request is signed with `WEBHOOK_SIGNING_SECRET`: header `X-PlugLytics-Signature: v1=<hex>`, an HMAC-SHA256 of `<timestamp>.<raw body>`, with the timestamp in `X-PlugLytics-Timestamp`.
 - See [webhooks.md](./webhooks.md) for the payloads, how the customer verifies the signature, retry rules and duplicate handling.
 

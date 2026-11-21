@@ -46,6 +46,8 @@
 | `payment.failed` | The payment request can no longer be paid: it expired, was cancelled, was underpaid, or used the wrong asset |
 | `refund.issued` | PlugLytics sent money back to the customer's Stellar account |
 | `settlement.completed` | A batch of completed payments was settled (reconciled and reported) for a period |
+| `subscription.activated` | A subscription's payment was completed, so its seats are active for the new period (first payment or renewal) |
+| `subscription.past_due` | A subscription's payment for the new period was not completed in time, so it is now `past_due` |
 
 Good to know:
 
@@ -201,6 +203,55 @@ For a subscription payment, `data.type` is `subscription` and `data` also includ
 
 - `netAmount` = `grossAmount` − `refundedAmount`.
 - Use this event for accounting and reconciliation, not to unlock features. Use `payment.completed` for that.
+
+### `subscription.activated`
+
+```json
+{
+  "id": "evt_01JD9E5S6T",
+  "type": "subscription.activated",
+  "createdAt": "2026-11-21T12:10:05.000Z",
+  "environment": "sandbox",
+  "data": {
+    "subscriptionId": "sub_01JD8ZB2MP",
+    "plan": "institution_monthly",
+    "status": "active",
+    "seats": 50,
+    "period": "monthly",
+    "periodStart": "2026-11-21T12:10:04.000Z",
+    "periodEnd": "2026-12-21T12:10:04.000Z",
+    "paymentId": "pay_01JD8ZB2MQ",
+    "transactionHash": "7c4e2a1b9d8f6e5c3b2a19087f6e5d4c3b2a19087f6e5d4c3b2a19087f6e5d4c"
+  }
+}
+```
+
+- Sent for the first payment and for every renewal. Use it to turn seats on until `periodEnd`.
+- It always comes after the matching `payment.completed` event (same `paymentId`).
+
+### `subscription.past_due`
+
+```json
+{
+  "id": "evt_01JDQF8V9W",
+  "type": "subscription.past_due",
+  "createdAt": "2026-12-28T12:10:05.000Z",
+  "environment": "sandbox",
+  "data": {
+    "subscriptionId": "sub_01JD8ZB2MP",
+    "plan": "institution_monthly",
+    "status": "past_due",
+    "seats": 50,
+    "period": "monthly",
+    "previousPeriodEnd": "2026-12-21T12:10:04.000Z",
+    "paymentId": "pay_01JDQF8V9X",
+    "paymentReason": "expired"
+  }
+}
+```
+
+- `paymentId` is the renewal payment request that was not completed, and `paymentReason` is its `failed` reason (`expired`, `cancelled`, `underpaid` or `wrong_asset`).
+- Decide what happens to the seats (for example, a grace period or turning them off) in your own app. A new renewal payment that is completed sends `subscription.activated` again.
 
 ## Verifying the signature
 
