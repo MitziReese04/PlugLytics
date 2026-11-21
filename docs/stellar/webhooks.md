@@ -5,6 +5,7 @@
 ## Contents
 
 - [What is a webhook?](#what-is-a-webhook)
+- [Registering your webhook URL](#registering-your-webhook-url)
 - [How delivery works](#how-delivery-works)
 - [Event types](#event-types)
 - [Example payloads](#example-payloads)
@@ -18,7 +19,22 @@
 
 - A webhook is an HTTP request that PlugLytics **sends to your server** when something happens, such as a payment being completed.
 - Instead of asking PlugLytics "is it paid yet?" over and over, your server is told as soon as it happens.
-- You give PlugLytics a URL (for example `https://your-app.example.com/webhooks/pluglytics`), and PlugLytics sends a `POST` request there for each event.
+- You register a URL with PlugLytics (for example `https://your-app.example.com/webhooks/pluglytics`), and PlugLytics sends a `POST` request there for each event.
+
+## Registering your webhook URL
+
+- Register your URL with `POST /api/v1/webhooks` (see [payments-api.md](./payments-api.md#post-apiv1webhooks)).
+- The response includes a **signing secret** that belongs only to that webhook endpoint, for example `whsec_9f2c...`.
+- **The secret is shown only once.** Save it straight away in your own `.env`, for example:
+
+  ```bash
+  PLUGLYTICS_WEBHOOK_SECRET=whsec_9f2c...
+  ```
+
+- Every endpoint gets its **own** secret. No two customers (and no two endpoints) share one, so nobody else can sign events that your server would accept.
+- PlugLytics stores your secret **encrypted** and uses it only to sign the events sent to your URL. Its own server keys are never shared with customers.
+- If the secret leaks, or you lose it, get a new one with `POST /api/v1/webhooks/:id/rotate-secret` (see [Rotating your secret](#rotating-your-secret)).
+- Sandbox and production are registered separately, so each has its own endpoint and its own secret.
 
 ## How delivery works
 
@@ -31,7 +47,8 @@
 | `X-PlugLytics-Event` | `payment.completed` | The event type (also in the body) |
 | `X-PlugLytics-Event-Id` | `evt_01JD9A4R7T` | Unique ID of this event. The same on every retry. |
 | `X-PlugLytics-Timestamp` | `1795262671` | When this delivery was signed (Unix time, in seconds) |
-| `X-PlugLytics-Signature` | `v1=5d41402abc4b2a76...` | The signature, used to prove the request came from PlugLytics |
+| `X-PlugLytics-Webhook-Id` | `wh_01JDA2K7PQ` | The registered endpoint this delivery is for |
+| `X-PlugLytics-Signature` | `v1=5d41402abc4b2a76...` | The signature, made with your endpoint's secret, used to prove the request came from PlugLytics |
 
 - **Your server must reply** with any `2xx` status (for example `200 OK`) within **10 seconds**.
 - Any other status, a timeout, or a connection error counts as a failed delivery, and PlugLytics will retry (see [Retry rules](#retry-rules)).
@@ -267,14 +284,14 @@ Anyone can send a `POST` request to your webhook URL, so **always check the sign
 
 1. PlugLytics takes the timestamp (`X-PlugLytics-Timestamp`) and the **raw** request body, exactly as sent.
 2. It joins them with a dot: `<timestamp>.<raw body>`
-3. It creates an **HMAC-SHA256** of that text, using `WEBHOOK_SIGNING_SECRET` as the key.
+3. It creates an **HMAC-SHA256** of that text, using **your endpoint's signing secret** (the one you got at registration) as the key.
 4. It sends the result as hex in the header: `X-PlugLytics-Signature: v1=<hex>`
 
 ### How to check it
 
 1. Read the **raw** body. Do not parse the JSON and turn it back into text first, because even one changed space breaks the signature.
-2. Make the same HMAC yourself with your `WEBHOOK_SIGNING_SECRET`.
-3. Compare it with the header using a **constant-time** comparison.
+2. Make the same HMAC yourself with the secret you got at registration (for example `process.env.PLUGLYTICS_WEBHOOK_SECRET`).
+3. Compare it with the header using a **constant-time** comparison. The header can hold more than one signature, separated by commas, while a secret is being rotated. Accept the event if **any** of them matches.
 4. Reject the event if the timestamp is more than **5 minutes** old or in the future. This stops someone from re-sending an old, captured request (a "replay attack").
 5. If any check fails, reply `401` and ignore the event.
 
@@ -288,7 +305,7 @@ const router = express.Router();
 const TOLERANCE_SECONDS = 5 * 60;
 
 function isValidSignature(rawBody, timestamp, signatureHeader, secret) {
-  if (!rawBody || !timestamp || !signatureHeader || !signatureHeader.startsWith("v1=")) {
+  if (!rawBody || !timestamp || !signatureHeader || !secret) {
     return false;
   }
 
@@ -297,15 +314,18 @@ function isValidSignature(rawBody, timestamp, signatureHeader, secret) {
     return false;
   }
 
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(`${timestamp}.${rawBody}`)
-    .digest("hex");
-  const received = signatureHeader.slice(3);
+  const expected = Buffer.from(
+    crypto.createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex"),
+    "hex"
+  );
 
-  const a = Buffer.from(expected, "hex");
-  const b = Buffer.from(received, "hex");
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  // During a secret rotation the header holds two signatures: "v1=<new>,v1=<old>".
+  return signatureHeader.split(",").some((part) => {
+    const value = part.trim();
+    if (!value.startsWith("v1=")) return false;
+    const received = Buffer.from(value.slice(3), "hex");
+    return received.length === expected.length && crypto.timingSafeEqual(received, expected);
+  });
 }
 
 // express.raw keeps the body as raw bytes so the signature can be checked.
@@ -315,7 +335,7 @@ router.post("/webhooks/pluglytics", express.raw({ type: "application/json" }), (
     rawBody,
     req.get("X-PlugLytics-Timestamp"),
     req.get("X-PlugLytics-Signature"),
-    process.env.SANDBOX_WEBHOOK_SIGNING_SECRET // or PRODUCTION_ in production
+    process.env.PLUGLYTICS_WEBHOOK_SECRET // the secret you got when you registered this URL
   );
 
   if (!ok) {
@@ -333,7 +353,14 @@ module.exports = router;
 Notes:
 
 - Register this route **before** any global `express.json()` middleware, or the raw body will already be parsed.
-- Never log the signing secret. Use a different secret for sandbox and production.
+- Never log your signing secret, and keep it only in your `.env`. Sandbox and production endpoints each have their own secret.
+
+### Rotating your secret
+
+1. Call `POST /api/v1/webhooks/:id/rotate-secret`. The response shows the **new** secret once.
+2. For the next **24 hours**, PlugLytics signs every delivery with **both** secrets: `X-PlugLytics-Signature: v1=<new>,v1=<old>`. The example above already accepts either one.
+3. Put the new secret in your `.env` and restart your app within those 24 hours.
+4. After 24 hours, the old secret stops working and only `v1=<new>` is sent.
 
 ## Retry rules
 
@@ -384,17 +411,13 @@ CREATE TABLE IF NOT EXISTS webhook_events (
 
 Always test with `STELLAR_ENV=sandbox`. Sandbox uses the Stellar **testnet**, so no real money moves.
 
-### 1. Set up your `.env`
+### 1. Register a sandbox webhook and save its secret
+
+1. Register your URL on the **sandbox** PlugLytics server with `POST /api/v1/webhooks`.
+2. Copy the `secret` from the response (it is shown only once) into **your app's** `.env`:
 
 ```bash
-STELLAR_ENV=sandbox
-SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string>
-```
-
-You can make a random secret with:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+PLUGLYTICS_WEBHOOK_SECRET=<the whsec_... secret from the registration response>
 ```
 
 Put real values only in `.env`, never in `.env.example` or any committed file.
@@ -411,7 +434,7 @@ This sends a fake `payment.completed` event, signed the same way PlugLytics does
 ```bash
 node -e '
 const crypto = require("crypto");
-const secret = process.env.SANDBOX_WEBHOOK_SIGNING_SECRET;
+const secret = process.env.PLUGLYTICS_WEBHOOK_SECRET;
 const body = JSON.stringify({
   id: "evt_test_" + Date.now(),
   type: "payment.completed",
@@ -457,4 +480,6 @@ Run it with your secret loaded, for example `node -r dotenv/config -e '...'`. It
 - [ ] Reply `2xx` within 10 seconds, and do slow work afterwards
 - [ ] Event `id`s saved so duplicates are ignored
 - [ ] Out-of-order events cannot move a payment backwards
-- [ ] Separate signing secrets for sandbox and production, kept only in `.env`
+- [ ] Webhook URL registered, and its secret saved as `PLUGLYTICS_WEBHOOK_SECRET` in your `.env` only
+- [ ] Separate endpoints (and so separate secrets) for sandbox and production
+- [ ] Signature check accepts either signature during a secret rotation

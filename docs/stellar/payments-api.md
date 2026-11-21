@@ -111,6 +111,7 @@ PlugLytics chooses the network with the `STELLAR_ENV` environment variable.
 
 - `sandbox` reads the variables that start with `SANDBOX_`, and `production` reads the ones that start with `PRODUCTION_`.
 - Each environment needs `MERCHANT_PUBLIC_KEY`, `MERCHANT_SECRET_KEY` and `WEBHOOK_SIGNING_SECRET` (with the matching prefix).
+- `WEBHOOK_SIGNING_SECRET` is a **server-only key** that PlugLytics uses to encrypt the per-customer webhook secrets it stores. It is never used to sign webhooks directly and never given to customers (see [Webhook endpoints](#webhook-endpoints)).
 - `STELLAR_HORIZON_URL` and `STELLAR_NETWORK_PASSPHRASE` are optional overrides. If they are empty, the defaults in the table above are used.
 - `loadStellarConfig()` throws a clear error if `STELLAR_ENV` is not `sandbox` or `production`, or if a required value is missing or still a placeholder.
 
@@ -135,7 +136,7 @@ const stellar = loadStellarConfig();
 
 The payment endpoints follow the same rules as the rest of the PlugLytics API.
 
-- **Base path:** `/api/v1/payments` (and `/api/v1/subscriptions`)
+- **Base path:** `/api/v1/payments` (and `/api/v1/subscriptions`, `/api/v1/webhooks`)
 - **Authentication:** send `Authorization: Bearer <JWT>` (get a token from `POST /api/v1/auth/login`). Every payment endpoint requires it.
 - **Amounts** are strings with up to 7 decimal places (for example `"25.0000000"`), because Stellar uses 7 decimal places and strings avoid rounding errors.
 - **Times** are ISO 8601 UTC strings.
@@ -175,6 +176,10 @@ To keep the examples below short, only the `data` part is shown for success resp
 | POST | `/api/v1/payments/:id/cancel` | Admin | Cancel a pending request |
 | POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
 | GET | `/api/v1/subscriptions/:id` | Admin | Get a subscription and its current period |
+| POST | `/api/v1/webhooks` | Admin | Register a webhook URL and get its signing secret (shown once) |
+| GET | `/api/v1/webhooks` | Admin | List your registered webhook URLs |
+| DELETE | `/api/v1/webhooks/:id` | Admin | Remove a webhook URL |
+| POST | `/api/v1/webhooks/:id/rotate-secret` | Admin | Replace the signing secret (new secret shown once) |
 
 ### GET `/api/v1/payments/config`
 
@@ -334,6 +339,101 @@ Response `201` (`data`):
 
 Returns the subscription, its current period and its latest payment request, in the same shape as the create response.
 
+### Webhook endpoints
+
+Each customer registers their own webhook URL, and **every registered URL gets its own signing secret**. No secret is ever shared between customers.
+
+How PlugLytics handles the secrets:
+
+- A new random secret (`whsec_` + 32 random bytes) is created for each endpoint.
+- It is returned **only once**: in the response to `POST /api/v1/webhooks` or `POST /api/v1/webhooks/:id/rotate-secret`. It is never shown again by any endpoint.
+- PlugLytics stores it **encrypted** (AES-256-GCM, using the server-only `WEBHOOK_SIGNING_SECRET` key). It cannot be stored as a one-way hash, because PlugLytics needs the original secret to sign each delivery.
+- Each delivery is signed with the secret of the endpoint it is sent to. See [webhooks.md](./webhooks.md#verifying-the-signature).
+
+### POST `/api/v1/webhooks`
+
+Registers a webhook URL.
+
+Request:
+
+```json
+{
+  "url": "https://your-app.example.com/webhooks/pluglytics",
+  "events": ["payment.completed", "payment.failed", "subscription.activated"],
+  "description": "Main LMS server"
+}
+```
+
+- `url`: required, must start with `https://` (plain `http://` is only allowed for `localhost` in sandbox)
+- `events`: optional, the events to send. Leave it out to receive every event.
+- `description`: optional, up to 200 characters
+
+Response `201` (`data`):
+
+```json
+{
+  "id": "wh_01JDA2K7PQ",
+  "url": "https://your-app.example.com/webhooks/pluglytics",
+  "events": ["payment.completed", "payment.failed", "subscription.activated"],
+  "description": "Main LMS server",
+  "environment": "sandbox",
+  "secret": "whsec_9f2c4e7a1b8d3f6e0c5a2b9d4e7f1a3c6b8d0e2f4a6c8e1b3d5f7a9c2e4b6d8f0",
+  "createdAt": "2026-11-22T09:00:00.000Z"
+}
+```
+
+- **Save `secret` now.** It will not be shown again. Store it in your own app's `.env` (for example `PLUGLYTICS_WEBHOOK_SECRET`).
+
+### GET `/api/v1/webhooks`
+
+Lists your registered webhook URLs. Secrets are **never** included.
+
+Response `200` (`data`):
+
+```json
+[
+  {
+    "id": "wh_01JDA2K7PQ",
+    "url": "https://your-app.example.com/webhooks/pluglytics",
+    "events": ["payment.completed", "payment.failed", "subscription.activated"],
+    "description": "Main LMS server",
+    "environment": "sandbox",
+    "secretLastRotatedAt": "2026-11-22T09:00:00.000Z",
+    "createdAt": "2026-11-22T09:00:00.000Z"
+  }
+]
+```
+
+### DELETE `/api/v1/webhooks/:id`
+
+Removes a webhook URL. PlugLytics stops sending events to it right away (including pending retries), and its secret is deleted.
+
+Response `200` (`data`):
+
+```json
+{ "id": "wh_01JDA2K7PQ", "deleted": true }
+```
+
+### POST `/api/v1/webhooks/:id/rotate-secret`
+
+Creates a new signing secret for the endpoint. Use it if the secret may have leaked, or if you lost it.
+
+Request body: none.
+
+Response `200` (`data`):
+
+```json
+{
+  "id": "wh_01JDA2K7PQ",
+  "secret": "whsec_3a7e1c9b5d2f8e4a0c6b1d7f3e9a5c2b8d4f0e6a1c7b3d9f5e2a8c4b0d6f1e7a3",
+  "previousSecretExpiresAt": "2026-11-23T09:30:00.000Z",
+  "secretLastRotatedAt": "2026-11-22T09:30:00.000Z"
+}
+```
+
+- The new `secret` is shown **only once**.
+- Until `previousSecretExpiresAt` (24 hours), deliveries carry both signatures, so you can update your app without missing events. See [webhooks.md](./webhooks.md#rotating-your-secret).
+
 ## How payments are detected and webhooks are sent
 
 PlugLytics **does not receive webhooks**. Stellar has no "payment received" callback, so PlugLytics watches the network itself, and then **sends** webhooks to the customer.
@@ -349,9 +449,9 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 
 ### Sending webhooks to the customer
 
-- After a status changes, PlugLytics sends a signed `POST` to the **customer's own webhook URL**.
+- After a status changes, PlugLytics sends a signed `POST` to each **webhook URL the customer registered** (see [Webhook endpoints](#webhook-endpoints)).
 - Events: `payment.pending`, `payment.completed`, `payment.failed` (with `reason`: `expired`, `cancelled`, `underpaid` or `wrong_asset`), `refund.issued`, `settlement.completed`, `subscription.activated`, `subscription.past_due`.
-- Each request is signed with `WEBHOOK_SIGNING_SECRET`: header `X-PlugLytics-Signature: v1=<hex>`, an HMAC-SHA256 of `<timestamp>.<raw body>`, with the timestamp in `X-PlugLytics-Timestamp`.
+- Each request is signed with **that endpoint's own secret** (from registration): header `X-PlugLytics-Signature: v1=<hex>`, an HMAC-SHA256 of `<timestamp>.<raw body>`, with the timestamp in `X-PlugLytics-Timestamp`.
 - See [webhooks.md](./webhooks.md) for the payloads, how the customer verifies the signature, retry rules and duplicate handling.
 
 ## Error codes
@@ -366,6 +466,7 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 403 | `FORBIDDEN` | Your role cannot use this endpoint |
 | 404 | `PAYMENT_NOT_FOUND` | No payment request has that ID |
 | 404 | `SUBSCRIPTION_NOT_FOUND` | No subscription has that ID |
+| 404 | `WEBHOOK_NOT_FOUND` | No registered webhook URL has that ID |
 | 409 | `PAYMENT_ALREADY_COMPLETED` | You tried to cancel a request that is already completed |
 | 409 | `PAYMENT_NOT_PENDING` | The request is expired or cancelled |
 | 409 | `DUPLICATE_REFERENCE` | A request with the same `reference` already exists |
@@ -408,7 +509,7 @@ In your `.env` (never in `.env.example`):
 STELLAR_ENV=sandbox
 SANDBOX_MERCHANT_PUBLIC_KEY=<merchant G... key>
 SANDBOX_MERCHANT_SECRET_KEY=<merchant S... key>
-SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string>
+SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string; server-only key for encrypting stored webhook secrets>
 ```
 
 ### 4. Run a test payment
@@ -427,6 +528,7 @@ SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string>
 
 - **Never commit real secret keys.** Keep them only in `.env`, which is listed in `.gitignore`. `.env.example` holds placeholders only.
 - Use **different** keys for sandbox and production. Never use a production key on testnet, or the reverse.
-- Never log, return or display the merchant secret key or the webhook signing secret.
+- Never log, return or display the merchant secret key or the `WEBHOOK_SIGNING_SECRET` key.
+- Show each webhook endpoint's secret only once, when it is created or rotated. Store it encrypted, never log it, and never return it again.
 - Always confirm payments on Horizon. Never mark a payment completed based only on what the client says.
 - Check the network passphrase so a testnet payment can never be accepted in production.
