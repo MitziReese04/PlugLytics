@@ -300,6 +300,22 @@ const seed = db.transaction(() => {
     }
   }
 
+  // One small unpaid invoice for the demo student in the current term, so the
+  // dashboard shows "Pay with Stellar (Testnet)". At the sandbox rate
+  // (1 USD = 2.5 XLM) it asks for 125 XLM. Added after the loop above so every
+  // other invoice keeps the same ID.
+  const demoStudent = db.prepare(
+    "SELECT s.id FROM students s JOIN users u ON u.id = s.user_id WHERE u.email = 'student@pluglytics.local'"
+  ).get();
+  const currentTerm = termRows.find((term) => term.is_current);
+  addInvoice.run(
+    demoStudent.id,
+    currentTerm.id,
+    50,
+    `${currentTerm.start_date}T09:00:00Z`,
+    `${currentTerm.end_date}T23:59:00Z`
+  );
+
   const addRating = db.prepare(
     "INSERT INTO instructor_ratings (instructor_id, section_id, rating, rated_at) VALUES (?, ?, ?, ?)"
   );

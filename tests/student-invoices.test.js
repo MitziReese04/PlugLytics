@@ -13,6 +13,7 @@ const demoStudent = db.prepare(
   "SELECT s.id FROM students s JOIN users u ON u.id = s.user_id WHERE u.email = 'student@pluglytics.local'"
 ).get();
 const latestTerm = db.prepare("SELECT id, name, code FROM terms ORDER BY start_date DESC LIMIT 1").get();
+const currentTerm = db.prepare("SELECT id, name FROM terms WHERE is_current = 1").get();
 
 const createdInvoices = [];
 function addInvoice(amount, currency = "USD") {
@@ -58,8 +59,13 @@ describe("GET /api/v1/payments/invoices", () => {
     expect(rows.find((r) => r.id === partial)).toMatchObject({
       currency: "PHP", finalAmount: "1000.00", recordedPayments: "400.00", outstanding: "600.00", status: "partial",
     });
-    // The seeded invoices for the demo student are fully paid.
-    expect(rows.filter((r) => !createdInvoices.includes(r.id)).every((r) => r.status === "settled" && r.outstanding === "0.00")).toBe(true);
+    // The seed gives the demo student four fully paid invoices and one small
+    // unpaid invoice in the current term (so the Pay button appears).
+    const seeded = rows.filter((r) => !createdInvoices.includes(r.id));
+    const unpaid = seeded.filter((r) => r.status !== "settled");
+    expect(unpaid).toHaveLength(1);
+    expect(unpaid[0]).toMatchObject({ term: currentTerm.name, finalAmount: "50.00", outstanding: "50.00", status: "due" });
+    expect(seeded.filter((r) => r.status === "settled").every((r) => r.outstanding === "0.00")).toBe(true);
   });
 
   test("shows the latest Stellar request and treats a completed one as settled", async () => {
