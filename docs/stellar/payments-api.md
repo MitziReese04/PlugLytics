@@ -564,7 +564,7 @@ Response `201` (`data`):
   "events": ["payment.completed", "payment.failed", "subscription.activated"],
   "description": "Main LMS server",
   "environment": "sandbox",
-  "secret": "whsec_9f2c4e7a1b8d3f6e0c5a2b9d4e7f1a3c6b8d0e2f4a6c8e1b3d5f7a9c2e4b6d8f0",
+  "secret": "whsec_EXAMPLE...",
   "createdAt": "2026-11-22T09:00:00.000Z"
 }
 ```
@@ -612,7 +612,7 @@ Response `200` (`data`):
 ```json
 {
   "id": "wh_01JDA2K7PQ",
-  "secret": "whsec_3a7e1c9b5d2f8e4a0c6b1d7f3e9a5c2b8d4f0e6a1c7b3d9f5e2a8c4b0d6f1e7a3",
+  "secret": "whsec_EXAMPLE...",
   "previousSecretExpiresAt": "2026-11-23T09:30:00.000Z",
   "secretLastRotatedAt": "2026-11-22T09:30:00.000Z"
 }
