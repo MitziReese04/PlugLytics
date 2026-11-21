@@ -282,9 +282,18 @@ const seed = db.transaction(() => {
     }
   }
 
-  db.prepare(
+  const addDashboardPreference = db.prepare(
     "INSERT INTO dashboard_preferences (user_id, name, layout_json, is_default) VALUES (?, 'default', ?, 1)"
-  ).run(demoStudentUser, JSON.stringify({ widgets: [], filters: {} }));
+  );
+  const defaultLayouts = [
+    [demoStudentUser, ["student-grades", "student-deadlines", "student-attendance", "student-activity", "student-risk"]],
+    [demoInstructorUser, ["instructor-sections", "section-performance", "assignment-rate", "instructor-attendance", "instructor-at-risk"]],
+    [demoAdmin, ["enrollment-summary", "enrollment-specialization", "enrollment-year-level", "seat-utilization", "finance-overview", "finance-outstanding", "academic-quality"]],
+  ];
+  for (const [userId, widgetIds] of defaultLayouts) {
+    const widgets = widgetIds.map((id) => ({ id, chartType: "bar" }));
+    addDashboardPreference.run(userId, JSON.stringify({ widgets, filters: {}, theme: "light" }));
+  }
 });
 
 seed();

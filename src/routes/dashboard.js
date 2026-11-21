@@ -7,9 +7,20 @@ const { sendSuccess, sendError } = require("../utils/envelope");
 const router = express.Router();
 router.use(authenticate);
 
+const defaultWidgets = {
+  student: ["student-grades", "student-deadlines", "student-attendance", "student-activity", "student-risk"],
+  instructor: ["instructor-sections", "section-performance", "assignment-rate", "instructor-attendance", "instructor-at-risk"],
+  admin: ["enrollment-summary", "enrollment-specialization", "enrollment-year-level", "seat-utilization", "finance-overview", "finance-outstanding", "academic-quality"],
+};
+
 router.get("/filter-options", (req, res) => {
   let terms;
   let dates;
+  let courses;
+  let sections;
+  let specializations = [];
+  let programs = [];
+  let instructors = [];
 
   if (req.user.role === "student") {
     const student = db.prepare("SELECT id FROM students WHERE user_id = ?").get(req.user.id);
@@ -40,6 +51,22 @@ router.get("/filter-options", (req, res) => {
       GROUP BY date(value)
       ORDER BY date
     `).all(student.id, student.id, student.id, student.id).map((row) => row.date);
+    courses = db.prepare(`
+      SELECT DISTINCT c.code AS value, c.title AS label
+      FROM enrollments e
+      JOIN sections sec ON sec.id = e.section_id
+      JOIN courses c ON c.id = sec.course_id
+      WHERE e.student_id = ?
+      ORDER BY c.code
+    `).all(student.id);
+    sections = db.prepare(`
+      SELECT DISTINCT sec.name AS value, c.code || ' · ' || sec.name AS label
+      FROM enrollments e
+      JOIN sections sec ON sec.id = e.section_id
+      JOIN courses c ON c.id = sec.course_id
+      WHERE e.student_id = ?
+      ORDER BY c.code, sec.name
+    `).all(student.id);
   } else if (req.user.role === "instructor") {
     const instructor = db.prepare("SELECT id FROM instructors WHERE user_id = ?").get(req.user.id);
     if (!instructor) return sendError(res, 404, "INSTRUCTOR_NOT_FOUND", "Instructor profile was not found");
@@ -67,6 +94,18 @@ router.get("/filter-options", (req, res) => {
       GROUP BY date(value)
       ORDER BY date
     `).all(instructor.id, instructor.id, instructor.id, instructor.id).map((row) => row.date);
+    courses = db.prepare(`
+      SELECT DISTINCT c.code AS value, c.title AS label
+      FROM sections sec JOIN courses c ON c.id = sec.course_id
+      WHERE sec.instructor_id = ?
+      ORDER BY c.code
+    `).all(instructor.id);
+    sections = db.prepare(`
+      SELECT DISTINCT sec.name AS value, c.code || ' · ' || sec.name AS label
+      FROM sections sec JOIN courses c ON c.id = sec.course_id
+      WHERE sec.instructor_id = ?
+      ORDER BY c.code, sec.name
+    `).all(instructor.id);
   } else {
     terms = db.prepare(`
       SELECT code, name, start_date AS startDate, end_date AS endDate
@@ -85,11 +124,37 @@ router.get("/filter-options", (req, res) => {
       GROUP BY date(value)
       ORDER BY date
     `).all().map((row) => row.date);
+    courses = db.prepare(`
+      SELECT code AS value, title AS label FROM courses ORDER BY code
+    `).all();
+    sections = db.prepare(`
+      SELECT DISTINCT sec.name AS value, c.code || ' · ' || sec.name AS label
+      FROM sections sec JOIN courses c ON c.id = sec.course_id
+      ORDER BY c.code, sec.name
+    `).all();
+    specializations = db.prepare(`
+      SELECT code AS value, name AS label FROM specializations ORDER BY name
+    `).all();
+    programs = db.prepare(`
+      SELECT code AS value, name AS label FROM programs ORDER BY name
+    `).all();
+    instructors = db.prepare(`
+      SELECT i.id AS value, u.name AS label
+      FROM instructors i JOIN users u ON u.id = i.user_id
+      ORDER BY u.name
+    `).all();
   }
 
   return sendSuccess(res, {
     terms,
     dates,
+    courses,
+    sections,
+    specializations,
+    programs,
+    instructors,
+    yearLevels: [1, 2, 3, 4, 5].map((value) => ({ value, label: `Year ${value}` })),
+    statuses: ["active", "completed", "dropped", "withdrawn", "waitlisted"].map((value) => ({ value, label: value })),
     dateRange: {
       from: dates[0] || null,
       to: dates[dates.length - 1] || null,
@@ -110,7 +175,13 @@ router.get("/dashboard", (req, res) => {
   const row = db.prepare(
     "SELECT layout_json FROM dashboard_preferences WHERE user_id = ? AND is_default = 1"
   ).get(req.user.id);
-  const layout = row ? JSON.parse(row.layout_json) : { widgets: [], filters: {}, theme: "light" };
+  const layout = row
+    ? JSON.parse(row.layout_json)
+    : {
+      widgets: (defaultWidgets[req.user.role] || []).map((id) => ({ id, chartType: "bar" })),
+      filters: {},
+      theme: "light",
+    };
   return sendSuccess(res, layout);
 });
 

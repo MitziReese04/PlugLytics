@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Course outline - PlugLytics</title>
+  <link rel="stylesheet" href="./styles.css?v=10">
+</head>
+<body class="dashboard-page">
+  <header class="dashboard-header">
+    <a class="dashboard-brand" href="./dashboard.html">
+      <img src="./pluglytics-logo-mark.png" alt="">
+      <span>PlugLytics</span>
+    </a>
+    <div class="dashboard-actions">
+      <a class="outline-button" href="./dashboard.html">Back to dashboard</a>
+      <label class="theme-toggle">Theme
+        <select id="themeSelect" aria-label="Dashboard color theme">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+    </div>
+  </header>
+  <main class="dashboard-main curriculum-main">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Program course map</p>
+        <h1 id="curriculumTitle">Course outline</h1>
+        <p class="dashboard-intro">Track completed courses, current study, and the units still ahead.</p>
+      </div>
+    </header>
+    <p id="curriculumSource" class="curriculum-source"></p>
+    <p id="curriculumError" class="curriculum-error" role="alert" hidden></p>
+    <section id="curriculumContent" hidden>
+      <div class="completion-overview">
+        <article class="completion-card">
+          <div class="completion-heading">
+            <div><p>Program completion</p><strong id="completionPercent">0%</strong></div>
+            <span id="curriculumVersion" class="curriculum-version"></span>
+          </div>
+          <div id="completionProgress" class="completion-progress" role="progressbar"
+            aria-label="Program completion" aria-valuemin="0" aria-valuemax="100">
+            <span id="completionProgressFill"></span>
+          </div>
+          <p><strong id="completedUnits">0</strong> units completed of <strong id="totalUnits">0</strong>.
+            <strong id="remainingUnits">0</strong> units remain.</p>
+        </article>
+        <div class="curriculum-stats" aria-label="Course status totals">
+          <article><span>Finished courses</span><strong id="completedCourses">0</strong></article>
+          <article><span>In progress</span><strong id="inProgressCourses">0</strong></article>
+          <article><span>Remaining courses</span><strong id="remainingCourses">0</strong></article>
+        </div>
+      </div>
+      <section class="curriculum-map" aria-labelledby="courseMapHeading">
+        <header class="curriculum-map-heading">
+          <div><h2 id="courseMapHeading">Course map</h2><p>Courses are arranged by the term in the curriculum plan.</p></div>
+          <div class="course-status-legend" aria-label="Course status legend">
+            <span class="status-completed">Finished</span>
+            <span class="status-in-progress">In progress</span>
+            <span class="status-remaining">Remaining</span>
+          </div>
+        </header>
+        <div id="curriculumCourseList" class="curriculum-course-list"></div>
+      </section>
+    </section>
+  </main>
+  <script src="./demo-preview-data.js?v=1"></script>
+  <script src="./curriculum.js?v=2"></script>
+</body>
+</html>

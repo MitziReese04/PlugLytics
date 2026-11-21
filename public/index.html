@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="PlugLytics turns learning activity into clear, privacy-conscious insights for students, instructors, and education leaders.">
   <title>PlugLytics | Make learning data useful</title>
-  <link rel="stylesheet" href="./styles.css?v=9">
+  <link rel="stylesheet" href="./styles.css?v=10">
 </head>
 <body class="marketing-page">
   <header class="marketing-nav" id="top">
@@ -64,6 +64,76 @@
       </div>
     </section>
 
+    <section class="role-preview-section marketing-section" id="dashboard-previews">
+      <div class="section-heading">
+        <p class="kicker">Three detailed role previews</p>
+        <h2>One LMS. A different useful view for every role.</h2>
+        <p>These illustrative previews show the dashboards available after signing in. Authenticated views enforce role-scoped API access; the local demo uses synthetic database records.</p>
+      </div>
+      <div class="role-preview-tabs" role="tablist" aria-label="Dashboard role previews">
+        <button id="preview-tab-student" type="button" role="tab" aria-selected="true" aria-controls="preview-panel-student" data-preview-role="student">Student</button>
+        <button id="preview-tab-instructor" type="button" role="tab" aria-selected="false" aria-controls="preview-panel-instructor" data-preview-role="instructor" tabindex="-1">Instructor</button>
+        <button id="preview-tab-admin" type="button" role="tab" aria-selected="false" aria-controls="preview-panel-admin" data-preview-role="admin" tabindex="-1">Admin</button>
+      </div>
+
+      <section id="preview-panel-student" class="role-preview-panel" role="tabpanel" aria-labelledby="preview-tab-student">
+        <header class="role-preview-heading"><div><span>STUDENT LEARNING OVERVIEW</span><h3>BS Information Technology · Software Development</h3></div><b>Demo curriculum</b></header>
+        <div class="role-preview-filters"><span>Term</span><span>Date range</span><span>Course</span><span>Section</span></div>
+        <div class="role-preview-metrics">
+          <article><small>Program completion</small><strong>33%</strong><span>51 of 155 units</span></article>
+          <article><small>Finished courses</small><strong>18</strong><span>Across first-year terms</span></article>
+          <article><small>In progress</small><strong>6</strong><span>2nd year · 1st term</span></article>
+          <article><small>Remaining</small><strong>29</strong><span>Planned course map</span></article>
+        </div>
+        <div class="role-preview-detail">
+          <section><h4>Curriculum roadmap</h4>
+            <div class="preview-roadmap-row"><span>1st year · 1st term</span><b>✓ Language and Communication</b><small>3 units · Finished</small></div>
+            <div class="preview-roadmap-row current"><span>2nd year · 1st term</span><b>◷ Data Analytics Fundamentals</b><small>3 units · In progress</small></div>
+            <div class="preview-roadmap-row"><span>2nd year · 2nd term</span><b>○ Data Structures and Algorithms</b><small>3 units · Remaining</small></div>
+          </section>
+          <section><h4>Learning check-in</h4><p>Review assignment progress, grade trends, attendance, upcoming deadlines, and your full term-by-term course checklist.</p><span class="preview-link-label">Full course outline →</span></section>
+        </div>
+        <section class="role-preview-events"><h4>Upcoming demo deadlines and events</h4><ul data-preview-events="student"></ul></section>
+      </section>
+
+      <section id="preview-panel-instructor" class="role-preview-panel" role="tabpanel" aria-labelledby="preview-tab-instructor" hidden>
+        <header class="role-preview-heading"><div><span>INSTRUCTOR TEACHING OVERVIEW</span><h3>Class folders with actionable progress</h3></div><b>Own sections only</b></header>
+        <div class="role-preview-filters"><span>Term</span><span>Date range</span><span>Course</span><span>Section</span></div>
+        <div class="role-preview-metrics">
+          <article><small>Classes</small><strong>By term</strong><span>Sections you teach</span></article>
+          <article><small>Attendance</small><strong>By section</strong><span>Recorded sessions</span></article>
+          <article><small>Assignment health</small><strong>Submitted · late · missed</strong><span>By assessment</span></article>
+          <article><small>Student follow-up</small><strong>Scoped roster</strong><span>Grades and attendance</span></article>
+        </div>
+        <div class="role-preview-detail">
+          <section class="preview-class-folder"><h4>⌄ COURSE-104 · Section A</h4>
+            <div class="preview-roster-head"><span>Student</span><span>Grade</span><span>Attendance</span><span>Work</span></div>
+            <div class="preview-roster-row"><b>Student 01</b><span>Current</span><span>Sessions</span><span>Submitted · late · missed</span></div>
+            <div class="preview-roster-row"><b>Student 02</b><span>Current</span><span>Sessions</span><span>Submitted · late · missed</span></div>
+          </section>
+          <section><h4>Teaching signals</h4><p>Compare section performance, inspect difficult quiz items, review missed work, and spot attendance or engagement changes.</p><span class="preview-link-label">Details stay within your sections</span></section>
+        </div>
+        <section class="role-preview-events"><h4>Upcoming demo teaching events</h4><ul data-preview-events="instructor"></ul></section>
+      </section>
+
+      <section id="preview-panel-admin" class="role-preview-panel" role="tabpanel" aria-labelledby="preview-tab-admin" hidden>
+        <header class="role-preview-heading"><div><span>ADMINISTRATIVE ANALYTICS</span><h3>Enrollment, finance, and academic quality</h3></div><b>Institution-wide view</b></header>
+        <div class="role-preview-filters"><span>Term</span><span>Date range</span><span>Specialization</span><span>Program</span><span>Course</span></div>
+        <div class="role-preview-metrics">
+          <article><small>Enrolled students</small><strong>By term</strong><span>Unique enrollments</span></article>
+          <article><small>Tuition collected</small><strong>By term</strong><span>Payments received</span></article>
+          <article><small>Collection rate</small><strong>Billed vs. paid</strong><span>Selected cohort</span></article>
+          <article><small>Seat utilization</small><strong>By section</strong><span>Capacity and waitlist</span></article>
+        </div>
+        <div class="role-preview-detail">
+          <section><h4>Enrollment by specialization</h4><div class="preview-admin-bars"><span>Computer Science<i style="width:82%"></i></span><span>Business Administration<i style="width:65%"></i></span><span>Engineering<i style="width:49%"></i></span></div></section>
+          <section><h4>Finance & outcomes</h4><p>Tuition billed and collected, outstanding balances, refunds, retention, pass rates, GPA trends, ratings, and course demand.</p><span class="preview-link-label">Filter by specialization, program, year, status, or term</span></section>
+        </div>
+        <section class="role-preview-events"><h4>Upcoming demo operations events</h4><ul data-preview-events="admin"></ul></section>
+      </section>
+      <p class="role-preview-note">Illustrative layouts only. Metrics in the signed-in dashboards are calculated from the connected data source; the student curriculum sample uses the supplied February 2025 Software Development sheet.</p>
+    </section>
+
     <section class="trust-strip" aria-label="PlugLytics capabilities">
       <span><b>3</b> role-based views</span>
       <span><b>5+</b> minimum cohort threshold</span>
@@ -93,8 +163,8 @@
         <article class="use-case-card" id="student-view">
           <span class="card-index">01 / STUDENT</span>
           <div class="use-case-symbol">↗</div>
-          <h3>Know where you stand.</h3>
-          <p>Students can check course progress, grade trends, upcoming deadlines, attendance, and anonymous class-standing bands.</p>
+          <h3>Track your progress.</h3>
+          <p>Students can check their curriculum map, unit completion, grade trends, attendance, and upcoming deadlines.</p>
           <ul><li>What needs attention this week?</li><li>How is my progress changing?</li><li>What support might help me stay on track?</li></ul>
         </article>
         <article class="use-case-card featured" id="instructor-view">
@@ -146,7 +216,7 @@
       <div class="plugin-copy">
         <p class="kicker">For teams building with PlugLytics</p>
         <h2>Bring your analytics workflow into VS Code.</h2>
-        <p>Install the PlugLytics extension to open the dashboard and API docs, start the local API, check service health, and choose date filters from your editor. Configure an LMS JSON API endpoint to discover its course, assignment, and activity dates.</p>
+        <p>Install the PlugLytics extension to open the dashboard and API docs, start the local API, check service health, and choose date filters from your editor. Its optional LMS JSON connector reads date fields only; course and activity data still need a provider-specific integration.</p>
         <div class="plugin-features"><span>Open dashboard</span><span>Choose date filters</span><span>Configure LMS API</span><span>View API docs</span></div>
       </div>
       <div class="plugin-download-card">
@@ -176,5 +246,7 @@
     <span>Learning analytics with clarity and care.</span>
     <a href="./PROPOSAL.md" download>Grant proposal <span aria-hidden="true">↗</span></a>
   </footer>
+  <script src="./demo-preview-data.js?v=1"></script>
+  <script src="./role-previews.js?v=2"></script>
 </body>
 </html>

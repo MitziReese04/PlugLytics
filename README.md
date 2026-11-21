@@ -8,15 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="#try-it-in-30-seconds">Try it in 30 seconds</a> •
-  <a href="#problem--solution">Problem / Solution</a> •
-  <a href="#features">Features</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#quick-start">Quick start</a>
-</p>
-
-<p align="center">
-  <img src="./public/pluglytics-website-screenshot.png" alt="PlugLytics product website showing the branded navigation, learning analytics hero, and dashboard preview" width="100%">
+  <img src="./public/pluglytics-website-screenshot.png" alt="PlugLytics website hero with branded navigation and student dashboard preview" width="100%">
 </p>
 
 ## Live project
@@ -33,7 +25,7 @@
 
 PlugLytics is a zero-setup Learning Management System analytics API and role-aware web dashboard. It uses Node.js, Express, SQLite, JWT authentication, Zod validation, Chart.js, Swagger/OpenAPI, and a VS Code extension.
 
-The product website has a responsive dark-gradient header with the PlugLytics logo, centered section links, and a direct **Download PlugLytics** VSIX button. The dashboard sign-in screen also uses the PlugLytics navy-and-teal palette and logo mark. The website preview is illustrative; the live dashboard uses the API's synthetic demo records.
+The product website has a responsive dark-gradient header with the PlugLytics logo, centered section links, and a direct **Download PlugLytics** VSIX button. It includes interactive Student, Instructor, and Admin dashboard previews. The demo curriculum and upcoming-event fixtures are static browser assets; they are not inserted into or returned by the analytics API. The API calculates reports from normalized SQLite records (synthetic records in the local demo).
 
 The demo repository includes realistic synthetic data for:
 
@@ -108,11 +100,11 @@ PlugLytics provides a single role-aware analytics surface backed by a versioned 
 | --- | --- |
 | Public website | Branded product landing page with role/use-case information, section navigation, and a direct VSIX download |
 | Analytics dashboard | Displays role-specific widgets and persisted custom layouts |
-| REST API | Returns consistently structured LMS and finance analytics |
+| REST API | Returns consistently structured analytics from normalized records |
 | Authentication | Verifies users through JWTs |
 | RBAC | Limits endpoints and filters by role |
 | Row-level checks | Resolves each student or instructor from the signed-in account |
-| Privacy controls | Uses anonymous labels and a minimum cohort size of five |
+| Privacy controls | Enforces role-scoped records and minimum cohort size for sensitive aggregates |
 | Export | Downloads table endpoints as CSV |
 
 ## Features
@@ -123,30 +115,30 @@ PlugLytics provides a single role-aware analytics surface backed by a versioned 
 - Quiz, assignment, and exam grade averages
 - GPA trend by academic term
 - Upcoming deadlines and overdue items
+- Term-by-term curriculum checklist, completion percentage, and completed/remaining units
+- Monthly calendar of API-backed assignment deadlines; demo-only events are clearly labeled
 - Attendance and time-on-platform data
-- Anonymous class-standing percentile bands
 - Plain-language at-risk indicators
 
 ### Instructor analytics
 
 - Analytics limited to sections owned by the signed-in instructor
+- Class folders with per-student grades, attendance, assignment/quiz submission, lateness, and missed-work tracking
 - Grade distribution histogram
-- Submission rate and average score per assignment
+- Submission, late, and missing rates by assignment and quiz
 - Hardest quiz questions by incorrect-response percentage
 - Engagement by weekday and hour
-- Anonymous at-risk student list
+- Section-scoped student follow-up list
 - Section and term comparisons
-- Pass, failure, and withdrawal views
 
 ### Administrator analytics
 
 - Enrollment totals by term, specialization, program, and year level
 - Waitlist totals and seat utilization
 - Retention and dropout rates
-- Tuition billed, collected, outstanding, refunded, and discounted
+- Tuition billed, collected, collection rate, outstanding balances, and refunds
 - Income by specialization, program, and payment method
-- Instructor cost and course margin where source cost data is available
-- Revenue forecast
+- Filterable term, specialization, program, course, section, year-level, and enrollment-status views
 - GPA by specialization and course pass rates
 - Instructor ratings
 - Course popularity and enrollment timing
@@ -159,8 +151,10 @@ PlugLytics provides a single role-aware analytics surface backed by a versioned 
 - Named dashboard presets
 - Dark/light mode
 - Page and result filtering
+- Full-width analytics tables with reduced side spacing
 - CSV export
 - Swagger/OpenAPI documentation
+- Interactive Student, Instructor, and Admin dashboard previews
 - Branded login screen and responsive public product website
 - VS Code commands for dashboard, docs, health, server startup, account connection, and date filtering
 
@@ -168,22 +162,21 @@ PlugLytics provides a single role-aware analytics surface backed by a versioned 
 
 | Capability | Student | Instructor | Admin |
 | --- | --- | --- | --- |
-| Own course progress | Yes | - | Yes |
+| Own course progress | Yes | - | - |
 | Own grade trend | Yes | - | - |
-| Own deadlines and risk | Yes | - | - |
-| Anonymous class standing | Yes | - | - |
-| Own sections | - | Yes | Yes |
-| Grade distribution | - | Own sections | All |
-| Assignment analytics | - | Own sections | All |
-| Quiz item analysis | - | Own sections | All |
-| Engagement heatmap | - | Own sections | All |
-| At-risk students | Anonymous | Anonymous labels | Full analytics |
+| Own curriculum checklist, deadlines, attendance, and risk | Yes | - | - |
+| Own sections and class rosters | - | Yes | - |
+| Grade distribution | - | Own sections | - |
+| Assignment and quiz analytics | - | Own sections | - |
+| Quiz item analysis | - | Own sections | - |
+| Engagement and attendance | - | Own sections | - |
+| At-risk indicators | Own records | Own sections | - |
 | Enrollment analytics | - | - | Yes |
 | Finance analytics | - | - | Yes |
 | Academic quality | - | - | Yes |
 | Operations analytics | - | - | Yes |
 | Custom dashboard | Yes | Yes | Yes |
-| CSV export | Own tables | Own-section tables | All tables |
+| CSV export | Own tables | Own-section tables | Authorized reports |
 
 ## How verification works
 
@@ -331,9 +324,12 @@ Demo credentials are seeded only for local demonstration.
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | GET | `/api/v1/student/progress` | Own course progress |
+| GET | `/api/v1/student/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD` | Own assignment deadlines for a calendar range |
+| GET | `/api/v1/student/curriculum` | Program course checklist and unit completion |
 | GET | `/api/v1/student/grades` | Own grade and GPA trend |
 | GET | `/api/v1/student/deadlines` | Upcoming and overdue items |
-| GET | `/api/v1/student/standing` | Anonymous percentile band |
+| GET | `/api/v1/student/attendance` | Own attendance summary |
+| GET | `/api/v1/student/activity-summary` | Own learning activity by course |
 | GET | `/api/v1/student/risk` | Plain-language at-risk indicator |
 
 ### Instructor
@@ -341,11 +337,13 @@ Demo credentials are seeded only for local demonstration.
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | GET | `/api/v1/instructor/sections` | Own sections |
+| GET | `/api/v1/instructor/sections/:sectionId/roster` | Section-scoped grades, attendance, and assessment completion |
+| GET | `/api/v1/instructor/attendance` | Attendance rates for owned sections |
 | GET | `/api/v1/instructor/distribution` | Grade distribution |
 | GET | `/api/v1/instructor/assignments` | Assignment analytics |
 | GET | `/api/v1/instructor/item-analysis` | Quiz item difficulty |
 | GET | `/api/v1/instructor/engagement` | Weekday/hour activity |
-| GET | `/api/v1/instructor/at-risk` | Anonymous at-risk list |
+| GET | `/api/v1/instructor/at-risk` | At-risk indicators for owned sections |
 | GET | `/api/v1/instructor/compare` | Section and term comparisons |
 
 ### Admin
@@ -368,7 +366,7 @@ Demo credentials are seeded only for local demonstration.
 | GET | `/api/v1/me/dashboard/render` | Render selected widgets |
 | GET | `/api/v1/me/filter-options` | Fetch role-permitted term and activity dates |
 
-The dashboard fetches available terms after sign-in and supports `from` and `to` date filters. The date options endpoint returns only dates associated with the caller's own records or sections, depending on role.
+The dashboard fetches role-permitted filter options after sign-in. Analytics routes accept their supported subset of term, date, program, specialization, course, section, instructor, year-level, and status filters; student and instructor records remain scoped to the signed-in person or owned sections.
 
 Example login:
 
@@ -426,7 +424,6 @@ A disallowed filter returns HTTP `403` with a clear `FILTER_FORBIDDEN` response.
 | Seat utilization | Enrolled students / section capacity x 100 |
 | Outstanding balance | Invoice amount - payments - approved adjustments |
 | Aging bucket | Outstanding days since due date: 0-30, 31-60, or 60+ |
-| Anonymous percentile band | Student average compared with an eligible cohort of at least five students |
 | At-risk | 2+ missing submissions and/or attendance below 75%, plus plain-language reasons |
 
 ## Privacy and security
@@ -436,7 +433,7 @@ A disallowed filter returns HTTP `403` with a clear `FILTER_FORBIDDEN` response.
 - Student identity derived from the signed-in account
 - Instructor queries constrained to owned sections
 - Minimum cohort size of five for privacy-sensitive aggregates
-- Anonymous at-risk labels for instructor views
+- Instructor student-level reports constrained to owned sections
 - Password hashing with bcrypt
 - Helmet security headers
 - Per-IP rate limiting
@@ -463,9 +460,11 @@ Commands:
 - `PlugLytics: Configure LMS Date API`
 - `PlugLytics: Set LMS API Token`
 
-The PlugLytics API URL is configurable with `pluglytics.baseUrl`. Once a user connects, the extension automatically refreshes role-scoped date choices from the API and can open the dashboard with the selected term or date range. An optional `pluglytics.lmsDateOptionsUrl` setting points to a JSON API on the institution's LMS; the extension can fetch ISO date fields and Unix-second or Unix-millisecond timestamps from that endpoint. Configure its URL with **PlugLytics: Configure LMS Date API** and store an optional bearer token with **PlugLytics: Set LMS API Token**.
+The PlugLytics API URL is configurable with `pluglytics.baseUrl`. Once a user connects, the extension automatically refreshes role-scoped date choices from the API and can open the dashboard with the selected term or date range. An optional `pluglytics.lmsDateOptionsUrl` setting points to a JSON API on the institution's LMS; the extension can fetch ISO date fields and Unix-second or Unix-millisecond timestamps from that endpoint. Configure its URL with **PlugLytics: Configure LMS Date API** and store an optional bearer token with **PlugLytics: Set LMS API Token**. This date-only connector does not currently sync LMS course enrollments or degree-audit curriculum.
 
-This generic date fetcher requires a REST JSON endpoint and does not support LMS web-page scraping, provider-specific OAuth, or automatic pagination. Provider adapters or import mappings are still needed to populate PlugLytics analytics with institution data. The demo currently uses synthetic seeded data.
+The sample Student dashboard and public role previews load a February 2025 Software Development curriculum and illustrative November/December 2026 events from static files under `public/`. Course statuses and event details are demo-only and never enter SQLite or the analytics API. The authenticated student curriculum API uses program catalog and enrollment data. The live calendar API currently supplies assignment deadlines; meetings, class times, and other events require a real connected source.
+
+This generic date fetcher requires a REST JSON endpoint and does not support LMS web-page scraping, provider-specific OAuth, or automatic pagination. It fetches dates only; it does not import LMS enrollments, grades, courses, curriculum, attendance, or events. Provider adapters or import mappings are still needed to populate PlugLytics analytics with institution data. Until that integration is configured, the API's local demo uses synthetic seeded database records.
 
 The public site's **Download PlugLytics** button downloads the VSIX at `public/pluglytics-0.1.0.vsix`. To run the extension's focused date-parser test, use `npm test` from `pluglytics-vscode`.
 
@@ -483,7 +482,9 @@ Current coverage includes:
 - Instructor-to-admin authorization boundary
 - Finance collection-rate calculation
 - Dashboard layout persistence
-- Privacy-safe standing endpoint
+- Student curriculum API excludes the browser-only demo curriculum
+- Demo curriculum and filler calendar events are static assets, not API records
+- Instructor roster access is restricted to owned sections
 - Role-scoped date options and inverted-range validation
 
 To rerun a clean demo:
@@ -510,7 +511,7 @@ The current project uses synthetic payment data. No live Stellar Payments or Ste
 - [ ] Live invoice and payment reconciliation
 - [ ] Revenue forecast endpoint
 - [ ] Instructor cost and course-margin reporting
-- [ ] LMS provider integration
+- [ ] Provider-specific LMS integration for enrollments, courses, grades, attendance, curriculum, and events
 - [ ] Automated CI and code-quality workflow
 - [ ] Complete VS Code Marketplace publication
 - [ ] Pilot institution approval and data-governance review
@@ -537,7 +538,7 @@ The following information is needed before the README and grant materials can be
 13. User-testing population and target sample size
 14. Security, accessibility, and compliance requirements
 15. Confirmation that the supplied PlugLytics logo is approved for public and grant use
-16. Screenshot or video assets for the public repository
+16. Additional video assets for the public repository
 17. License choice and maintainer information
 18. Support, privacy, terms, and vulnerability-disclosure URLs
 19. GitHub repository release/tag and publication strategy
