@@ -20,6 +20,9 @@ const pricingSchema = z
     discountPercent: z.number().finite().min(0).max(100).default(0),
     discountCode: z.string().trim().min(1).max(50).nullable().default(null),
     platformFee: nonNegativeAmount.default(0),
+    // PlugLytics's own processing fee. Not the Stellar network fee (paid by the
+    // sender of each transaction) and not anchor fees (paid by the payer to the
+    // anchor); neither of those is ever added to the final amount.
     transactionFee: nonNegativeAmount.default(0),
     instructorCost: nonNegativeAmount.default(0),
   })

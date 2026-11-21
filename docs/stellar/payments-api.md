@@ -58,7 +58,7 @@ Each invoice stores how its price is built, in the invoice's own currency. A pay
 | `discountPercent` | Discount, as a percent **of the base price** | 0 to 100. Default `0`. |
 | `discountCode` | Code used for the discount, if any (for example `EARLY10`) | Optional, up to 50 characters |
 | `platformFee` | PlugLytics platform fee added to the price | 0 or more. Default `0`. |
-| `transactionFee` | Payment processing fee added to the price | 0 or more. Default `0`. |
+| `transactionFee` | PlugLytics's own payment processing fee, added to the price. It is **not** the Stellar network fee or an anchor fee (see below). | 0 or more. Default `0`. |
 | `instructorCost` | What the school pays the instructor for this item | 0 or more. Default `0`. **Not** charged to the student. |
 | `finalAmount` | What the student pays. **Computed**, never sent in a request. | Can never be below 0 |
 
@@ -80,6 +80,10 @@ Example: base price 3000, merit scholarship 500, 10% discount (300), platform fe
 
 - The result is rounded to 2 decimal places.
 - `instructorCost` does not change `finalAmount`. It is kept for cost and course-margin reports.
+- Three kinds of fee can apply to a payment. Only the first is part of `finalAmount`:
+  - **`transactionFee`**: PlugLytics's own processing fee. It is set on the invoice and included in `finalAmount`.
+  - **Stellar network fee**: a tiny fee (in XLM) paid by **whoever sends** the transaction. The payer pays it on their payment, and PlugLytics pays it on refunds. It is never added to `finalAmount`.
+  - **Anchor fees**: charged by an anchor or on-ramp when the payer converts local currency. The **payer** pays them to the anchor. They are never added to `finalAmount`, and the amount that reaches the merchant account must still match the payment request.
 - A scholarship and discount that together are bigger than the base price plus fees are rejected (`VALIDATION_ERROR`), because `finalAmount` would be negative.
 - The same rules are enforced in two places: the API (`src/pricing.js`) and the database (`CHECK` constraints on the `invoices` table in `src/schema.sql`).
 
