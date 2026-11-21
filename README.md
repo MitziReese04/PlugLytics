@@ -505,6 +505,14 @@ The current project uses synthetic payment data. No live Stellar Payments or Ste
 
 See [docs/stellar/payments-api.md](./docs/stellar/payments-api.md) for the planned Stellar Payments API: the payment flow, endpoints, error codes, sandbox vs production setup, and testnet friendbot testing.
 
+## Stellar Payments
+
+Planned Stellar Payments documentation (not implemented yet):
+
+- [Payments API](./docs/stellar/payments-api.md): payment flow, endpoints, customer API keys, webhook registration, error codes, and sandbox vs production
+- [Webhooks](./docs/stellar/webhooks.md): event types, example payloads, signature verification, retries, and duplicate handling
+- [Settlement and reconciliation](./docs/stellar/settlement.md): accepted assets (XLM and USDC), daily and weekly reconciliation, settlement reports, and handling mismatches
+
 ## Roadmap
 
 - [ ] Live public deployment with HTTPS
