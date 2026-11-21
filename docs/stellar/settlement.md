@@ -106,6 +106,20 @@ Runs once a day, shortly after midnight UTC, for the previous day.
 6. **Save** the results, create the [daily report](#daily-report), and send `settlement.completed` (see [webhooks.md](./webhooks.md#settlementcompleted)).
 7. **Alert an admin** if anything is not `matched`.
 
+### How reconciliation results relate to payment statuses
+
+A **reconciliation result** describes how our records compare with Horizon. A **payment status** (and `reason`) describes the payment request itself. They are separate, but they line up like this:
+
+| Reconciliation result | Payment status | Payment `reason` | What it means |
+| --- | --- | --- | --- |
+| `matched` | `completed` | none | Right memo, asset and amount. Nothing to do. |
+| `amount_mismatch` (less than requested) | `failed` | `underpaid` | Not enough arrived. Follow up with a new linked request or refund it (see [When amounts don't match](#when-amounts-dont-match)). |
+| `amount_mismatch` (more than requested) | `completed` | none | The payment **counts**, because the full amount arrived. Only the extra is an exception: refund it or record it as a credit. |
+| `asset_mismatch` | `failed` | `wrong_asset` | Different asset or issuer. Refund it in the same asset it arrived in. |
+
+- An overpaid payment is the only case where the payment is `completed` but reconciliation still reports a mismatch.
+- The payment status is final, but the reconciliation exception stays open until the follow-up or refund shows up as `matched`.
+
 ### Weekly reconciliation (deeper check)
 
 Runs every Monday for the previous week (Monday to Sunday, UTC).

@@ -384,7 +384,8 @@ If a delivery fails (non-`2xx` reply, timeout after 10 seconds, or connection er
 
 - That is **8 attempts over about 2 days**.
 - Each retry has the **same event `id`** and **same body**, but a **new timestamp and signature**.
-- After the last failed attempt, the event is marked `failed` and can be re-sent by hand later.
+- After the last unsuccessful attempt, the event's delivery is marked `delivery_failed` and can be re-sent by hand later.
+- Delivery states are `pending`, `delivered` and `delivery_failed`. They describe whether **the webhook reached your server**, not the payment. They are separate from the payment status `failed`.
 - A `4xx` reply is retried too, in case it was caused by a temporary bug on your side. The one exception is `410 Gone`, which tells PlugLytics to stop sending to that URL.
 - Being down for a while is fine: events wait and are retried. Use `GET /api/v1/payments/:id` to catch up on the current status if needed.
 
