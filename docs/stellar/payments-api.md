@@ -268,7 +268,7 @@ To keep the examples below short, only the `data` part is shown for success resp
 | Method | Path | Who can call it | What it does |
 | --- | --- | --- | --- |
 | GET | `/api/v1/payments/config` | Any signed-in user | Show the active network and merchant public key |
-| POST | `/api/v1/payments` | Admin | Create a pay-per-use payment request |
+| POST | `/api/v1/payments` | Student (own invoice, **built, sandbox only**); Admin (pay-per-use, planned) | Create a payment request |
 | GET | `/api/v1/payments` | Admin, or customer API key (own school, read-only) | List payment requests |
 | GET | `/api/v1/payments/:id` | Admin, or customer API key (own school, read-only) | Get one payment request |
 | POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
@@ -322,6 +322,71 @@ Response `200` (`data`):
 - XLM is approved and the default asset for sandbox and the pilot. USDC is approved and the planned default for production, because of its stable dollar value. USDC appears in this list only once it is enabled on the server.
 
 ### POST `/api/v1/payments`
+
+This endpoint has two uses:
+
+- **Student paying their own invoice** (built, sandbox/testnet only). See [Student invoice payments](#student-invoice-payments-sandbox) below.
+- **Admin creating a pay-per-use request** (planned, not built yet). The rest of this section describes it.
+
+#### Student invoice payments (sandbox)
+
+A signed-in **student** creates a payment request for one of **their own** invoices that still has something to pay.
+
+Request:
+
+```json
+{ "invoiceId": 1042, "asset": "XLM" }
+```
+
+- `invoiceId`: required. Must be the student's own invoice. Another student's invoice gets the same `404` as a missing one, so its existence is not revealed.
+- `asset`: optional, defaults to `XLM`. Only `XLM` is enabled so far.
+
+What PlugLytics does:
+
+- Uses the **sandbox** (testnet) settings from `src/stellarConfig.js`. If `STELLAR_ENV` is not `sandbox`, or a sandbox credential is missing, it returns `503 STELLAR_NOT_CONFIGURED`.
+- Charges the invoice's **outstanding balance**: `finalAmount` minus payments already recorded for it.
+- Converts it to XLM with a **sandbox quote**. Sandbox rates are fixed, made-up test rates (`src/stellarQuotes.js`), because testnet XLM has no value. Real quotes are still TODO.
+- Creates a unique ID (`pay_` + 16 characters) and a unique memo (`PL-` + 8 characters).
+- Sets `expiresAt` to **30 minutes** after creation. The quoted rate is locked until then.
+
+Response `201` (`data`):
+
+```json
+{
+  "id": "pay_7K2M9QX4R8T1VW3N",
+  "type": "invoice",
+  "status": "pending",
+  "invoiceId": 1042,
+  "invoiceCurrency": "USD",
+  "invoiceAmount": "100.00",
+  "quotedRate": "2.5000000",
+  "rateQuotedAt": "2026-11-22T09:00:00.000Z",
+  "amount": "250.0000000",
+  "asset": "XLM",
+  "assetIssuer": null,
+  "destination": "GABC...XYZ",
+  "memo": "PL-4QH7ZK2M",
+  "memoType": "text",
+  "paymentUri": "web+stellar:pay?destination=GABC...XYZ&amount=250.0000000&memo=PL-4QH7ZK2M&memo_type=MEMO_TEXT",
+  "network": "sandbox",
+  "createdAt": "2026-11-22T09:00:00.000Z",
+  "expiresAt": "2026-11-22T09:30:00.000Z",
+  "paidAt": null,
+  "transactionHash": null,
+  "relatedPaymentId": null
+}
+```
+
+Errors specific to this use:
+
+- `404 INVOICE_NOT_FOUND`: no such invoice for this student
+- `409 INVOICE_NOTHING_DUE`: the invoice is fully paid, or already has a `completed` Stellar payment
+- `409 PAYMENT_ALREADY_PENDING`: a request for this invoice is still `pending` and not expired (`details.paymentId` is its ID)
+- `422 RATE_UNAVAILABLE`: no sandbox rate for the invoice currency (only `USD` and `PHP` so far)
+- `400 UNSUPPORTED_ASSET`, `400 VALIDATION_ERROR`, `503 STELLAR_NOT_CONFIGURED`
+- Admins and instructors get `403 FORBIDDEN` until the pay-per-use use is built.
+
+#### Admin pay-per-use requests (planned)
 
 Creates a pay-per-use payment request.
 
@@ -767,9 +832,13 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 404 | `PAYMENT_NOT_FOUND` | No payment request has that ID |
 | 404 | `SUBSCRIPTION_NOT_FOUND` | No subscription has that ID |
 | 404 | `WEBHOOK_NOT_FOUND` | No registered webhook URL has that ID |
+| 404 | `INVOICE_NOT_FOUND` | No invoice with that ID was found for this student |
 | 409 | `PAYMENT_ALREADY_COMPLETED` | You tried to cancel a request that is already completed |
 | 409 | `PAYMENT_NOT_PENDING` | The request is expired or cancelled |
 | 409 | `DUPLICATE_REFERENCE` | A request with the same `reference` already exists |
+| 409 | `INVOICE_NOTHING_DUE` | The invoice is fully paid, or already has a `completed` Stellar payment |
+| 409 | `PAYMENT_ALREADY_PENDING` | The invoice already has a `pending`, unexpired payment request |
+| 422 | `RATE_UNAVAILABLE` | No exchange-rate quote is available for this invoice currency and asset |
 | 409 | `RELATED_PAYMENT_NOT_FAILED` | `relatedPaymentId`, or the `:id` in `accept-late-payment` or `match-transaction`, is not a `failed` payment request |
 | 409 | `TRANSACTION_ALREADY_LINKED` | The transaction is already linked to another payment record |
 | 422 | `TRANSACTION_MISMATCH` | The transaction is not on Horizon, did not succeed, or does not match the request's memo, asset, issuer or amount (for `match-transaction`: it has a memo that belongs to another request) |
