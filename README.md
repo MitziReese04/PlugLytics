@@ -1,42 +1,161 @@
 # PlugLytics
 
-**PlugLytics** is a zero-setup Learning Management System analytics API and role-aware dashboard for schools and training providers.
+<p align="center">
+  <strong>Learning progress, made clear.</strong><br />
+  Privacy-conscious LMS analytics for students, instructors, and administrators
+</p>
 
-The project combines Node.js, Express, SQLite, JWT authentication, role-based access control, OpenAPI documentation, CSV export, and a vanilla-JS analytics dashboard. The repository includes realistic demo data for 500+ students, 25 instructors, 60 courses, 6 specializations, and 4 terms.
+<p align="center">
+  <a href="#try-it-in-30-seconds">Try it in 30 seconds</a> •
+  <a href="#problem--solution">Problem / Solution</a> •
+  <a href="#features">Features</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#quick-start">Quick start</a>
+</p>
 
-## Live project URLs
+## Live project
 
-| Surface | URL |
-| --- | --- |
-| API base | `http://localhost:3000/api/v1` |
-| Dashboard | `http://localhost:3000/public` |
-| Swagger | `http://localhost:3000/docs` |
-| Health | `http://localhost:3000/api/v1/health` |
+| Surface | Local URL | Status |
+| --- | --- | --- |
+| Public website | `http://localhost:3000/public` | Available locally |
+| Analytics dashboard | `http://localhost:3000/public/dashboard.html` | Available locally |
+| REST API | `http://localhost:3000/api/v1` | Available locally |
+| Swagger UI | `http://localhost:3000/docs` | Available locally |
+| Health check | `http://localhost:3000/api/v1/health` | Available locally |
+| VS Code plugin | [pluglytics-vscode](./pluglytics-vscode) | VSIX source packaged locally |
+| Public deployment |  | **Not yet provided** |
 
-## Quick start
+PlugLytics is a zero-setup Learning Management System analytics API and role-aware web dashboard. It uses Node.js, Express, SQLite, JWT authentication, Zod validation, Chart.js, Swagger/OpenAPI, and a VS Code extension.
 
-Requirements: Node.js 20+ and npm.
+The demo repository includes realistic synthetic data for:
+
+- 500+ students
+- 25 instructors
+- 60 courses
+- 6 specializations
+- 4 academic terms
+
+## Contents
+
+- [Try it in 30 seconds](#try-it-in-30-seconds)
+- [Problem / Solution](#problem--solution)
+- [Features](#features)
+- [Role-by-role access](#role-by-role-access)
+- [How verification works](#how-verification-works)
+- [Architecture](#architecture)
+- [Tech stack](#tech-stack)
+- [Repository layout](#repository-layout)
+- [Quick start](#quick-start)
+- [Environment variables](#environment-variables)
+- [Demo accounts](#demo-accounts)
+- [API overview](#api-overview)
+- [Universal filters](#universal-filters)
+- [Metric formulas](#metric-formulas)
+- [Privacy and security](#privacy-and-security)
+- [VS Code plugin](#vs-code-plugin)
+- [Tests](#tests)
+- [CI](#ci)
+- [Grant proposal](#grant-proposal)
+- [Roadmap](#roadmap)
+- [Information still needed](#information-still-needed)
+- [License](#license)
+
+## Try it in 30 seconds
+
+1. Open a terminal in the repository root.
+2. Install dependencies, seed the demo database, and start the server:
 
 ```bash
-copy .env.example .env
 npm install
 npm run seed
 npm run dev
 ```
 
-Open `http://localhost:3000/public`.
+3. Open `http://localhost:3000/public`.
+4. Sign in with any [demo account](#demo-accounts).
+5. Change term, course, section, or widget selections and observe the data update.
+6. Open `http://localhost:3000/docs` for interactive API documentation.
 
-## Demo accounts
+No external database, cloud account, or infrastructure is required for the demo.
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Student | `student@pluglytics.local` | `Demo123!` |
-| Instructor | `instructor@pluglytics.local` | `Demo123!` |
-| Admin | `admin@pluglytics.local` | `Demo123!` |
+## Problem / Solution
 
-## Role-by-role features
+### Problem
 
-| Feature | Student | Instructor | Admin |
+Learning and financial information is often spread across LMS platforms, registrar spreadsheets, payment systems, and instructor reports. This makes it difficult to answer questions consistently:
+
+- Which students need support, without exposing unnecessary personal records?
+- Which sections, assignments, or quiz items are causing trouble?
+- How much tuition is billed, collected, outstanding, refunded, or discounted?
+- Which courses, specializations, and terms are performing well?
+- Can the same evidence be used by different roles without broadening access?
+
+### Solution
+
+PlugLytics provides a single role-aware analytics surface backed by a versioned REST API.
+
+| Layer | What it does |
+| --- | --- |
+| Public website | Explains the project and provides dashboard and plugin entry points |
+| Analytics dashboard | Displays role-specific widgets and persisted custom layouts |
+| REST API | Returns consistently structured LMS and finance analytics |
+| Authentication | Verifies users through JWTs |
+| RBAC | Limits endpoints and filters by role |
+| Row-level checks | Resolves each student or instructor from the signed-in account |
+| Privacy controls | Uses anonymous labels and a minimum cohort size of five |
+| Export | Downloads table endpoints as CSV |
+
+## Features
+
+### Student analytics
+
+- Course progress percentage by enrolled course
+- Quiz, assignment, and exam grade averages
+- GPA trend by academic term
+- Upcoming deadlines and overdue items
+- Attendance and time-on-platform data
+- Anonymous class-standing percentile bands
+- Plain-language at-risk indicators
+
+### Instructor analytics
+
+- Analytics limited to sections owned by the signed-in instructor
+- Grade distribution histogram
+- Submission rate and average score per assignment
+- Hardest quiz questions by incorrect-response percentage
+- Engagement by weekday and hour
+- Anonymous at-risk student list
+- Section and term comparisons
+- Pass, failure, and withdrawal views
+
+### Administrator analytics
+
+- Enrollment totals by term, specialization, program, and year level
+- Waitlist totals and seat utilization
+- Retention and dropout rates
+- Tuition billed, collected, outstanding, refunded, and discounted
+- Income by specialization, program, and payment method
+- Instructor cost and course margin where source cost data is available
+- Revenue forecast
+- GPA by specialization and course pass rates
+- Instructor ratings
+- Course popularity and enrollment timing
+
+### Product features
+
+- Role-aware widget catalog
+- Custom widget selection and order
+- Default filters and chart preferences
+- Named dashboard presets
+- Dark/light mode
+- Page and result filtering
+- CSV export
+- Swagger/OpenAPI documentation
+- VS Code commands for dashboard, docs, health, and server startup
+
+## Role-by-role access
+
+| Capability | Student | Instructor | Admin |
 | --- | --- | --- | --- |
 | Own course progress | Yes | - | Yes |
 | Own grade trend | Yes | - | - |
@@ -47,7 +166,7 @@ Open `http://localhost:3000/public`.
 | Assignment analytics | - | Own sections | All |
 | Quiz item analysis | - | Own sections | All |
 | Engagement heatmap | - | Own sections | All |
-| At-risk students | Anonymous labels | Anonymous labels | Full analytics |
+| At-risk students | Anonymous | Anonymous labels | Full analytics |
 | Enrollment analytics | - | - | Yes |
 | Finance analytics | - | - | Yes |
 | Academic quality | - | - | Yes |
@@ -55,23 +174,231 @@ Open `http://localhost:3000/public`.
 | Custom dashboard | Yes | Yes | Yes |
 | CSV export | Own tables | Own-section tables | All tables |
 
-## API groups
+## How verification works
 
-- Authentication: `POST /auth/login`, `GET /auth/me`
-- Health: `GET /health`
-- Student: `/student/progress`, `/student/grades`, `/student/deadlines`, `/student/standing`, `/student/risk`
-- Instructor: `/instructor/sections`, `/instructor/distribution`, `/instructor/assignments`, `/instructor/item-analysis`, `/instructor/engagement`, `/instructor/at-risk`, `/instructor/compare`
-- Admin enrollment: `/admin/enrollment/summary`, `/admin/enrollment/by-specialization`, `/admin/enrollment/year-level`, `/admin/enrollment/retention`, `/admin/enrollment/seat-utilization`
-- Admin finance: `/admin/finance/overview`, `/admin/finance/income-by-specialization`, `/admin/finance/outstanding`, `/admin/finance/refunds`
-- Admin academics: `/admin/academics/gpa-by-specialization`, `/admin/academics/pass-rates`, `/admin/academics/ratings`
-- Admin operations: `/admin/operations/course-popularity`
-- Dashboard: `/widgets`, `/me/dashboard`, `/me/dashboard/presets`, `/me/dashboard/render`
+The demo does not rely on cryptographic verification because it is an LMS application, not a Stellar-anchored ledger product.
+
+Instead, every API response follows the same verification and privacy model:
+
+1. The JWT identifies the user.
+2. RBAC middleware verifies the role.
+3. Student and instructor endpoints apply row-level constraints.
+4. The server validates every accepted query parameter.
+5. Analytics calculate from the SQLite database.
+6. Small cohorts are withheld or reduced to anonymous bands.
+7. CSV and dashboard views use the same filtered server response envelope.
+
+## Architecture
+
+```text
+Browser dashboard / VS Code plugin
+              |
+              v
+        Express API
+   JWT + RBAC middleware
+   Zod query validation
+   analytics route modules
+              |
+              v
+       SQLite database
+  better-sqlite3 + SQL views
+```
+
+The public/static dashboard is served from `/public`. API routes are served under `/api/v1`. Swagger UI is served at `/docs`.
+
+## Tech stack
+
+| Layer | Package or technology |
+| --- | --- |
+| Runtime | Node.js |
+| API | Express |
+| Database | SQLite through `better-sqlite3` |
+| Authentication | JWT |
+| Password hashing | bcrypt |
+| Validation | Zod |
+| API docs | Swagger UI / OpenAPI |
+| Tests | Jest and Supertest |
+| Dashboard | Vanilla JavaScript and Chart.js |
+| VS Code | VS Code Extension API |
+| Security | Helmet and express-rate-limit |
+
+## Repository layout
+
+```text
+PlugLytics/
+|- public/                 # Public website and role-aware dashboard
+|- pluglytics-vscode/      # VS Code extension source and VSIX
+|- scripts/                # Database seed script
+|- src/
+|  |- middleware/          # JWT, RBAC, and query validation
+|  |- routes/              # Auth and analytics endpoints
+|  |- utils/               # Response envelope and CSV export
+|  |- app.js               # Express application
+|  |- db.js                # SQLite connection
+|  |- schema.sql           # Tables, indexes, and views
+|  |- openapi.js           # Swagger document
+|- tests/                  # API and RBAC tests
+|- .vscode/                # Debug, tasks, and extension launch setup
+|- api.http                # REST Client request examples
+|- PROPOSAL.md             # Grant proposal
+|- README.md
+```
+
+## Quick start
+
+### Prerequisites
+
+- Node.js 20 or newer
+- npm
+- Windows PowerShell, macOS, or Linux
+- Optional: VS Code REST Client extension
+
+### Run the API and website
+
+```bash
+copy .env.example .env
+npm install
+npm run seed
+npm run dev
+```
+
+macOS or Linux:
+
+```bash
+cp .env.example .env
+npm install
+npm run seed
+npm run dev
+```
+
+Open:
+
+- Public website: `http://localhost:3000/public`
+- Dashboard: `http://localhost:3000/public/dashboard.html`
+- Swagger: `http://localhost:3000/docs`
+
+### Package the VS Code plugin
+
+```bash
+npm run package:plugin
+code --install-extension pluglytics-vscode/pluglytics-0.1.0.vsix
+```
+
+## Environment variables
+
+| Variable | Needed for | Default | Required |
+| --- | --- | --- | --- |
+| `PORT` | API listen port | `3000` | No |
+| `JWT_SECRET` | Signing JWTs | Development fallback | Production: yes |
+| `JWT_EXPIRES_IN` | JWT lifetime | `8h` | No |
+| `DATABASE_PATH` | SQLite database location | `./data/pluglytics.db` | No |
+
+Create a local `.env` from `.env.example`. Use a unique JWT secret outside development.
+
+## Demo accounts
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Student | `student@pluglytics.local` | `Demo123!` |
+| Instructor | `instructor@pluglytics.local` | `Demo123!` |
+| Admin | `admin@pluglytics.local` | `Demo123!` |
+
+Demo credentials are seeded only for local demonstration.
+
+## API overview
+
+### Authentication
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| POST | `/api/v1/auth/login` | Log in and receive a JWT |
+| GET | `/api/v1/auth/me` | Return the signed-in user |
+
+### Student
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/api/v1/student/progress` | Own course progress |
+| GET | `/api/v1/student/grades` | Own grade and GPA trend |
+| GET | `/api/v1/student/deadlines` | Upcoming and overdue items |
+| GET | `/api/v1/student/standing` | Anonymous percentile band |
+| GET | `/api/v1/student/risk` | Plain-language at-risk indicator |
+
+### Instructor
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/api/v1/instructor/sections` | Own sections |
+| GET | `/api/v1/instructor/distribution` | Grade distribution |
+| GET | `/api/v1/instructor/assignments` | Assignment analytics |
+| GET | `/api/v1/instructor/item-analysis` | Quiz item difficulty |
+| GET | `/api/v1/instructor/engagement` | Weekday/hour activity |
+| GET | `/api/v1/instructor/at-risk` | Anonymous at-risk list |
+| GET | `/api/v1/instructor/compare` | Section and term comparisons |
+
+### Admin
+
+| Method | Endpoint group | Description |
+| --- | --- | --- |
+| GET | `/api/v1/admin/enrollment/*` | Enrollment and seat analytics |
+| GET | `/api/v1/admin/finance/*` | Billing and collection analytics |
+| GET | `/api/v1/admin/academics/*` | GPA, pass rates, and ratings |
+| GET | `/api/v1/admin/operations/*` | Course popularity and operations |
+
+### Dashboard
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/api/v1/widgets` | Role-available widget catalog |
+| GET | `/api/v1/me/dashboard` | Read saved layout |
+| PUT | `/api/v1/me/dashboard` | Save layout |
+| POST | `/api/v1/me/dashboard/presets` | Save named preset |
+| GET | `/api/v1/me/dashboard/render` | Render selected widgets |
+| GET | `/api/v1/me/filter-options` | Fetch role-permitted term and activity dates |
+
+The dashboard fetches available terms after sign-in and supports `from` and `to` date filters. The date options endpoint returns only dates associated with the caller's own records or sections, depending on role.
+
+Example login:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"student@pluglytics.local","password":"Demo123!"}'
+```
+
+Example authenticated request:
+
+```bash
+curl http://localhost:3000/api/v1/student/progress \
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+Example CSV export:
+
+```text
+GET /api/v1/admin/enrollment/by-specialization?term=2025-1&format=csv
+```
 
 ## Universal filters
 
-`term`, `from`, `to`, `specialization`, `program`, `course`, `section`, `instructor`, `yearLevel`, `status`, `groupBy`, `granularity`, `compare`, `sort`, `page`, `limit`.
+Every analytics endpoint accepts the role-permitted subset of:
 
-The server rejects any filter outside the caller's role with HTTP `403` and a clear message. Append `format=csv` to table endpoints to download CSV.
+`term`, `from`, `to`, `specialization`, `program`, `course`, `section`, `instructor`, `yearLevel`, `status`, `groupBy`, `granularity`, `compare`, `sort`, `page`, `limit`
+
+A disallowed filter returns HTTP `403` with a clear `FILTER_FORBIDDEN` response. Results use the same response envelope:
+
+```json
+{
+  "data": {},
+  "meta": {
+    "filtersApplied": {},
+    "generatedAt": "",
+    "page": 1,
+    "total": 0
+  },
+  "error": null
+}
+```
 
 ## Metric formulas
 
@@ -85,18 +412,48 @@ The server rejects any filter outside the caller's role with HTTP `403` and a cl
 | Dropout rate | Dropped or withdrawn enrollments / total enrollments x 100 |
 | Pass rate | Enrollments with final grade >= 60 / graded enrollments x 100 |
 | Seat utilization | Enrolled students / section capacity x 100 |
-| Anonymous percentile band | Position of the student's average against the eligible cohort, reported only at cohort sizes >= 5 |
-| At-risk | 2+ missing submissions and/or attendance below 75%; reasons are shown in plain language |
+| Outstanding balance | Invoice amount - payments - approved adjustments |
+| Aging bucket | Outstanding days since due date: 0-30, 31-60, or 60+ |
+| Anonymous percentile band | Student average compared with an eligible cohort of at least five students |
+| At-risk | 2+ missing submissions and/or attendance below 75%, plus plain-language reasons |
 
 ## Privacy and security
 
-- JWT authentication and role checks.
-- Student records are resolved from the signed-in user; names are never accepted as a student lookup.
-- Instructor queries start with the signed-in instructor's section ownership.
-- Student and instructor aggregates require a minimum cohort of five where standing or aggregate analytics could identify a person.
-- Password hashing with bcrypt.
-- Helmet, a 300-request-per-minute rate limit, Zod validation, indexed queries, and standardized error envelopes.
-- No stack traces are returned to API consumers.
+- JWT authentication with role claims
+- Role-based route authorization
+- Student identity derived from the signed-in account
+- Instructor queries constrained to owned sections
+- Minimum cohort size of five for privacy-sensitive aggregates
+- Anonymous at-risk labels for instructor views
+- Password hashing with bcrypt
+- Helmet security headers
+- Per-IP rate limiting
+- Zod input/query validation
+- Indexed SQLite queries
+- Standardized error envelopes
+- No stack traces returned to clients
+
+This repository is a technical demo. Production use still requires a privacy review, threat model, audit logging, secret management, backups, HTTPS, and an appropriate deployment database strategy.
+
+## VS Code plugin
+
+The source is in [pluglytics-vscode](./pluglytics-vscode). A VSIX is also placed in [public](./public).
+
+Commands:
+
+- `PlugLytics: Open Dashboard`
+- `PlugLytics: Open API Documentation`
+- `PlugLytics: Start API`
+- `PlugLytics: Check API Health`
+- `PlugLytics: Connect Account`
+- `PlugLytics: Refresh Available LMS Dates`
+- `PlugLytics: Filter Dashboard by Date`
+- `PlugLytics: Configure LMS Date API`
+- `PlugLytics: Set LMS API Token`
+
+The PlugLytics API URL is configurable with `pluglytics.baseUrl`. Once a user connects, the extension automatically refreshes role-scoped date choices from the API and can open the dashboard with the selected term or date range. An optional `pluglytics.lmsDateOptionsUrl` setting points to a JSON API on the institution's LMS; the extension can fetch ISO date fields and Unix-second timestamps from that endpoint. Configure its URL with **PlugLytics: Configure LMS Date API** and store an optional bearer token with **PlugLytics: Set LMS API Token**.
+
+This generic date fetcher requires a REST JSON endpoint and does not support LMS web-page scraping, provider-specific OAuth, or automatic pagination. Provider adapters or import mappings are still needed to populate PlugLytics analytics with institution data. The demo currently uses synthetic seeded data.
 
 ## Tests
 
@@ -104,14 +461,73 @@ The server rejects any filter outside the caller's role with HTTP `403` and a cl
 npm test
 ```
 
-Tests cover health, student/instructor/admin authorization boundaries, finance calculation, dashboard persistence, and privacy-safe standing.
+Current coverage includes:
 
-## VS Code plugin
+- Health response envelope
+- Student filter restrictions
+- Student-to-instructor authorization boundary
+- Instructor-to-admin authorization boundary
+- Finance collection-rate calculation
+- Dashboard layout persistence
+- Privacy-safe standing endpoint
 
-The installable PlugLytics extension is in [pluglytics-vscode](./pluglytics-vscode).
+To rerun a clean demo:
 
-It adds commands for opening the dashboard, opening Swagger, starting the API, and checking API health.
+```bash
+npm run seed
+npm test
+```
+
+## CI
+
+GitHub Actions workflows are not yet present in this repository.
 
 ## Grant proposal
 
-See [PROPOSAL.md](./PROPOSAL.md) for the Stellar Payments grant proposal and implementation roadmap.
+See [PROPOSAL.md](./PROPOSAL.md) for the PlugLytics grant proposal, Stellar Payments integration opportunity, planned roadmap, impact, budget categories, and evaluation metrics.
+
+The current project uses synthetic payment data. No live Stellar Payments or Stellar network integration is claimed.
+
+## Roadmap
+
+- [ ] Live public deployment with HTTPS
+- [ ] Stellar Payments sandbox credentials and payment adapter
+- [ ] Live invoice and payment reconciliation
+- [ ] Revenue forecast endpoint
+- [ ] Instructor cost and course-margin reporting
+- [ ] LMS provider integration
+- [ ] Automated CI and code-quality workflow
+- [ ] Complete VS Code Marketplace publication
+- [ ] Pilot institution approval and data-governance review
+- [ ] Production backup, migration, logging, and monitoring setup
+- [ ] Pilot user testing and accessibility audit
+- [ ] Formal privacy and security review
+
+## Information still needed
+
+The following information is needed before the README and grant materials can be fully finalized:
+
+1. Public production domain and hosting provider
+2. Public API and Swagger URLs
+3. Production database strategy and backup requirements
+4. LMS provider(s) used by the pilot institution
+5. Pilot institution name, program, and authorized contact
+6. Real enrollment, retention, and financial definitions
+7. Ledger and accounting system used for tuition reconciliation
+8. Stellar Payments sandbox and production merchant credentials
+9. Stellar Payments API, webhook, and settlement documentation
+10. Approved payment methods and refund/chargeback procedures
+11. Scholarship, discount, fee, and instructor-cost fields
+12. Pilot budget, grant amount, milestones, and reporting dates
+13. User-testing population and target sample size
+14. Security, accessibility, and compliance requirements
+15. Logo and official brand assets
+16. Screenshot or video assets for the public repository
+17. License choice and maintainer information
+18. Support, privacy, terms, and vulnerability-disclosure URLs
+19. GitHub repository release/tag and publication strategy
+20. VS Code Marketplace publisher ID
+
+## License
+
+**License:** not yet selected.

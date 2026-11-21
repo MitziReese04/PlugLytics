@@ -31,11 +31,11 @@ function filterTermClause(filters, termAlias) {
     params.term = filters.term;
   }
   if (filters.from) {
-    where.push(`${termAlias}.start_date >= @from`);
+    where.push(`${termAlias}.end_date >= date(@from)`);
     params.from = filters.from;
   }
   if (filters.to) {
-    where.push(`${termAlias}.end_date <= @to`);
+    where.push(`${termAlias}.start_date <= date(@to)`);
     params.to = filters.to;
   }
   return { sql: where.length ? ` AND ${where.join(" AND ")}` : "", params };
@@ -130,6 +130,8 @@ router.get("/deadlines", (req, res) => {
     LEFT JOIN submissions s ON s.assignment_id = a.id AND s.student_id = e.student_id
     WHERE e.student_id = @studentId
       ${termFilter.sql}
+      AND (@fromDate = '' OR date(a.due_at) >= date(@fromDate))
+      AND (@toDate = '' OR date(a.due_at) <= date(@toDate))
       AND (@status = '' OR CASE WHEN s.submitted_at IS NULL AND a.due_at < datetime('now') THEN 'overdue'
                                 WHEN s.submitted_at IS NULL THEN 'upcoming'
                                 ELSE 'submitted' END = @status)
@@ -137,6 +139,8 @@ router.get("/deadlines", (req, res) => {
   `).all({
     studentId,
     status: req.filters.status || "",
+    fromDate: req.filters.from || "",
+    toDate: req.filters.to || "",
     ...termFilter.params,
   }).map((row) => ({
     ...row,

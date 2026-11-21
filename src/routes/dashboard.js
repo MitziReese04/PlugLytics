@@ -7,6 +7,96 @@ const { sendSuccess, sendError } = require("../utils/envelope");
 const router = express.Router();
 router.use(authenticate);
 
+router.get("/filter-options", (req, res) => {
+  let terms;
+  let dates;
+
+  if (req.user.role === "student") {
+    const student = db.prepare("SELECT id FROM students WHERE user_id = ?").get(req.user.id);
+    if (!student) return sendError(res, 404, "STUDENT_NOT_FOUND", "Student profile was not found");
+    terms = db.prepare(`
+      SELECT DISTINCT t.code, t.name, t.start_date AS startDate, t.end_date AS endDate
+      FROM terms t
+      JOIN sections sec ON sec.term_id = t.id
+      JOIN enrollments e ON e.section_id = sec.id
+      WHERE e.student_id = ?
+      ORDER BY t.start_date DESC
+    `).all(student.id);
+    dates = db.prepare(`
+      SELECT date(value) AS date FROM (
+        SELECT a.due_at AS value
+        FROM assignments a
+        JOIN sections sec ON sec.id = a.section_id
+        JOIN enrollments e ON e.section_id = sec.id
+        WHERE e.student_id = ?
+        UNION ALL
+        SELECT s.submitted_at
+        FROM submissions s WHERE s.student_id = ?
+        UNION ALL
+        SELECT attended_at FROM attendance_logs WHERE student_id = ?
+        UNION ALL
+        SELECT occurred_at FROM activity_logs WHERE student_id = ?
+      ) WHERE value IS NOT NULL
+      GROUP BY date(value)
+      ORDER BY date
+    `).all(student.id, student.id, student.id, student.id).map((row) => row.date);
+  } else if (req.user.role === "instructor") {
+    const instructor = db.prepare("SELECT id FROM instructors WHERE user_id = ?").get(req.user.id);
+    if (!instructor) return sendError(res, 404, "INSTRUCTOR_NOT_FOUND", "Instructor profile was not found");
+    terms = db.prepare(`
+      SELECT DISTINCT t.code, t.name, t.start_date AS startDate, t.end_date AS endDate
+      FROM terms t JOIN sections sec ON sec.term_id = t.id
+      WHERE sec.instructor_id = ?
+      ORDER BY t.start_date DESC
+    `).all(instructor.id);
+    dates = db.prepare(`
+      SELECT date(value) AS date FROM (
+        SELECT a.due_at AS value FROM assignments a
+        JOIN sections sec ON sec.id = a.section_id WHERE sec.instructor_id = ?
+        UNION ALL
+        SELECT s.submitted_at FROM submissions s
+        JOIN assignments a ON a.id = s.assignment_id
+        JOIN sections sec ON sec.id = a.section_id WHERE sec.instructor_id = ?
+        UNION ALL
+        SELECT al.attended_at FROM attendance_logs al
+        JOIN sections sec ON sec.id = al.section_id WHERE sec.instructor_id = ?
+        UNION ALL
+        SELECT al.occurred_at FROM activity_logs al
+        JOIN sections sec ON sec.id = al.section_id WHERE sec.instructor_id = ?
+      ) WHERE value IS NOT NULL
+      GROUP BY date(value)
+      ORDER BY date
+    `).all(instructor.id, instructor.id, instructor.id, instructor.id).map((row) => row.date);
+  } else {
+    terms = db.prepare(`
+      SELECT code, name, start_date AS startDate, end_date AS endDate
+      FROM terms ORDER BY start_date DESC
+    `).all();
+    dates = db.prepare(`
+      SELECT date(value) AS date FROM (
+        SELECT due_at AS value FROM assignments
+        UNION ALL SELECT submitted_at FROM submissions
+        UNION ALL SELECT attended_at FROM attendance_logs
+        UNION ALL SELECT occurred_at FROM activity_logs
+        UNION ALL SELECT issued_at FROM invoices
+        UNION ALL SELECT paid_at FROM payments
+        UNION ALL SELECT refunded_at FROM refunds
+      ) WHERE value IS NOT NULL
+      GROUP BY date(value)
+      ORDER BY date
+    `).all().map((row) => row.date);
+  }
+
+  return sendSuccess(res, {
+    terms,
+    dates,
+    dateRange: {
+      from: dates[0] || null,
+      to: dates[dates.length - 1] || null,
+    },
+  });
+});
+
 const layoutSchema = z.object({
   widgets: z.array(z.object({
     id: z.string().min(1),

@@ -33,6 +33,14 @@ function termParams(req) {
     sql += " AND p.code = @program";
     params.program = req.filters.program;
   }
+  if (req.filters.from) {
+    sql += " AND t.end_date >= date(@from)";
+    params.from = req.filters.from;
+  }
+  if (req.filters.to) {
+    sql += " AND t.start_date <= date(@to)";
+    params.to = req.filters.to;
+  }
   return { sql, params };
 }
 

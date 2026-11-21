@@ -39,6 +39,7 @@ module.exports = {
     "/admin/operations/course-popularity": { get: { summary: "Course popularity", responses: { "200": { description: "Popularity rows" } } } },
     "/widgets": { get: { summary: "Role-specific widget catalog", responses: { "200": { description: "Widgets" } } } },
     "/me/dashboard": { get: { summary: "Get dashboard layout", responses: { "200": { description: "Layout" } } }, put: { summary: "Save dashboard layout", responses: { "200": { description: "Saved layout" } } } },
+    "/me/filter-options": { get: { summary: "Get role-permitted terms and dates for dashboard filters", responses: { "200": { description: "Available date filters" } } } },
     "/me/dashboard/presets": { post: { summary: "Save a dashboard preset", responses: { "201": { description: "Preset saved" } } } },
     "/me/dashboard/render": { get: { summary: "Render selected widgets", responses: { "200": { description: "Rendered widgets" } } } },
   },

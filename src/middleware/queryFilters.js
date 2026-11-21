@@ -1,10 +1,15 @@
 const { z } = require("zod");
 const { sendError } = require("../utils/envelope");
 
+const dateFilter = z.string().refine(
+  (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isNaN(Date.parse(value)),
+  "Expected a date in YYYY-MM-DD or ISO 8601 format"
+);
+
 const filterSchema = z.object({
   term: z.string().max(50).optional(),
-  from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
+  from: dateFilter.optional(),
+  to: dateFilter.optional(),
   specialization: z.string().max(50).optional(),
   program: z.string().max(50).optional(),
   course: z.string().max(50).optional(),
@@ -18,6 +23,14 @@ const filterSchema = z.object({
   sort: z.string().max(100).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+}).superRefine((filters, context) => {
+  if (filters.from && filters.to && new Date(filters.from) > new Date(filters.to)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["from"],
+      message: "'from' must be earlier than or equal to 'to'",
+    });
+  }
 });
 
 const allowedByRole = {

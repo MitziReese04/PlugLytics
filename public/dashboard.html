@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PlugLytics Dashboard</title>
-  <link rel="stylesheet" href="/public/styles.css">
+  <link rel="stylesheet" href="./styles.css?v=3">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="dashboard-page">
   <div id="loginScreen" class="login-shell">
     <section class="login-card">
-      <div class="brand-mark">P</div>
+      <img class="login-brand-logo" src="./pluglytics-logo-mark.png" alt="">
       <h1>PlugLytics</h1>
       <p>Learning intelligence for every role.</p>
       <form id="loginForm">
@@ -24,7 +24,7 @@
 
   <div id="app" class="app-shell" hidden>
     <aside class="sidebar">
-      <a class="brand" href="/public"><span class="brand-mark">P</span><span>PlugLytics</span></a>
+      <a class="brand" href="./"><span class="brand-mark">P</span><span>PlugLytics</span></a>
       <nav id="roleNav"></nav>
       <button id="logoutButton" class="quiet-button">Sign out</button>
     </aside>
@@ -37,6 +37,8 @@
       </header>
       <section class="filter-bar">
         <label>Term<select id="termFilter"><option value="">All terms</option><option value="2023-1">Fall 2023</option><option value="2024-1">Spring 2024</option><option value="2024-2">Fall 2024</option><option value="2025-1">Spring 2025</option></select></label>
+        <label>From<input id="fromFilter" type="date"></label>
+        <label>To<input id="toFilter" type="date"></label>
         <label>Course<input id="courseFilter" placeholder="e.g. COURSE-001"></label>
         <label>Section<input id="sectionFilter" placeholder="e.g. Section A"></label>
         <label>Group<select id="groupFilter"><option value="">None</option><option value="term">Term</option><option value="course">Course</option><option value="section">Section</option></select></label>
@@ -48,6 +50,6 @@
       </section>
     </main>
   </div>
-  <script src="/public/app.js"></script>
+  <script src="./app.js?v=2"></script>
 </body>
 </html>

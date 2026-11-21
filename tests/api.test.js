@@ -80,4 +80,24 @@ describe("PlugLytics API", () => {
       .set("Authorization", `Bearer ${token}`);
     expect(response.status).toBe(200);
   });
+
+  test("date filter options are available to the signed-in role", async () => {
+    const token = await login("student@pluglytics.local");
+    const response = await request(app)
+      .get("/api/v1/me/filter-options")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.status).toBe(200);
+    expect(response.body.data.terms.length).toBeGreaterThan(0);
+    expect(response.body.data.dates.length).toBeGreaterThan(0);
+    expect(response.body.data.dateRange.from).toBeTruthy();
+  });
+
+  test("date filters reject an inverted range", async () => {
+    const token = await login("student@pluglytics.local");
+    const response = await request(app)
+      .get("/api/v1/student/deadlines?from=2025-05-01&to=2025-01-01")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+  });
 });

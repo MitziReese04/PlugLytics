@@ -28,7 +28,10 @@ app.use(
 );
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApi));
-app.use("/public", express.static(path.join(__dirname, "../public")));
+app.use("/public", (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+}, express.static(path.join(__dirname, "../public"), { etag: false, maxAge: 0 }));
 app.get("/", (req, res) => res.redirect("/public"));
 app.get("/dashboard", (req, res) => res.redirect("/public/dashboard.html"));
 app.get("/proposal", (req, res) => res.download(path.join(__dirname, "../PROPOSAL.md")));

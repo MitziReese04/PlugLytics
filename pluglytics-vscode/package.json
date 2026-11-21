@@ -8,6 +8,7 @@
     "type": "git",
     "url": "https://github.com/MitziReese04/PlugLytics"
   },
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -36,6 +37,26 @@
       {
         "command": "pluglytics.healthCheck",
         "title": "PlugLytics: Check API Health"
+      },
+      {
+        "command": "pluglytics.connect",
+        "title": "PlugLytics: Connect Account"
+      },
+      {
+        "command": "pluglytics.refreshDates",
+        "title": "PlugLytics: Refresh Available LMS Dates"
+      },
+      {
+        "command": "pluglytics.chooseDateRange",
+        "title": "PlugLytics: Filter Dashboard by Date"
+      },
+      {
+        "command": "pluglytics.configureLms",
+        "title": "PlugLytics: Configure LMS Date API"
+      },
+      {
+        "command": "pluglytics.setLmsToken",
+        "title": "PlugLytics: Set LMS API Token"
       }
     ],
     "configuration": {
@@ -45,12 +66,17 @@
           "type": "string",
           "default": "http://localhost:3000",
           "description": "Base URL for the PlugLytics API."
+        },
+        "pluglytics.lmsDateOptionsUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Optional LMS REST API URL returning JSON records with course, term, assignment, enrollment, or activity dates."
         }
       }
     }
   },
   "scripts": {
     "package": "npx @vscode/vsce package",
-    "test": "node test/extension.test.js"
+    "test": "node test/extension.test.cjs"
   }
 }

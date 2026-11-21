@@ -95,6 +95,14 @@ Content-Type: application/json
 GET {{baseUrl}}/me/dashboard/render
 Authorization: Bearer {{studentToken}}
 
+### Fetch dates and terms available to the signed-in user
+GET {{baseUrl}}/me/filter-options
+Authorization: Bearer {{studentToken}}
+
+### Filter dashboard with a date range
+GET {{baseUrl}}/student/deadlines?from=2025-01-15&to=2025-03-15
+Authorization: Bearer {{studentToken}}
+
 ### Instructor sections
 GET {{baseUrl}}/instructor/sections?term=2025-1&page=1&limit=20
 Authorization: Bearer {{instructorToken}}

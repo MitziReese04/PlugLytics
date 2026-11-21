@@ -28,6 +28,14 @@ function sectionFilter(req, alias = "sec") {
     parts.push(`${alias}.name = @section`);
     params.section = req.filters.section;
   }
+  if (req.filters.from) {
+    parts.push("t.end_date >= date(@from)");
+    params.from = req.filters.from;
+  }
+  if (req.filters.to) {
+    parts.push("t.start_date <= date(@to)");
+    params.to = req.filters.to;
+  }
   return { sql: parts.join(" AND "), params };
 }
 

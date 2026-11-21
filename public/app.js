@@ -4,6 +4,7 @@ const state = {
   catalog: [],
   widgets: [],
   charts: [],
+  filterOptions: null,
 };
 
 const byId = (id) => document.getElementById(id);
@@ -23,7 +24,11 @@ function filterQuery() {
   const course = byId("courseFilter").value.trim();
   const section = byId("sectionFilter").value.trim();
   const groupBy = byId("groupFilter").value;
+  const from = byId("fromFilter").value;
+  const to = byId("toFilter").value;
   if (term) params.set("term", term);
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
   if (course) params.set("course", course);
   if (section) params.set("section", section);
   if (groupBy) params.set("groupBy", groupBy);
@@ -69,12 +74,30 @@ async function startSession() {
 
   const catalog = await api("/widgets");
   state.catalog = catalog.data;
+  const filterOptions = await api("/me/filter-options");
+  state.filterOptions = filterOptions.data;
   const saved = await api("/me/dashboard");
   state.widgets = saved.data.widgets || [];
+  populateTerms(state.filterOptions.terms || []);
+  const query = new URLSearchParams(location.search);
+  const savedFilters = saved.data.filters || {};
+  byId("fromFilter").value = query.get("from") || savedFilters.from || "";
+  byId("toFilter").value = query.get("to") || savedFilters.to || "";
+  byId("termFilter").value = query.get("term") || savedFilters.term || "";
+  byId("courseFilter").value = query.get("course") || savedFilters.course || "";
+  byId("sectionFilter").value = query.get("section") || savedFilters.section || "";
   byId("themeSelect").value = saved.data.theme || "light";
   applyTheme(saved.data.theme || "light");
   renderCatalog();
   await renderWidgets();
+}
+
+function populateTerms(terms) {
+  const select = byId("termFilter");
+  const selected = select.value;
+  select.innerHTML = `<option value="">All available terms</option>` +
+    terms.map((term) => `<option value="${term.code}">${term.name}</option>`).join("");
+  select.value = selected;
 }
 
 function renderCatalog() {
@@ -231,6 +254,8 @@ byId("saveLayout").addEventListener("click", async () => {
     widgets: state.widgets,
     filters: {
       term: byId("termFilter").value,
+      from: byId("fromFilter").value,
+      to: byId("toFilter").value,
       course: byId("courseFilter").value,
       section: byId("sectionFilter").value,
       groupBy: byId("groupFilter").value,
