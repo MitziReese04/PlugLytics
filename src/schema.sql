@@ -219,6 +219,15 @@ CREATE TABLE IF NOT EXISTS payment_requests (
     )
   ),
   invoice_currency TEXT CHECK(invoice_currency IS NULL OR (length(invoice_currency) = 3 AND invoice_currency GLOB '[A-Z][A-Z][A-Z]')),
+  -- The invoice balance that was converted, as a 2-decimal string in invoice_currency.
+  invoice_amount TEXT CHECK(invoice_amount IS NULL OR (
+    invoice_amount GLOB '[0-9]*.[0-9][0-9]' AND invoice_amount NOT GLOB '*[^0-9.]*'
+  )),
+  -- What actually arrived on Stellar (7-decimal string), and the ledger it closed in.
+  amount_received TEXT CHECK(amount_received IS NULL OR (
+    amount_received GLOB '[0-9]*.[0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND amount_received NOT GLOB '*[^0-9.]*'
+  )),
+  ledger INTEGER CHECK(ledger IS NULL OR ledger > 0),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   expires_at TEXT NOT NULL,
   completed_at TEXT,
@@ -231,9 +240,11 @@ CREATE TABLE IF NOT EXISTS payment_requests (
   CHECK(status = 'completed' OR completed_at IS NULL),
   -- Requests created from an invoice store the quoted rate and invoice currency; others store neither.
   CHECK(
-    (invoice_id IS NULL AND quoted_rate IS NULL AND invoice_currency IS NULL)
-    OR (invoice_id IS NOT NULL AND quoted_rate IS NOT NULL AND invoice_currency IS NOT NULL)
+    (invoice_id IS NULL AND quoted_rate IS NULL AND invoice_currency IS NULL AND invoice_amount IS NULL)
+    OR (invoice_id IS NOT NULL AND quoted_rate IS NOT NULL AND invoice_currency IS NOT NULL AND invoice_amount IS NOT NULL)
   ),
+  -- A transaction is recorded together with what it delivered and its ledger.
+  CHECK((tx_hash IS NULL) = (amount_received IS NULL) AND (tx_hash IS NULL) = (ledger IS NULL)),
   CHECK(expires_at > created_at),
   CHECK(related_payment_id IS NULL OR related_payment_id <> id),
   FOREIGN KEY (invoice_id) REFERENCES invoices(id),

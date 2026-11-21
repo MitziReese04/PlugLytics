@@ -57,8 +57,9 @@ describe("payment_requests table", () => {
       asset_issuer: USDC_TESTNET_ISSUER,
       quoted_rate: "0.0171000",
       invoice_currency: "PHP",
+      invoice_amount: "2226.50",
     }));
-    expect(row).toMatchObject({ amount: "38.0731500", invoice_currency: "PHP", quoted_rate: "0.0171000" });
+    expect(row).toMatchObject({ amount: "38.0731500", invoice_currency: "PHP", quoted_rate: "0.0171000", invoice_amount: "2226.50" });
   });
 
   test.each([
@@ -77,13 +78,18 @@ describe("payment_requests table", () => {
     ["pending with a reason", { reason: "expired" }],
     ["unknown reason", { status: "failed", reason: "dispute" }],
     ["completed without a tx hash", { status: "completed", completed_at: "2026-11-21T12:05:00.000Z" }],
-    ["completed without completed_at", { status: "completed", tx_hash: HASH(1) }],
+    ["tx hash without amount received", { status: "completed", tx_hash: HASH(90), ledger: 5, completed_at: "2026-11-21T12:05:00.000Z" }],
+    ["tx hash without ledger", { status: "completed", tx_hash: HASH(91), amount_received: "25.0000000", completed_at: "2026-11-21T12:05:00.000Z" }],
+    ["amount received without 7 decimals", { status: "failed", reason: "underpaid", tx_hash: HASH(92), amount_received: "20", ledger: 5 }],
+    ["invoice amount without 2 decimals", { invoice_id: 1, quoted_rate: "1", invoice_currency: "USD", invoice_amount: "10" }],
+    ["invoice without an invoice amount", { invoice_id: 1, quoted_rate: "1", invoice_currency: "USD" }],
+    ["completed without completed_at", { status: "completed", tx_hash: HASH(1), amount_received: "25.0000000", ledger: 5 }],
     ["completed_at on a pending request", { completed_at: "2026-11-21T12:05:00.000Z" }],
-    ["tx hash in the wrong format", { tx_hash: "XYZ" }],
-    ["invoice without a quoted rate", { invoice_id: 1, invoice_currency: "PHP" }],
+    ["tx hash in the wrong format", { tx_hash: "XYZ", amount_received: "1.0000000", ledger: 5 }],
+    ["invoice without a quoted rate", { invoice_id: 1, invoice_currency: "PHP", invoice_amount: "10.00" }],
     ["quoted rate without an invoice", { quoted_rate: "1.0000000", invoice_currency: "USD" }],
-    ["lowercase invoice currency", { invoice_id: 1, quoted_rate: "1", invoice_currency: "php" }],
-    ["zero quoted rate", { invoice_id: 1, quoted_rate: "0", invoice_currency: "USD" }],
+    ["lowercase invoice currency", { invoice_id: 1, quoted_rate: "1", invoice_currency: "php", invoice_amount: "10.00" }],
+    ["zero quoted rate", { invoice_id: 1, quoted_rate: "0", invoice_currency: "USD", invoice_amount: "10.00" }],
     ["expiry before creation", { created_at: "2026-11-21T12:00:00.000Z", expires_at: "2026-11-21T11:00:00.000Z" }],
     ["id without the pay_ prefix", { id: "abc123" }],
   ])("rejects %s", (_, fields) => {
@@ -91,16 +97,16 @@ describe("payment_requests table", () => {
   });
 
   test("memo and tx hash must be unique", () => {
-    const first = get(insert({ status: "completed", tx_hash: HASH(2), completed_at: "2026-11-21T12:05:00.000Z" }));
+    const first = get(insert({ status: "completed", tx_hash: HASH(2), amount_received: "25.0000000", ledger: 5, completed_at: "2026-11-21T12:05:00.000Z" }));
     expect(() => insert({ memo: first.memo })).toThrow(/UNIQUE constraint failed/);
     expect(() =>
-      insert({ status: "completed", tx_hash: HASH(2), completed_at: "2026-11-21T12:06:00.000Z" })
+      insert({ status: "completed", tx_hash: HASH(2), amount_received: "25.0000000", ledger: 6, completed_at: "2026-11-21T12:06:00.000Z" })
     ).toThrow(/UNIQUE constraint failed/);
   });
 
   test("a pending request can become completed or failed", () => {
     const a = insert();
-    db.prepare("UPDATE payment_requests SET status = 'completed', tx_hash = ?, completed_at = ? WHERE id = ?")
+    db.prepare("UPDATE payment_requests SET status = 'completed', tx_hash = ?, amount_received = '25.0000000', ledger = 7, completed_at = ? WHERE id = ?")
       .run(HASH(3), "2026-11-21T12:05:00.000Z", a);
     expect(get(a).status).toBe("completed");
 
@@ -115,7 +121,7 @@ describe("payment_requests table", () => {
       db.prepare("UPDATE payment_requests SET status = 'pending', reason = NULL WHERE id = ?").run(failed)
     ).toThrow(/status is final/);
 
-    const completed = insert({ status: "completed", tx_hash: HASH(4), completed_at: "2026-11-21T12:05:00.000Z" });
+    const completed = insert({ status: "completed", tx_hash: HASH(4), amount_received: "25.0000000", ledger: 8, completed_at: "2026-11-21T12:05:00.000Z" });
     expect(() =>
       db.prepare("UPDATE payment_requests SET status = 'failed', reason = 'cancelled' WHERE id = ?").run(completed)
     ).toThrow(/status is final/);

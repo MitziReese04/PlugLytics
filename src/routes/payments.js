@@ -7,6 +7,7 @@ const { sendSuccess, sendError } = require("../utils/envelope");
 const { loadStellarConfig } = require("../stellarConfig");
 const { toAssetAmount } = require("../pricing");
 const { getQuote, RateUnavailableError } = require("../stellarQuotes");
+const { HorizonError, findPaymentsWithMemo, decideOutcome } = require("../stellarHorizon");
 
 const router = express.Router();
 
@@ -55,10 +56,10 @@ const findOpenRequest = db.prepare(`
 const insertRequest = db.prepare(`
   INSERT INTO payment_requests
     (id, invoice_id, amount, asset, asset_issuer, memo, destination, status,
-     quoted_rate, invoice_currency, created_at, expires_at)
+     quoted_rate, invoice_currency, invoice_amount, created_at, expires_at)
   VALUES
     (@id, @invoice_id, @amount, @asset, @asset_issuer, @memo, @destination, 'pending',
-     @quoted_rate, @invoice_currency, @created_at, @expires_at)
+     @quoted_rate, @invoice_currency, @invoice_amount, @created_at, @expires_at)
 `);
 
 function paymentUri({ destination, amount, memo }) {
@@ -66,14 +67,15 @@ function paymentUri({ destination, amount, memo }) {
   return `web+stellar:pay?${params.toString()}`;
 }
 
-function toResponse(row, { invoiceAmount, network }) {
+function toResponse(row, network) {
   return {
     id: row.id,
     type: "invoice",
     status: row.status,
+    reason: row.reason || null,
     invoiceId: row.invoice_id,
     invoiceCurrency: row.invoice_currency,
-    invoiceAmount,
+    invoiceAmount: row.invoice_amount,
     quotedRate: row.quoted_rate,
     rateQuotedAt: row.created_at,
     amount: row.amount,
@@ -86,11 +88,29 @@ function toResponse(row, { invoiceAmount, network }) {
     network,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
-    paidAt: null,
-    transactionHash: null,
-    relatedPaymentId: row.related_payment_id,
+    amountReceived: row.amount_received || null,
+    paidAt: row.completed_at || null,
+    transactionHash: row.tx_hash || null,
+    ledger: row.ledger || null,
+    relatedPaymentId: row.related_payment_id || null,
   };
 }
+
+const findRequest = db.prepare(`
+  SELECT pr.*, i.student_id
+  FROM payment_requests pr
+  LEFT JOIN invoices i ON i.id = pr.invoice_id
+  WHERE pr.id = ?
+`);
+
+// Only moves a request out of 'pending'; the schema trigger keeps final statuses final.
+const settleRequest = db.prepare(`
+  UPDATE payment_requests
+  SET status = @status, reason = @reason, tx_hash = @txHash, amount_received = @amountReceived,
+      ledger = @ledger, completed_at = @completedAt
+  WHERE id = @id AND status = 'pending'
+`);
+
 
 router.post("/", authenticate, authorize("student"), (req, res) => {
   const parsed = createSchema.safeParse(req.body);
@@ -147,6 +167,7 @@ router.post("/", authenticate, authorize("student"), (req, res) => {
   const createdAt = quote.quotedAt;
   const row = {
     invoice_id: invoice.id,
+    invoice_amount: invoice.outstanding.toFixed(2),
     amount: toAssetAmount(invoice.outstanding, quote.quotedRate),
     asset,
     asset_issuer: null, // XLM is native and has no issuer
@@ -165,17 +186,67 @@ router.post("/", authenticate, authorize("student"), (req, res) => {
     row.memo = `PL-${randomCode(8)}`;
     try {
       insertRequest.run(row);
-      return sendSuccess(
-        res,
-        toResponse(row, { invoiceAmount: invoice.outstanding.toFixed(2), network: stellar.env }),
-        {},
-        201
-      );
+      return sendSuccess(res, toResponse(row, stellar.env), {}, 201);
     } catch (error) {
       if (!String(error.message).includes("UNIQUE constraint failed")) throw error;
     }
   }
   return sendError(res, 500, "INTERNAL_ERROR", "Could not create a unique payment request");
+});
+
+// Returns a payment request. While it is pending, checks Horizon first and
+// marks it completed or failed (see docs/stellar/settlement.md).
+router.get("/:id", authenticate, authorize("student", "admin"), async (req, res, next) => {
+  try {
+    let row = findRequest.get(req.params.id);
+    // Students only see requests for their own invoices; others look missing.
+    const ownStudentId = req.user.role === "student" ? studentIdFor(req.user.id) : null;
+    if (!row || (req.user.role === "student" && (ownStudentId === null || row.student_id !== ownStudentId))) {
+      return sendError(res, 404, "PAYMENT_NOT_FOUND", "No payment request has that ID");
+    }
+
+    let stellar = null;
+    try {
+      stellar = loadStellarConfig();
+    } catch (error) {
+      stellar = null;
+    }
+
+    if (row.status === "pending") {
+      if (!stellar || stellar.env !== "sandbox") {
+        return sendError(res, 503, "STELLAR_NOT_CONFIGURED", "Stellar sandbox settings are needed to check this payment");
+      }
+      let payments;
+      try {
+        payments = await findPaymentsWithMemo({
+          horizonUrl: stellar.horizonUrl,
+          account: row.destination,
+          memo: row.memo,
+          since: row.created_at,
+        });
+      } catch (error) {
+        if (error instanceof HorizonError) {
+          return sendError(res, 502, "HORIZON_UNAVAILABLE", "Horizon could not be reached. Try again later.");
+        }
+        throw error;
+      }
+      const outcome = decideOutcome(row, payments);
+      if (outcome) {
+        try {
+          settleRequest.run({ id: row.id, ...outcome });
+        } catch (error) {
+          // The same transaction is already linked to another payment request.
+          if (!String(error.message).includes("UNIQUE constraint failed")) throw error;
+          return sendError(res, 409, "TRANSACTION_ALREADY_LINKED", "The matching transaction is already linked to another payment record");
+        }
+        row = findRequest.get(row.id);
+      }
+    }
+
+    return sendSuccess(res, toResponse(row, stellar ? stellar.env : null));
+  } catch (error) {
+    return next(error);
+  }
 });
 
 module.exports = router;

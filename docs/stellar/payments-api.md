@@ -270,7 +270,7 @@ To keep the examples below short, only the `data` part is shown for success resp
 | GET | `/api/v1/payments/config` | Any signed-in user | Show the active network and merchant public key |
 | POST | `/api/v1/payments` | Student (own invoice, **built, sandbox only**); Admin (pay-per-use, planned) | Create a payment request |
 | GET | `/api/v1/payments` | Admin, or customer API key (own school, read-only) | List payment requests |
-| GET | `/api/v1/payments/:id` | Admin, or customer API key (own school, read-only) | Get one payment request |
+| GET | `/api/v1/payments/:id` | Student (own invoice, **built**), Admin (**built**), or customer API key (own school, read-only, planned) | Get one payment request, checking Horizon first while it is pending |
 | POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
 | POST | `/api/v1/payments/:id/cancel` | Admin | Cancel a pending request |
 | POST | `/api/v1/payments/:id/accept-late-payment` | Admin | Record a payment that arrived after expiry as a new `completed` payment |
@@ -521,7 +521,24 @@ Response `200`: `data` is an array of payment request objects (the same shape as
 
 ### GET `/api/v1/payments/:id`
 
-Returns one payment request in the same shape as the create response.
+Returns one payment request in the same shape as the create response. **Built** for students (their own invoices only; anything else returns `404 PAYMENT_NOT_FOUND`) and admins.
+
+While the request is `pending`, PlugLytics first checks Horizon (sandbox/testnet) for a payment to the merchant account with the request's memo, and updates the request before returning it:
+
+| What Horizon shows (before `expiresAt`) | New status | `reason` |
+| --- | --- | --- |
+| Right asset and issuer, at least the amount | `completed` | none |
+| Right asset and issuer, less than the amount | `failed` | `underpaid` |
+| Different asset or issuer | `failed` | `wrong_asset` |
+| Nothing usable, and `expiresAt` has passed | `failed` | `expired` |
+| Nothing yet, and not expired | stays `pending` | none |
+
+- Only successful transactions to the merchant account with a **text** memo equal to the request's memo count. Amounts are compared in stroops (whole numbers), never as decimals.
+- A payment that arrives **after** `expiresAt` does not complete the request. It becomes `failed` with reason `expired`, and an admin can accept the late payment with `accept-late-payment`.
+- `completed` and `failed` are final. Once a request is final, it is returned as stored and Horizon is not asked again.
+- For `completed`, `underpaid` and `wrong_asset`, the response includes `transactionHash`, `amountReceived` and `ledger`. `paidAt` is set only for `completed`.
+- Errors: `404 PAYMENT_NOT_FOUND`, `409 TRANSACTION_ALREADY_LINKED` (the matching transaction belongs to another request), `502 HORIZON_UNAVAILABLE` (the request stays `pending`; try again), `503 STELLAR_NOT_CONFIGURED` (a pending request needs the sandbox settings to be checked).
+- Horizon is read with plain HTTP requests (`src/stellarHorizon.js`), not the Stellar SDK.
 
 ### POST `/api/v1/payments/:id/confirm`
 

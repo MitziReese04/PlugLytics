@@ -154,9 +154,9 @@ describe("POST /api/v1/payments", () => {
     const invoiceId = addInvoice(demoStudent.id, 75);
     db.prepare(`
       INSERT INTO payment_requests (id, invoice_id, amount, asset, memo, destination, status, tx_hash,
-        quoted_rate, invoice_currency, created_at, expires_at, completed_at)
+        amount_received, ledger, quoted_rate, invoice_currency, invoice_amount, created_at, expires_at, completed_at)
       VALUES ('pay_TESTCOMPLETED01', ?, '187.5000000', 'XLM', 'PL-TESTDONE', ?, 'completed', ?,
-        '2.5000000', 'USD', '2026-11-01T10:00:00.000Z', '2026-11-01T10:30:00.000Z', '2026-11-01T10:05:00.000Z')
+        '187.5000000', 1234567, '2.5000000', 'USD', '75.00', '2026-11-01T10:00:00.000Z', '2026-11-01T10:30:00.000Z', '2026-11-01T10:05:00.000Z')
     `).run(invoiceId, MERCHANT, "a".repeat(64));
     const response = await pay({ invoiceId });
     expect(response.status).toBe(409);

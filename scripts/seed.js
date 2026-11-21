@@ -6,18 +6,29 @@ const db = require("../src/db");
 const schemaPath = path.resolve(__dirname, "../src/schema.sql");
 
 // Older databases have finance tables that CREATE TABLE IF NOT EXISTS will not
-// update: `invoices` without the pricing or currency columns, or `payments`
-// still allowing the 'scholarship' method. The seed replaces all data anyway,
-// so rebuild the finance tables from schema.sql.
-const requiredInvoiceColumns = ["final_amount", "currency"];
-const invoiceColumns = db.prepare("PRAGMA table_xinfo(invoices)").all().map((c) => c.name);
+// update: tables missing newer columns, or `payments` still allowing the
+// 'scholarship' method. The seed replaces all data anyway, so rebuild the
+// finance tables from schema.sql.
+const requiredColumns = {
+  invoices: ["final_amount", "currency"],
+  payment_requests: ["invoice_amount", "amount_received", "ledger"],
+};
+const isOutdated = (table, columns) => {
+  const existing = db.prepare(`PRAGMA table_xinfo(${table})`).all().map((c) => c.name);
+  return existing.length > 0 && !columns.every((c) => existing.includes(c));
+};
 const paymentsTable = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'payments'").get();
-const outdatedInvoices =
-  invoiceColumns.length > 0 && !requiredInvoiceColumns.every((c) => invoiceColumns.includes(c));
 const outdatedPayments = Boolean(paymentsTable && paymentsTable.sql.includes("'scholarship'"));
-if (outdatedInvoices || outdatedPayments) {
+if (outdatedPayments || Object.entries(requiredColumns).some(([table, columns]) => isOutdated(table, columns))) {
   db.pragma("foreign_keys = OFF");
-  db.exec("DROP TABLE IF EXISTS refunds; DROP TABLE IF EXISTS payments; DROP TABLE IF EXISTS invoices;");
+  db.exec(`
+    DROP TRIGGER IF EXISTS payment_requests_final_status;
+    DROP TRIGGER IF EXISTS payment_requests_related_must_be_failed;
+    DROP TABLE IF EXISTS payment_requests;
+    DROP TABLE IF EXISTS refunds;
+    DROP TABLE IF EXISTS payments;
+    DROP TABLE IF EXISTS invoices;
+  `);
   db.pragma("foreign_keys = ON");
 }
 
