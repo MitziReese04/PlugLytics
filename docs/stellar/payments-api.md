@@ -88,9 +88,16 @@ Every payment, of either type, follows the same four steps.
 | --- | --- |
 | `pending` | Created and waiting for the user to pay |
 | `completed` | A matching payment was found on Horizon |
+| `failed` | The request can no longer be paid. The `reason` field says why (see below). |
+
+When `status` is `failed`, the payment request also has a `reason`:
+
+| Reason | Meaning |
+| --- | --- |
 | `expired` | No matching payment arrived before `expiresAt` |
 | `cancelled` | Cancelled before payment |
 | `underpaid` | A payment with the right memo arrived, but for less than the requested amount |
+| `wrong_asset` | A payment with the right memo arrived, but in a different asset or from a different issuer |
 
 ## Sandbox vs production
 
@@ -235,7 +242,8 @@ Lists payment requests, newest first.
 
 Query parameters (all optional):
 
-- `status`: `pending`, `completed`, `expired`, `cancelled` or `underpaid`
+- `status`: `pending`, `completed` or `failed`
+- `reason`: only used with `status=failed`. One of `expired`, `cancelled`, `underpaid` or `wrong_asset` (for example `?status=failed&reason=expired`)
 - `type`: `pay_per_use` or `subscription`
 - `page`: page number, starting at 1
 
@@ -270,7 +278,7 @@ Response `200` when nothing has arrived yet: the same shape with `"status": "pen
 
 ### POST `/api/v1/payments/:id/cancel`
 
-Cancels a `pending` request. Payments sent after cancelling are not matched. Response `200` contains the request with `"status": "cancelled"`.
+Cancels a `pending` request. Payments sent after cancelling are not matched. Response `200` contains the request with `"status": "failed"` and `"reason": "cancelled"`.
 
 ### POST `/api/v1/subscriptions`
 
@@ -429,7 +437,7 @@ SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string>
 ### Good to know
 
 - The testnet is **reset** from time to time. Accounts and balances disappear, so fund new accounts with the friendbot again.
-- Try the failure cases too: send less than the amount (expect `underpaid`), leave out the memo (no match), or wait past `expiresAt` (expect `expired`).
+- Try the failure cases too: send less than the amount (expect `failed` with reason `underpaid`), send a different asset (expect `failed` with reason `wrong_asset`), leave out the memo (no match), or wait past `expiresAt` (expect `failed` with reason `expired`).
 
 ## Security rules
 
