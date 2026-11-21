@@ -24,7 +24,7 @@ if (outdatedInvoices || outdatedPayments) {
 db.exec(fs.readFileSync(schemaPath, "utf8"));
 
 const deleteOrder = [
-  "dashboard_preferences", "instructor_ratings", "scholarships", "refunds", "payments",
+  "payment_requests", "dashboard_preferences", "instructor_ratings", "scholarships", "refunds", "payments",
   "invoices", "activity_logs", "attendance_logs", "quiz_responses", "quiz_questions",
   "submissions", "assignments", "enrollments", "sections", "courses", "terms",
   "students", "instructors", "programs", "specializations", "users",

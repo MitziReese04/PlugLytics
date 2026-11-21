@@ -191,6 +191,75 @@ CREATE TABLE IF NOT EXISTS refunds (
   FOREIGN KEY (payment_id) REFERENCES payments(id)
 );
 
+-- Stellar payment requests (see docs/stellar/payments-api.md).
+-- Column names are snake_case versions of the API fields (invoiceId -> invoice_id).
+-- Amounts and rates are strings, because Stellar amounts have exactly 7 decimals.
+CREATE TABLE IF NOT EXISTS payment_requests (
+  id TEXT PRIMARY KEY CHECK(id GLOB 'pay_?*'),
+  invoice_id INTEGER,
+  amount TEXT NOT NULL CHECK(
+    amount GLOB '[0-9]*.[0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+    AND amount NOT GLOB '*[^0-9.]*'
+    AND length(amount) - length(replace(amount, '.', '')) = 1
+    AND CAST(amount AS REAL) > 0
+  ),
+  asset TEXT NOT NULL CHECK(asset IN ('XLM','USDC')),
+  asset_issuer TEXT CHECK(asset_issuer IS NULL OR (length(asset_issuer) = 56 AND asset_issuer GLOB 'G*')),
+  memo TEXT NOT NULL UNIQUE CHECK(length(memo) BETWEEN 1 AND 28),
+  destination TEXT NOT NULL CHECK(length(destination) = 56 AND destination GLOB 'G*'),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','completed','failed')),
+  reason TEXT CHECK(reason IN ('expired','cancelled','underpaid','wrong_asset')),
+  tx_hash TEXT UNIQUE CHECK(tx_hash IS NULL OR (length(tx_hash) = 64 AND tx_hash NOT GLOB '*[^0-9a-f]*')),
+  related_payment_id TEXT,
+  quoted_rate TEXT CHECK(
+    quoted_rate IS NULL OR (
+      quoted_rate NOT GLOB '*[^0-9.]*'
+      AND length(quoted_rate) - length(replace(quoted_rate, '.', '')) <= 1
+      AND CAST(quoted_rate AS REAL) > 0
+    )
+  ),
+  invoice_currency TEXT CHECK(invoice_currency IS NULL OR (length(invoice_currency) = 3 AND invoice_currency GLOB '[A-Z][A-Z][A-Z]')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  expires_at TEXT NOT NULL,
+  completed_at TEXT,
+  -- XLM is native and has no issuer; every other asset needs one.
+  CHECK((asset = 'XLM' AND asset_issuer IS NULL) OR (asset <> 'XLM' AND asset_issuer IS NOT NULL)),
+  -- A reason is given only for failed requests, and every failed request has one.
+  CHECK((status = 'failed') = (reason IS NOT NULL)),
+  -- Completed requests have the transaction hash and completion time.
+  CHECK(status <> 'completed' OR (tx_hash IS NOT NULL AND completed_at IS NOT NULL)),
+  CHECK(status = 'completed' OR completed_at IS NULL),
+  -- Requests created from an invoice store the quoted rate and invoice currency; others store neither.
+  CHECK(
+    (invoice_id IS NULL AND quoted_rate IS NULL AND invoice_currency IS NULL)
+    OR (invoice_id IS NOT NULL AND quoted_rate IS NOT NULL AND invoice_currency IS NOT NULL)
+  ),
+  CHECK(expires_at > created_at),
+  CHECK(related_payment_id IS NULL OR related_payment_id <> id),
+  FOREIGN KEY (invoice_id) REFERENCES invoices(id),
+  FOREIGN KEY (related_payment_id) REFERENCES payment_requests(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_requests_status ON payment_requests(status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_payment_requests_invoice ON payment_requests(invoice_id);
+
+-- completed and failed are final: once a request leaves pending, its status never changes.
+CREATE TRIGGER IF NOT EXISTS payment_requests_final_status
+BEFORE UPDATE OF status ON payment_requests
+WHEN OLD.status IN ('completed','failed') AND NEW.status IS NOT OLD.status
+BEGIN
+  SELECT RAISE(ABORT, 'payment request status is final once completed or failed');
+END;
+
+-- A follow-up payment (relatedPaymentId) must point to a failed request.
+CREATE TRIGGER IF NOT EXISTS payment_requests_related_must_be_failed
+BEFORE INSERT ON payment_requests
+WHEN NEW.related_payment_id IS NOT NULL
+  AND (SELECT status FROM payment_requests WHERE id = NEW.related_payment_id) IS NOT 'failed'
+BEGIN
+  SELECT RAISE(ABORT, 'related_payment_id must point to a failed payment request');
+END;
+
 CREATE TABLE IF NOT EXISTS scholarships (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   student_id INTEGER NOT NULL,
