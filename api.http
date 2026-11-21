@@ -1,0 +1,172 @@
+@baseUrl = http://localhost:3000/api/v1
+@studentToken =
+@instructorToken =
+@adminToken =
+
+### Health
+GET {{baseUrl}}/health
+
+### Student login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "student@pluglytics.local",
+  "password": "Demo123!"
+}
+
+### Student current user
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{studentToken}}
+
+### Instructor login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "instructor@pluglytics.local",
+  "password": "Demo123!"
+}
+
+### Instructor current user
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{instructorToken}}
+
+### Admin login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@pluglytics.local",
+  "password": "Demo123!"
+}
+
+### Admin current user
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{adminToken}}
+
+### Student progress
+GET {{baseUrl}}/student/progress?page=1&limit=20
+Authorization: Bearer {{studentToken}}
+
+### Student progress filtered by term
+GET {{baseUrl}}/student/progress?term=2025-1&compare=previous_term
+Authorization: Bearer {{studentToken}}
+
+### Student grades
+GET {{baseUrl}}/student/grades
+Authorization: Bearer {{studentToken}}
+
+### Student deadlines
+GET {{baseUrl}}/student/deadlines?status=upcoming&page=1&limit=20
+Authorization: Bearer {{studentToken}}
+
+### Student anonymous standing
+GET {{baseUrl}}/student/standing
+Authorization: Bearer {{studentToken}}
+
+### Student at-risk indicator
+GET {{baseUrl}}/student/risk
+Authorization: Bearer {{studentToken}}
+
+### Widgets
+GET {{baseUrl}}/widgets
+Authorization: Bearer {{studentToken}}
+
+### Dashboard layout
+GET {{baseUrl}}/me/dashboard
+Authorization: Bearer {{studentToken}}
+
+### Save dashboard layout
+PUT {{baseUrl}}/me/dashboard
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{"widgets":[{"id":"student-progress","chartType":"bar"}],"filters":{"term":"2025-1"},"theme":"light"}
+
+### Dashboard preset
+POST {{baseUrl}}/me/dashboard/presets
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{"name":"Midterm Check","layout":{"widgets":[{"id":"student-progress","chartType":"bar"},{"id":"student-risk","chartType":"card"}],"filters":{"term":"2025-1"},"theme":"light"}}
+
+### Render dashboard
+GET {{baseUrl}}/me/dashboard/render
+Authorization: Bearer {{studentToken}}
+
+### Instructor sections
+GET {{baseUrl}}/instructor/sections?term=2025-1&page=1&limit=20
+Authorization: Bearer {{instructorToken}}
+
+### Instructor grade distribution
+GET {{baseUrl}}/instructor/distribution?term=2025-1
+Authorization: Bearer {{instructorToken}}
+
+### Instructor assignment analytics
+GET {{baseUrl}}/instructor/assignments?term=2025-1
+Authorization: Bearer {{instructorToken}}
+
+### Instructor item analysis
+GET {{baseUrl}}/instructor/item-analysis?term=2025-1
+Authorization: Bearer {{instructorToken}}
+
+### Instructor engagement
+GET {{baseUrl}}/instructor/engagement?term=2025-1
+Authorization: Bearer {{instructorToken}}
+
+### Instructor at-risk list
+GET {{baseUrl}}/instructor/at-risk?term=2025-1
+Authorization: Bearer {{instructorToken}}
+
+### Instructor section comparison
+GET {{baseUrl}}/instructor/compare?term=2025-1&section=Section%20A
+Authorization: Bearer {{instructorToken}}
+
+### Admin enrollment summary
+GET {{baseUrl}}/admin/enrollment/summary?term=2025-1
+Authorization: Bearer {{adminToken}}
+
+### Admin enrollment by specialization CSV
+GET {{baseUrl}}/admin/enrollment/by-specialization?term=2025-1&format=csv
+Authorization: Bearer {{adminToken}}
+
+### Admin retention
+GET {{baseUrl}}/admin/enrollment/retention?term=2025-1
+Authorization: Bearer {{adminToken}}
+
+### Admin seat utilization
+GET {{baseUrl}}/admin/enrollment/seat-utilization?term=2025-1
+Authorization: Bearer {{adminToken}}
+
+### Admin finance overview
+GET {{baseUrl}}/admin/finance/overview?term=2025-1
+Authorization: Bearer {{adminToken}}
+
+### Admin income by specialization
+GET {{baseUrl}}/admin/finance/income-by-specialization?term=2025-1
+Authorization: Bearer {{adminToken}}
+
+### Admin outstanding balances
+GET {{baseUrl}}/admin/finance/outstanding?term=2025-1
+Authorization: Bearer {{adminToken}}
+
+### Admin refunds
+GET {{baseUrl}}/admin/finance/refunds?term=2025-1&format=csv
+Authorization: Bearer {{adminToken}}
+
+### Admin GPA by specialization
+GET {{baseUrl}}/admin/academics/gpa-by-specialization?term=2025-1
+Authorization: Bearer {{adminToken}}
+
+### Admin course pass rates
+GET {{baseUrl}}/admin/academics/pass-rates?term=2025-1
+Authorization: Bearer {{adminToken}}
+
+### Admin instructor ratings
+GET {{baseUrl}}/admin/academics/ratings?term=2025-1
+Authorization: Bearer {{adminToken}}
+
+### Admin course popularity
+GET {{baseUrl}}/admin/operations/course-popularity?term=2025-1
+Authorization: Bearer {{adminToken}}

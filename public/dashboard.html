@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PlugLytics Dashboard</title>
+  <link rel="stylesheet" href="/public/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="dashboard-page">
+  <div id="loginScreen" class="login-shell">
+    <section class="login-card">
+      <div class="brand-mark">P</div>
+      <h1>PlugLytics</h1>
+      <p>Learning intelligence for every role.</p>
+      <form id="loginForm">
+        <label>Email<input id="email" type="email" value="student@pluglytics.local" required></label>
+        <label>Password<input id="password" type="password" value="Demo123!" required></label>
+        <button type="submit">Sign in</button>
+        <p id="loginError" class="error" role="alert"></p>
+      </form>
+    </section>
+  </div>
+
+  <div id="app" class="app-shell" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="/public"><span class="brand-mark">P</span><span>PlugLytics</span></a>
+      <nav id="roleNav"></nav>
+      <button id="logoutButton" class="quiet-button">Sign out</button>
+    </aside>
+    <main>
+      <header class="topbar">
+        <div><p class="eyebrow" id="roleLabel"></p><h1 id="pageTitle">Dashboard</h1></div>
+        <label class="theme-toggle">Theme
+          <select id="themeSelect"><option value="light">Light</option><option value="dark">Dark</option></select>
+        </label>
+      </header>
+      <section class="filter-bar">
+        <label>Term<select id="termFilter"><option value="">All terms</option><option value="2023-1">Fall 2023</option><option value="2024-1">Spring 2024</option><option value="2024-2">Fall 2024</option><option value="2025-1">Spring 2025</option></select></label>
+        <label>Course<input id="courseFilter" placeholder="e.g. COURSE-001"></label>
+        <label>Section<input id="sectionFilter" placeholder="e.g. Section A"></label>
+        <label>Group<select id="groupFilter"><option value="">None</option><option value="term">Term</option><option value="course">Course</option><option value="section">Section</option></select></label>
+        <button id="applyFilters" type="button">Apply filters</button>
+      </section>
+      <section class="content-grid">
+        <aside class="widget-panel"><h2>Widgets</h2><div id="widgetCatalog"></div><button id="saveLayout" type="button">Save layout</button></aside>
+        <section id="widgetGrid" class="widget-grid"></section>
+      </section>
+    </main>
+  </div>
+  <script src="/public/app.js"></script>
+</body>
+</html>

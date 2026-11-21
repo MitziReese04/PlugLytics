@@ -1,0 +1,56 @@
+{
+  "name": "pluglytics",
+  "displayName": "PlugLytics",
+  "description": "Open the PlugLytics API, dashboard, and documentation from VS Code.",
+  "version": "0.1.0",
+  "publisher": "pluglytics",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MitziReese04/PlugLytics"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Data Science",
+    "Visualization"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pluglytics.openDashboard",
+        "title": "PlugLytics: Open Dashboard"
+      },
+      {
+        "command": "pluglytics.openDocs",
+        "title": "PlugLytics: Open API Documentation"
+      },
+      {
+        "command": "pluglytics.startApi",
+        "title": "PlugLytics: Start API"
+      },
+      {
+        "command": "pluglytics.healthCheck",
+        "title": "PlugLytics: Check API Health"
+      }
+    ],
+    "configuration": {
+      "title": "PlugLytics",
+      "properties": {
+        "pluglytics.baseUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "Base URL for the PlugLytics API."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "npx @vscode/vsce package",
+    "test": "node test/extension.test.js"
+  }
+}

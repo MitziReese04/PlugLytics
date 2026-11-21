@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PlugLytics learning analytics API and dashboard for students, instructors, and administrators.">
+  <title>PlugLytics | Learning intelligence, proven by data</title>
+  <link rel="stylesheet" href="/public/styles.css">
+</head>
+<body class="marketing-page">
+  <header class="marketing-nav" id="top">
+    <a class="wordmark" href="#top" aria-label="PlugLytics home">
+      <span class="logo">P</span><span>PlugLytics</span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="#features">Features</a>
+      <a href="#how-it-works">How it works</a>
+      <a href="#plugin">VS Code plugin</a>
+      <a href="/docs">API docs</a>
+    </nav>
+    <a class="nav-button" href="/public/dashboard.html">Open dashboard</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="kicker">Analytics / Access / Action</p>
+        <h1>Learning progress, <span>made clear.</span></h1>
+        <p class="hero-lede">Turn LMS activity into private, role-aware decisions. PlugLytics connects academic, enrollment, and financial signals in one explainable API and dashboard.</p>
+        <div class="hero-actions">
+          <a class="primary-button" href="/public/dashboard.html">Try the demo</a>
+          <a class="secondary-button" href="#plugin">Download plugin</a>
+        </div>
+      </div>
+      <div class="hero-visual" aria-label="PlugLytics analytics preview">
+        <div class="preview-toolbar"><span></span><span></span><span></span><strong>Spring 2025</strong></div>
+        <div class="preview-grid">
+          <div class="preview-card"><small>Course progress</small><b>78%</b><div class="mini-bars"><i></i><i></i><i></i><i></i><i></i></div></div>
+          <div class="preview-card"><small>Collection rate</small><b>83.7%</b><div class="progress-ring"><span></span></div></div>
+          <div class="preview-card wide"><small>Grade trend</small><div class="trend"><i></i><i></i><i></i><i></i><i></i></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="proof-strip" aria-label="Project highlights">
+      <div><b>500+</b><span>Demo students</span></div>
+      <div><b>25</b><span>Instructors</span></div>
+      <div><b>60</b><span>Courses</span></div>
+      <div><b>3</b><span>Privacy-first roles</span></div>
+    </section>
+
+    <section class="feature-section" id="features">
+      <p class="kicker">Three blocks. One source of truth.</p>
+      <h2>Every signal, reduced to what you can act on.</h2>
+      <div class="feature-grid">
+        <article>
+          <span class="feature-number">01</span>
+          <h3>Understand</h3>
+          <p>Students see course progress, grades, deadlines, attendance, standing, and clear at-risk reasons.</p>
+        </article>
+        <article>
+          <span class="feature-number">02</span>
+          <h3>Teach</h3>
+          <p>Instructors compare own sections, analyze assignments and quiz items, and find engagement patterns.</p>
+        </article>
+        <article>
+          <span class="feature-number">03</span>
+          <h3>Operate</h3>
+          <p>Administrators explore enrollment, tuition, collection, academic quality, and course operations.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="how-section" id="how-it-works">
+      <div class="how-copy">
+        <p class="kicker">How it works</p>
+        <h2>From LMS data to a decision, block by block.</h2>
+      </div>
+      <ol class="steps">
+        <li><span>1</span><div><b>Sign in</b><p>JWT authentication routes every request by student, instructor, or administrator role.</p></div></li>
+        <li><span>2</span><div><b>Choose a view</b><p>Apply filters, pick widgets, and customize the chart and layout you need.</p></div></li>
+        <li><span>3</span><div><b>Export or act</b><p>Download CSV reports or open the live dashboard for your next decision.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="plugin-section" id="plugin">
+      <div>
+        <p class="kicker">VS Code plugin</p>
+        <h2>Keep PlugLytics in your editor.</h2>
+        <p>Start the API, open Swagger, check health, and launch the dashboard without leaving VS Code.</p>
+      </div>
+      <div class="plugin-actions">
+        <a class="primary-button" id="downloadPlugin" href="/public/pluglytics-0.1.0.vsix" download>Download plugin</a>
+        <a class="text-link" href="https://marketplace.visualstudio.com/vscode" target="_blank" rel="noreferrer">VS Marketplace guide →</a>
+      </div>
+    </section>
+
+    <section class="grant-section">
+      <p class="kicker">Built for grant review</p>
+      <h2>Reproducible. Documented. Ready to pilot.</h2>
+      <p>Seed the demo, run the tests, open the dashboard, and review the API with no cloud credentials.</p>
+      <div class="grant-actions"><a class="secondary-button" href="/docs">Explore the API</a><a class="text-link" href="/proposal" download>Read the proposal →</a></div>
+    </section>
+  </main>
+
+  <footer>
+    <a class="wordmark" href="#top"><span class="logo">P</span><span>PlugLytics</span></a>
+    <p>Privacy-conscious learning analytics.</p>
+  </footer>
+</body>
+</html>
