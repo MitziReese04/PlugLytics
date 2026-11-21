@@ -512,6 +512,9 @@ Planned Stellar Payments documentation (not implemented yet):
 - [Payments API](./docs/stellar/payments-api.md): payment flow, endpoints, customer API keys, webhook registration, error codes, and sandbox vs production
 - [Webhooks](./docs/stellar/webhooks.md): event types, example payloads, signature verification, retries, and duplicate handling
 - [Settlement and reconciliation](./docs/stellar/settlement.md): accepted assets (XLM and USDC), daily and weekly reconciliation, settlement reports, and handling mismatches
+- [Approved payment methods](./docs/stellar/approved-payment-methods.md): which methods are accepted (USDC, XLM, anchors), who can use them, amount limits, and what is not accepted
+- [Refunds and chargebacks](./docs/stellar/refunds-and-chargebacks.md): who can request a refund, the refund procedure, partial refunds, anchor and card on-ramp disputes, and record-keeping
+- [Pilot budget and grant](./docs/stellar/pilot-budget-and-grant.md): pilot budget by category, grant amount, milestones, and reporting dates
 
 ## Roadmap
 
