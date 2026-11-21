@@ -47,42 +47,71 @@ function renderCurriculum(data) {
     ? "Demo sample based on the February 2025 Software Development curriculum sheet. Completion statuses are illustrative."
     : "Using the local program catalog and enrollment records. This account does not yet have LMS curriculum data synced.";
 
-  const terms = new Map();
+  const years = new Map();
   for (const course of data.courses) {
-    const key = course.year && course.term ? `${course.year}-${course.term}` : "catalog";
-    if (!terms.has(key)) terms.set(key, []);
-    terms.get(key).push(course);
+    const yearKey = course.year ? String(course.year) : "catalog";
+    const termKey = course.term ? String(course.term) : "catalog";
+    if (!years.has(yearKey)) years.set(yearKey, new Map());
+    const terms = years.get(yearKey);
+    if (!terms.has(termKey)) terms.set(termKey, []);
+    terms.get(termKey).push(course);
   }
 
-  byId("curriculumCourseList").innerHTML = [...terms.entries()].map(([key, courses]) => {
-    const [year, term] = key === "catalog" ? [0, 0] : key.split("-").map(Number);
-    const termUnits = courses.reduce((total, course) => total + course.units, 0);
-    const courseItems = courses.map((course) => {
-      const code = course.courseCode || course.code;
-      const status = ["completed", "in_progress"].includes(course.status) ? course.status : "remaining";
-      const statusText = status === "completed" ? "Finished"
-        : status === "in_progress" ? "In progress" : "Remaining";
-      const requirements = [];
-      if (course.prerequisites?.length) requirements.push(`Prerequisites: ${course.prerequisites.join(", ")}`);
-      if (course.corequisites?.length) requirements.push(`Corequisites: ${course.corequisites.join(", ")}`);
-      const detail = [
-        `${course.units} ${course.units === 1 ? "unit" : "units"}`,
-        course.type,
-        ...requirements,
-      ].filter(Boolean).join(" · ");
-      return `<li class="curriculum-course status-${status}">
-        <input type="checkbox" ${status === "completed" ? "checked" : ""} disabled aria-label="${escapeHtml(code)}: ${statusText}">
-        <div class="curriculum-course-details">
-          <strong><span>${escapeHtml(code)}</span> ${escapeHtml(course.title)}</strong>
-          <small>${escapeHtml(detail)}</small>
-        </div>
-        <span class="course-status-badge">${statusText}</span>
-      </li>`;
+  const orderedYears = [...years.entries()].sort(([left], [right]) => {
+    if (left === "catalog") return 1;
+    if (right === "catalog") return -1;
+    return Number(left) - Number(right);
+  });
+  byId("curriculumCourseList").innerHTML = orderedYears.map(([yearKey, terms]) => {
+    const orderedTerms = [...terms.entries()].sort(([left], [right]) => {
+      if (left === "catalog") return 1;
+      if (right === "catalog") return -1;
+      return Number(left) - Number(right);
+    });
+    const yearCourses = [...terms.values()].flat();
+    const yearUnits = yearCourses.reduce((total, course) => total + (Number(course.units) || 0), 0);
+    const yearHeading = yearKey === "catalog" ? "Program course catalog" : `${ordinal(Number(yearKey))} year`;
+    const termSections = orderedTerms.map(([termKey, courses]) => {
+      const termUnits = courses.reduce((total, course) => total + course.units, 0);
+      const courseItems = courses.map((course) => {
+        const code = course.courseCode || course.code;
+        const status = ["completed", "in_progress"].includes(course.status) ? course.status : "remaining";
+        const statusText = status === "completed" ? "Finished"
+          : status === "in_progress" ? "In progress" : "Remaining";
+        const requirements = [];
+        if (course.prerequisites?.length) requirements.push(`Prerequisites: ${course.prerequisites.join(", ")}`);
+        if (course.corequisites?.length) requirements.push(`Corequisites: ${course.corequisites.join(", ")}`);
+        const detail = [
+          `${course.units} ${course.units === 1 ? "unit" : "units"}`,
+          course.type,
+          ...requirements,
+        ].filter(Boolean).join(" · ");
+        return `<li class="curriculum-course status-${status}">
+          <input type="checkbox" ${status === "completed" ? "checked" : ""} disabled aria-label="${escapeHtml(code)}: ${statusText}">
+          <div class="curriculum-course-details">
+            <strong><span>${escapeHtml(code)}</span> ${escapeHtml(course.title)}</strong>
+            <small>${escapeHtml(detail)}</small>
+          </div>
+          <span class="course-status-badge">${statusText}</span>
+        </li>`;
+      }).join("");
+      const termHeading = termKey === "catalog" ? "Courses" : `${ordinal(Number(termKey))} term`;
+      return `<section class="curriculum-term">
+        <header><h4>${termHeading}</h4><span>${courses.length} courses · ${termUnits} units</span></header>
+        <ul>${courseItems}</ul>
+      </section>`;
     }).join("");
-    const termLabel = year ? `${ordinal(year)} year · ${ordinal(term)} term` : "Program course catalog";
-    return `<section class="curriculum-term">
-      <header><h3>${termLabel}</h3><span>${termUnits} units</span></header>
-      <ul>${courseItems}</ul>
+    const yearId = yearKey === "catalog" ? "catalog" : `year-${Number(yearKey)}`;
+    const plannedTerms = [...terms.keys()].filter((termKey) => termKey !== "catalog").length;
+    const yearSummary = plannedTerms
+      ? `${plannedTerms} ${plannedTerms === 1 ? "term" : "terms"} · ${yearCourses.length} courses · ${yearUnits} units`
+      : `${yearCourses.length} courses · ${yearUnits} units`;
+    return `<section class="curriculum-year" aria-labelledby="curriculum-${yearId}">
+      <header class="curriculum-year-heading">
+        <h3 id="curriculum-${yearId}">${yearHeading}</h3>
+        <span>${yearSummary}</span>
+      </header>
+      <div class="curriculum-year-terms">${termSections}</div>
     </section>`;
   }).join("");
   byId("curriculumContent").hidden = false;

@@ -435,7 +435,12 @@ main { min-width: 0; }
 .curriculum-dashboard-progress .completion-heading { align-items: center; }
 .curriculum-dashboard-progress .completion-heading > span { color: var(--muted); font-size: 12px; }
 .curriculum-dashboard-progress > p { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
-.curriculum-dashboard-terms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.curriculum-dashboard-terms { display: grid; gap: 12px; }
+.curriculum-dashboard-year { min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.curriculum-dashboard-year-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+.curriculum-dashboard-year-heading h3 { margin: 0; font-size: 13px; }
+.curriculum-dashboard-year-heading span { color: var(--muted); font-size: 10px; }
+.curriculum-dashboard-year-terms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .curriculum-dashboard-term { min-width: 0; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
 .curriculum-dashboard-term > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; background: var(--bg); cursor: pointer; list-style-position: inside; }
 .curriculum-dashboard-term > summary strong { font-size: 12px; }
@@ -470,7 +475,7 @@ main { min-width: 0; }
   .dashboard-page .filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .widget-grid { grid-template-columns: 1fr; }
-  .curriculum-dashboard-terms { grid-template-columns: 1fr; }
+  .curriculum-dashboard-year-terms { grid-template-columns: 1fr; }
   .demo-events-section .schedule-list { grid-template-columns: 1fr; }
 }
 @media (max-width: 440px) {
@@ -478,7 +483,7 @@ main { min-width: 0; }
   .dashboard-actions .customize-button { grid-column: 1 / -1; }
   .dashboard-page .sign-out-button { grid-column: 1 / -1; }
   .dashboard-page .filter-bar { grid-template-columns: 1fr; }
-  .curriculum-dashboard-heading { flex-direction: column; }
+  .curriculum-dashboard-heading, .curriculum-dashboard-year-heading { align-items: flex-start; flex-direction: column; }
   .curriculum-dashboard-progress .completion-heading { align-items: flex-start; flex-direction: column; }
   .curriculum-dashboard-term > summary { align-items: flex-start; flex-direction: column; gap: 4px; }
   .instructor-section-folder > summary { align-items: flex-start; flex-direction: column; }
@@ -574,10 +579,15 @@ main { min-width: 0; }
 .status-in-progress { background: #fff3db; color: #8d5d00; }
 .status-remaining { background: var(--bg); color: var(--muted); }
 .dashboard-page.dark .status-in-progress { background: #44391f; color: #ffd576; }
-.curriculum-course-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.curriculum-course-list { display: grid; gap: 14px; }
+.curriculum-year { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.curriculum-year-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.curriculum-year-heading h3 { margin: 0; font-size: 15px; }
+.curriculum-year-heading span { color: var(--muted); font-size: 11px; text-align: right; }
+.curriculum-year-terms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .curriculum-term { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 9px; }
 .curriculum-term > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--bg); }
-.curriculum-term > header h3 { margin: 0; font-size: 12px; }
+.curriculum-term > header h4 { margin: 0; font-size: 12px; }
 .curriculum-term > header span { color: var(--muted); font-size: 10px; white-space: nowrap; }
 .curriculum-term ul { margin: 0; padding: 0 12px; list-style: none; }
 .curriculum-course { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); }
@@ -597,10 +607,12 @@ main { min-width: 0; }
   .calendar-day { min-height: 72px; padding: 5px; }
   .calendar-event { padding: 3px; font-size: 9px; }
   .completion-overview { grid-template-columns: 1fr; }
-  .curriculum-course-list { grid-template-columns: 1fr; }
+  .curriculum-year-terms { grid-template-columns: 1fr; }
 }
 @media (max-width: 440px) {
   .calendar-section, .curriculum-map { padding: 12px; }
+  .curriculum-year-heading { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .curriculum-year-heading span { text-align: left; }
   .calendar-weekday { padding: 6px 2px; text-align: center; font-size: 9px; }
   .calendar-day { min-height: 62px; padding: 4px 2px; }
   .calendar-event-list { gap: 2px; }

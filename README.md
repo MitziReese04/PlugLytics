@@ -115,7 +115,7 @@ PlugLytics provides a single role-aware analytics surface backed by a versioned 
 - Quiz, assignment, and exam grade averages
 - GPA trend by academic term
 - Upcoming deadlines and overdue items
-- Term-by-term curriculum checklist, completion percentage, and completed/remaining units
+- Curriculum checklist grouped by year level, with term checklists, completion percentage, and completed/remaining units
 - Monthly calendar of API-backed assignment deadlines; demo-only events are clearly labeled
 - Attendance and time-on-platform data
 - Plain-language at-risk indicators
