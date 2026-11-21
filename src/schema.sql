@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   FOREIGN KEY (section_id) REFERENCES sections(id)
 );
 
--- Pricing: `amount` is the base price. final_amount = amount - scholarship_amount
+-- Pricing: `amount` is the base price, in `currency` (ISO 4217 code such as USD or PHP). final_amount = amount - scholarship_amount
 -- - (amount * discount_percent / 100) + platform_fee + transaction_fee.
 -- instructor_cost is the school's cost and is NOT charged to the student.
 -- Keep this formula in sync with computeFinalAmount() in src/pricing.js.
@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   student_id INTEGER NOT NULL,
   term_id INTEGER NOT NULL,
   amount REAL NOT NULL CHECK(amount >= 0),
+  currency TEXT NOT NULL DEFAULT 'USD' CHECK(length(currency) = 3 AND currency GLOB '[A-Z][A-Z][A-Z]'),
   scholarship_amount REAL NOT NULL DEFAULT 0 CHECK(scholarship_amount >= 0),
   scholarship_type TEXT CHECK(scholarship_type IN ('merit','need_based','sponsored','other')),
   discount_percent REAL NOT NULL DEFAULT 0 CHECK(discount_percent BETWEEN 0 AND 100),

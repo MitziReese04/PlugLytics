@@ -5,11 +5,12 @@ const db = require("../src/db");
 
 const schemaPath = path.resolve(__dirname, "../src/schema.sql");
 
-// Databases created before the pricing fields existed have an `invoices` table
-// without them, and CREATE TABLE IF NOT EXISTS will not add columns. The seed
-// replaces all data anyway, so rebuild the finance tables from schema.sql.
+// Databases created before the pricing or currency fields existed have an
+// `invoices` table without them, and CREATE TABLE IF NOT EXISTS will not add
+// columns. The seed replaces all data anyway, so rebuild the finance tables.
+const requiredInvoiceColumns = ["final_amount", "currency"];
 const invoiceColumns = db.prepare("PRAGMA table_xinfo(invoices)").all().map((c) => c.name);
-if (invoiceColumns.length > 0 && !invoiceColumns.includes("final_amount")) {
+if (invoiceColumns.length > 0 && !requiredInvoiceColumns.every((c) => invoiceColumns.includes(c))) {
   db.pragma("foreign_keys = OFF");
   db.exec("DROP TABLE IF EXISTS refunds; DROP TABLE IF EXISTS payments; DROP TABLE IF EXISTS invoices;");
   db.pragma("foreign_keys = ON");

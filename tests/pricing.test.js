@@ -123,3 +123,63 @@ describe("invoices table pricing columns", () => {
     expect(() => insert(fields)).toThrow(/CHECK constraint failed/);
   });
 });
+
+describe("invoice currency", () => {
+  const { pricingSchema: schema } = require("../src/pricing");
+
+  test("defaults to USD and accepts 3-letter codes", () => {
+    expect(schema.parse({ basePrice: 100 }).currency).toBe("USD");
+    expect(schema.parse({ basePrice: 100, currency: "PHP" }).currency).toBe("PHP");
+  });
+
+  test.each(["php", "PH", "PESO", "", "US1"])("rejects currency %p", (currency) => {
+    expect(schema.safeParse({ basePrice: 100, currency }).success).toBe(false);
+  });
+
+  test("the invoices table rejects a bad currency and defaults to USD", () => {
+    const memory = new Database(":memory:");
+    memory.exec(fs.readFileSync(path.resolve(__dirname, "../src/schema.sql"), "utf8"));
+    memory.pragma("foreign_keys = OFF");
+    const insert = memory.prepare(
+      "INSERT INTO invoices (student_id, term_id, amount, currency, issued_at, due_at) VALUES (1, 1, 100, ?, '2026-01-01', '2026-01-28')"
+    );
+    expect(() => insert.run("php")).toThrow(/CHECK constraint failed/);
+    expect(() => insert.run("PESO")).toThrow(/CHECK constraint failed/);
+    expect(() => insert.run("U1D")).toThrow(/CHECK constraint failed/);
+    insert.run("PHP");
+    memory.prepare(
+      "INSERT INTO invoices (student_id, term_id, amount, issued_at, due_at) VALUES (1, 1, 100, '2026-01-01', '2026-01-28')"
+    ).run();
+    expect(memory.prepare("SELECT currency FROM invoices ORDER BY id").all().map((r) => r.currency)).toEqual(["PHP", "USD"]);
+    memory.close();
+  });
+});
+
+describe("toAssetAmount", () => {
+  const { toAssetAmount } = require("../src/pricing");
+
+  test.each([
+    [2226.5, "0.0171000", "38.0731500"],
+    [10, "2.5", "25.0000000"],
+    [25, "1.0000000", "25.0000000"],
+    [0.1, "3", "0.3000000"],
+    [0, "1", "0.0000000"],
+    [1, "0.0000001", "0.0000001"],
+    [0.01, "0.000005", "0.0000001"], // 0.00000005 rounds half up
+    [0.01, "0.000004", "0.0000000"], // 0.00000004 rounds down
+  ])("converts %p at rate %p to %p", (finalAmount, rate, expected) => {
+    expect(toAssetAmount(finalAmount, rate)).toBe(expected);
+  });
+
+  test.each([
+    [10, "0"],
+    [10, "-1"],
+    [10, "1.12345678"],
+    [10, "abc"],
+    [10, 2.5],
+    [-1, "1"],
+    [Number.NaN, "1"],
+  ])("rejects finalAmount %p with rate %p", (finalAmount, rate) => {
+    expect(() => toAssetAmount(finalAmount, rate)).toThrow(RangeError);
+  });
+});

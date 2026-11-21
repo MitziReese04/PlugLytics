@@ -7,6 +7,7 @@
 - [What is Stellar and why PlugLytics uses it](#what-is-stellar-and-why-pluglytics-uses-it)
 - [Payment types](#payment-types)
 - [Pricing fields](#pricing-fields)
+- [From invoice to payment request](#from-invoice-to-payment-request)
 - [The payment flow](#the-payment-flow)
 - [Sandbox vs production](#sandbox-vs-production)
 - [API conventions](#api-conventions)
@@ -46,11 +47,12 @@ PlugLytics supports two kinds of payment.
 
 ## Pricing fields
 
-Each invoice stores how its price is built. The amount a payment request asks for is the invoice's `finalAmount`.
+Each invoice stores how its price is built, in the invoice's own currency. A payment request then converts the invoice's `finalAmount` into a Stellar asset (see [From invoice to payment request](#from-invoice-to-payment-request)).
 
 | Field | Meaning | Rules |
 | --- | --- | --- |
 | `basePrice` | The price before anything is taken off or added (the invoice `amount`) | 0 or more |
+| `currency` | The invoice currency, as an ISO 4217 code such as `USD` or `PHP`. All the money fields below are in this currency. | 3 capital letters. Default `USD`. |
 | `scholarshipAmount` | Money taken off by a scholarship | 0 or more. Default `0`. |
 | `scholarshipType` | Kind of scholarship: `merit`, `need_based`, `sponsored` or `other` | Required when `scholarshipAmount` is more than 0 |
 | `discountPercent` | Discount, as a percent **of the base price** | 0 to 100. Default `0`. |
@@ -80,6 +82,50 @@ Example: base price 3000, merit scholarship 500, 10% discount (300), platform fe
 - `instructorCost` does not change `finalAmount`. It is kept for cost and course-margin reports.
 - A scholarship and discount that together are bigger than the base price plus fees are rejected (`VALIDATION_ERROR`), because `finalAmount` would be negative.
 - The same rules are enforced in two places: the API (`src/pricing.js`) and the database (`CHECK` constraints on the `invoices` table in `src/schema.sql`).
+
+## From invoice to payment request
+
+Invoices are priced in a normal currency (for example `PHP` or `USD`), with 2 decimal places. Stellar payments are made in an asset (`XLM` or `USDC`), with 7 decimal places. When a payment request is created for an invoice, PlugLytics converts between the two.
+
+### How the conversion works
+
+1. **Pick the asset.** The request says which asset the payer will use, for example `USDC` (see [approved-payment-methods.md](./approved-payment-methods.md)).
+2. **Get a quote.** PlugLytics gets an exchange rate for the invoice currency to that asset. The rate is written as **asset units per 1 unit of the invoice currency**. For example, if 1 PHP buys 0.0171 USDC, `quotedRate` is `"0.0171000"`.
+3. **Convert.** `amount = finalAmount x quotedRate`, rounded **half up** to 7 decimal places.
+4. **Lock the rate.** The quoted rate is fixed until the request's `expiresAt`. Market changes after that do not change what the payer owes.
+5. **Store it on the request.** The request saves `invoiceId`, `invoiceCurrency`, `invoiceAmount` (the `finalAmount`), `quotedRate`, `rateQuotedAt`, `asset`, `assetIssuer` and the converted `amount`.
+
+Example: an invoice with `finalAmount` 2226.50 PHP, paid in USDC at a quoted rate of 0.0171000:
+
+```
+2226.50 x 0.0171000 = 38.0731500 USDC
+```
+
+The request stores:
+
+```json
+{
+  "invoiceId": 1042,
+  "invoiceCurrency": "PHP",
+  "invoiceAmount": "2226.50",
+  "quotedRate": "0.0171000",
+  "rateQuotedAt": "2026-11-21T12:00:00.000Z",
+  "asset": "USDC",
+  "assetIssuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "amount": "38.0731500",
+  "expiresAt": "2026-11-21T12:30:00.000Z"
+}
+```
+
+### Rules
+
+- **Asset amounts are strings with exactly 7 decimal places**, for example `"38.0731500"`. Never use floating-point numbers for them.
+- `quotedRate` is also a string, with up to 7 decimal places. `invoiceAmount` is a string with 2 decimal places.
+- The conversion uses whole-number (integer) math, so there are no rounding errors. See `toAssetAmount()` in `src/pricing.js`.
+- **The rate is locked only until `expiresAt`.** If the request expires, it becomes `failed` with reason `expired`. A new request for the same invoice gets a **new quote**, which may give a different asset amount.
+- Matching on Horizon always uses the converted `amount` in the asset, never the invoice currency.
+- The source of exchange-rate quotes is not chosen yet (TODO). Whatever source is used, record it with each quote for audits.
+- Requests that are not created from an invoice (for example, a pay-per-use item priced directly in the asset) have `invoiceId`, `invoiceCurrency`, `invoiceAmount`, `quotedRate` and `rateQuotedAt` set to `null`.
 
 ## The payment flow
 
@@ -290,7 +336,8 @@ Request:
 
 - `type`: required, must be `pay_per_use`
 - `description`: required, 1-200 characters
-- `amount`: required, greater than 0, up to 7 decimal places
+- `amount`: the amount in the asset, greater than 0, up to 7 decimal places. Required unless `invoiceId` is sent.
+- `invoiceId`: optional. Send it instead of `amount` to charge an invoice: PlugLytics converts the invoice's `finalAmount` into the asset and locks the rate (see [From invoice to payment request](#from-invoice-to-payment-request)). Send `amount` or `invoiceId`, not both.
 - `asset`: optional, defaults to `XLM`
 - `assetIssuer`: optional. Must be `null` (or left out) for `XLM`. For `USDC`, you can leave it out and PlugLytics fills in Circle's issuer for the current network. If you send it, it must match an entry in `supportedAssets`.
 - `reference`: optional, your own ID for this charge (also used to stop duplicate requests)
@@ -327,6 +374,11 @@ Response `201` (`data`):
   "memoType": "text",
   "paymentUri": "web+stellar:pay?destination=GABC...XYZ&amount=25.0000000&memo=PL-7F3K9Q&memo_type=MEMO_TEXT",
   "network": "sandbox",
+  "invoiceId": null,
+  "invoiceCurrency": null,
+  "invoiceAmount": null,
+  "quotedRate": null,
+  "rateQuotedAt": null,
   "createdAt": "2026-11-21T12:00:00.000Z",
   "expiresAt": "2026-11-21T12:30:00.000Z",
   "paidAt": null,
@@ -368,6 +420,11 @@ Response `201` (`data`):
   "memoType": "text",
   "paymentUri": "web+stellar:pay?destination=GABC...XYZ&amount=25.0000000&asset_code=USDC&asset_issuer=GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5&memo=PL-K4V8TZ&memo_type=MEMO_TEXT",
   "network": "sandbox",
+  "invoiceId": null,
+  "invoiceCurrency": null,
+  "invoiceAmount": null,
+  "quotedRate": null,
+  "rateQuotedAt": null,
   "createdAt": "2026-11-21T12:00:00.000Z",
   "expiresAt": "2026-11-21T12:30:00.000Z",
   "paidAt": null,
