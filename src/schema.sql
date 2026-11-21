@@ -145,13 +145,28 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   FOREIGN KEY (section_id) REFERENCES sections(id)
 );
 
+-- Pricing: `amount` is the base price. final_amount = amount - scholarship_amount
+-- - (amount * discount_percent / 100) + platform_fee + transaction_fee.
+-- instructor_cost is the school's cost and is NOT charged to the student.
+-- Keep this formula in sync with computeFinalAmount() in src/pricing.js.
 CREATE TABLE IF NOT EXISTS invoices (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   student_id INTEGER NOT NULL,
   term_id INTEGER NOT NULL,
-  amount REAL NOT NULL,
+  amount REAL NOT NULL CHECK(amount >= 0),
+  scholarship_amount REAL NOT NULL DEFAULT 0 CHECK(scholarship_amount >= 0),
+  scholarship_type TEXT CHECK(scholarship_type IN ('merit','need_based','sponsored','other')),
+  discount_percent REAL NOT NULL DEFAULT 0 CHECK(discount_percent BETWEEN 0 AND 100),
+  discount_code TEXT,
+  platform_fee REAL NOT NULL DEFAULT 0 CHECK(platform_fee >= 0),
+  transaction_fee REAL NOT NULL DEFAULT 0 CHECK(transaction_fee >= 0),
+  instructor_cost REAL NOT NULL DEFAULT 0 CHECK(instructor_cost >= 0),
+  final_amount REAL GENERATED ALWAYS AS (
+    ROUND(amount - scholarship_amount - (amount * discount_percent / 100.0) + platform_fee + transaction_fee, 2)
+  ) VIRTUAL CHECK(final_amount >= 0),
   issued_at TEXT NOT NULL,
   due_at TEXT NOT NULL,
+  CHECK(scholarship_amount = 0 OR scholarship_type IS NOT NULL),
   FOREIGN KEY (student_id) REFERENCES students(id),
   FOREIGN KEY (term_id) REFERENCES terms(id)
 );

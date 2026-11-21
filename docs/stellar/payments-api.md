@@ -6,6 +6,7 @@
 
 - [What is Stellar and why PlugLytics uses it](#what-is-stellar-and-why-pluglytics-uses-it)
 - [Payment types](#payment-types)
+- [Pricing fields](#pricing-fields)
 - [The payment flow](#the-payment-flow)
 - [Sandbox vs production](#sandbox-vs-production)
 - [API conventions](#api-conventions)
@@ -42,6 +43,43 @@ PlugLytics supports two kinds of payment.
 - If a period's payment is not received before it expires, the subscription becomes `past_due`.
 
 > Stellar does not "pull" money from a customer's account the way a card subscription does. Each renewal is a new payment that the customer sends.
+
+## Pricing fields
+
+Each invoice stores how its price is built. The amount a payment request asks for is the invoice's `finalAmount`.
+
+| Field | Meaning | Rules |
+| --- | --- | --- |
+| `basePrice` | The price before anything is taken off or added (the invoice `amount`) | 0 or more |
+| `scholarshipAmount` | Money taken off by a scholarship | 0 or more. Default `0`. |
+| `scholarshipType` | Kind of scholarship: `merit`, `need_based`, `sponsored` or `other` | Required when `scholarshipAmount` is more than 0 |
+| `discountPercent` | Discount, as a percent **of the base price** | 0 to 100. Default `0`. |
+| `discountCode` | Code used for the discount, if any (for example `EARLY10`) | Optional, up to 50 characters |
+| `platformFee` | PlugLytics platform fee added to the price | 0 or more. Default `0`. |
+| `transactionFee` | Payment processing fee added to the price | 0 or more. Default `0`. |
+| `instructorCost` | What the school pays the instructor for this item | 0 or more. Default `0`. **Not** charged to the student. |
+| `finalAmount` | What the student pays. **Computed**, never sent in a request. | Can never be below 0 |
+
+How `finalAmount` is calculated:
+
+```
+finalAmount = basePrice
+            - scholarshipAmount
+            - (basePrice x discountPercent / 100)
+            + platformFee
+            + transactionFee
+```
+
+Example: base price 3000, merit scholarship 500, 10% discount (300), platform fee 25, transaction fee 1.50:
+
+```
+3000 - 500 - 300 + 25 + 1.50 = 2226.50
+```
+
+- The result is rounded to 2 decimal places.
+- `instructorCost` does not change `finalAmount`. It is kept for cost and course-margin reports.
+- A scholarship and discount that together are bigger than the base price plus fees are rejected (`VALIDATION_ERROR`), because `finalAmount` would be negative.
+- The same rules are enforced in two places: the API (`src/pricing.js`) and the database (`CHECK` constraints on the `invoices` table in `src/schema.sql`).
 
 ## The payment flow
 
