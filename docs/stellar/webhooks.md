@@ -198,7 +198,18 @@ For a subscription payment, `data.type` is `subscription` and `data` also includ
 ```
 
 - `amount` can be less than the original payment for a partial refund.
-- `destination` is the account that originally paid.
+- `destination` is where the refund was sent. By default it is the account that originally paid. For a payment from an anchor, exchange or other shared account, it is the destination the payer gave **in writing** (or, for an anchor dispute, the anchor), and the refund payment carries the memo they asked for. See [refunds-and-chargebacks.md](./refunds-and-chargebacks.md#2-review).
+- `reason` is one of:
+  - `customer_request`: the customer asked for a refund
+  - `service_issue`: a problem with what was delivered
+  - `overpaid`: the extra part of an overpayment
+  - `duplicate`: a second payment for the same request
+  - `wrong_asset`: a payment in an asset or from an issuer we do not accept
+  - `underpaid`: an underpaid amount that was not followed up
+  - `late_payment`: a payment that arrived after expiry and was not accepted
+  - `dispute`: funds returned to an anchor or card on-ramp after a lost dispute
+
+  These are the refund reasons from [refunds-and-chargebacks.md](./refunds-and-chargebacks.md#1-request). They are separate from the `reason` on a `failed` payment.
 
 ### `settlement.completed`
 

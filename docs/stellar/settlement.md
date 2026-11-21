@@ -214,7 +214,7 @@ Every item that is not `matched` becomes an **exception**. An admin must review 
 
 - **`failed` is final.** Never change a failed payment request back to `pending` or to `completed`. Follow it up with a new, linked record (`relatedPaymentId`) or a refund.
 - **Every manual action needs a note.** Each follow-up request, accepted late payment or refund must record who did it, when, and why.
-- **Refunds go back to the account that paid**, in the same asset, and are recorded like any other refund (so they appear in reconciliation too).
+- **Refunds go back to the account that paid** by default, in the same asset. The exception is a payment from an anchor, exchange or other shared account: then the refund goes to the destination and memo the payer gives **in writing** (or, for an anchor dispute, the anchor). Every refund is recorded like any other refund (so it appears in reconciliation too). See [refunds-and-chargebacks.md](./refunds-and-chargebacks.md#2-review).
 - **Fix problems by adding new records** (refunds, adjustments), not by deleting old ones. This keeps the history complete for audits.
 - **Close exceptions within 7 days.** Exceptions open for longer are flagged in the weekly report.
 - Mark an exception as resolved only after the fix shows up as `matched` in the next reconciliation.
