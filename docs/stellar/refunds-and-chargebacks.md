@@ -130,24 +130,59 @@ Stellar has no chargebacks, but the **step before** Stellar can. If a payer boug
 - The anchor or on-ramp may lose money in the chargeback, and may then **ask the school or PlugLytics to return the funds**, under the agreement with that anchor.
 - Only anchors on the **approved anchor list** may be used (see [approved-payment-methods.md](./approved-payment-methods.md#stellar-anchors-pilot-only)). Each approved anchor must have a written agreement that says how disputes and returns work.
 
+### Dispute records
+
+A dispute is tracked as its **own record**, separate from the payment. The payment is never changed: a `completed` payment stays `completed`, and its `reason` field is not used (that field is only for `failed` payments).
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Dispute ID, for example `dsp_01JDD4P7QR` |
+| `paymentId` | The payment being disputed |
+| `source` | Where the dispute came from: `anchor` or `card_onramp` |
+| `status` | `open`, `won`, `lost` or `refunded` (see below) |
+| `openedAt` | When we received the dispute notice |
+| `resolvedAt` | When the outcome was decided. `null` while `open`. |
+| `notes` | What happened, who handled it, and the anchor's or on-ramp's own dispute reference |
+
+| Status | Meaning |
+| --- | --- |
+| `open` | Notice received. Refunds for this payment are frozen while we gather evidence. |
+| `won` | The dispute was rejected: the payment was valid. Nothing is sent. Final. |
+| `lost` | The payer won. The funds must be returned to the anchor or on-ramp, but the refund is not issued yet. Refunds to the payer stay frozen. |
+| `refunded` | The funds were returned through the normal refund procedure, and the refund is `issued`. Final. |
+
+Example:
+
+```json
+{
+  "id": "dsp_01JDD4P7QR",
+  "paymentId": "pay_01JD8Z6Q4K",
+  "source": "anchor",
+  "status": "open",
+  "openedAt": "2026-11-25T10:00:00.000Z",
+  "resolvedAt": null,
+  "notes": "Anchor reference AX-48213: payer disputed the bank deposit used to buy USDC"
+}
+```
+
 ### How a dispute is handled
 
-1. **Receive the notice.** The anchor or on-ramp tells us about the dispute. Record it on the payment with reason `dispute`.
-2. **Freeze refunds.** Do not refund the payer directly while the dispute is open. Otherwise the payer could be paid back twice (once by their bank, once by us).
+1. **Receive the notice.** The anchor or on-ramp tells us about the dispute. Create a [dispute record](#dispute-records) with status `open`. Do not change the payment.
+2. **Freeze refunds.** Do not refund the payer directly while the dispute record is `open` or `lost`. Otherwise the payer could be paid back twice (once by their bank, once by us).
 3. **Gather evidence** and send it to the anchor within its deadline:
    - the payment request (amount, memo, description, dates)
    - the Stellar `transactionHash` and ledger
    - proof of what was delivered (seats activated, report exported, tuition period covered)
    - any messages with the payer
 4. **Wait for the outcome.**
-   - **Dispute rejected** (the payment was valid): close it. Nothing is sent.
-   - **Dispute accepted** (the payer wins): return the funds **to the anchor**, not to the payer's wallet, using the normal [refund procedure](#refund-procedure) with reason `dispute`. Follow the destination and memo the anchor gives in writing.
+   - **Dispute rejected** (the payment was valid): set the dispute to `won` and fill in `resolvedAt`. Nothing is sent.
+   - **Dispute accepted** (the payer wins): set the dispute to `lost` and fill in `resolvedAt`. Return the funds **to the anchor**, not to the payer's wallet, using the normal [refund procedure](#refund-procedure) with reason `dispute`. Follow the destination and memo the anchor gives in writing. When the refund is `issued`, set the dispute to `refunded`.
 5. **Update the service** if needed. For example, an admin may cancel a subscription whose payment was disputed successfully.
 
 ### Rules for disputes
 
 - **Never refund both** the payer and the anchor for the same payment.
-- Always check for an open dispute before approving any refund.
+- Always check for a dispute record with status `open` or `lost` before approving any refund.
 - If an anchor has many disputes, review whether it should stay on the approved list.
 - Card payments made **directly** to PlugLytics are not accepted, so card chargebacks can only arrive through an on-ramp.
 
@@ -164,11 +199,11 @@ For each refund, store:
 - refund `transactionHash`, ledger and `issuedAt`
 - status history (`requested` → `approved` / `rejected` → `issued`)
 
-For each dispute, also store:
+For each dispute, keep the [dispute record](#dispute-records) (`id`, `paymentId`, `source`, `status`, `openedAt`, `resolvedAt`, `notes`), and also store:
 
 - the anchor or on-ramp name, and its dispute reference
 - the evidence sent, and the dates
-- the outcome, and any refund sent to the anchor
+- the status history (`open` → `won`, or `open` → `lost` → `refunded`), and the refund sent to the anchor, if any
 
 Also:
 
