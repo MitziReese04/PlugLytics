@@ -145,7 +145,9 @@ const stellar = loadStellarConfig();
 The payment endpoints follow the same rules as the rest of the PlugLytics API.
 
 - **Base path:** `/api/v1/payments` (and `/api/v1/subscriptions`, `/api/v1/webhooks`)
-- **Authentication:** send `Authorization: Bearer <JWT>` (get a token from `POST /api/v1/auth/login`). Every payment endpoint requires it.
+- **Authentication:** every payment endpoint needs one of these:
+  - **Admin login:** `Authorization: Bearer <JWT>` (get a token from `POST /api/v1/auth/login`). Can use every endpoint.
+  - **Customer API key:** `X-PlugLytics-Api-Key: plk_...`. **Read-only**, and limited to the school the key belongs to (see [Customer API keys](#customer-api-keys)).
 - **Amounts** are strings with up to 7 decimal places (for example `"25.0000000"`), because Stellar uses 7 decimal places and strings avoid rounding errors.
 - **Times** are ISO 8601 UTC strings.
 - **Response envelope:** every response has `data`, `meta` and `error`.
@@ -178,17 +180,33 @@ To keep the examples below short, only the `data` part is shown for success resp
 | --- | --- | --- | --- |
 | GET | `/api/v1/payments/config` | Any signed-in user | Show the active network and merchant public key |
 | POST | `/api/v1/payments` | Admin | Create a pay-per-use payment request |
-| GET | `/api/v1/payments` | Admin | List payment requests |
-| GET | `/api/v1/payments/:id` | Admin | Get one payment request |
+| GET | `/api/v1/payments` | Admin, or customer API key (own school, read-only) | List payment requests |
+| GET | `/api/v1/payments/:id` | Admin, or customer API key (own school, read-only) | Get one payment request |
 | POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
 | POST | `/api/v1/payments/:id/cancel` | Admin | Cancel a pending request |
 | POST | `/api/v1/payments/:id/accept-late-payment` | Admin | Record a payment that arrived after expiry as a new `completed` payment |
 | POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
-| GET | `/api/v1/subscriptions/:id` | Admin | Get a subscription and its current period |
+| GET | `/api/v1/subscriptions/:id` | Admin, or customer API key (own school, read-only) | Get a subscription and its current period |
 | POST | `/api/v1/webhooks` | Admin | Register a webhook URL and get its signing secret (shown once) |
 | GET | `/api/v1/webhooks` | Admin | List your registered webhook URLs |
 | DELETE | `/api/v1/webhooks/:id` | Admin | Remove a webhook URL |
 | POST | `/api/v1/webhooks/:id/rotate-secret` | Admin | Replace the signing secret (new secret shown once) |
+
+### Customer API keys
+
+Schools (customers) can read their own payments without an admin login, for example to catch up after their webhook server was down.
+
+- Send the key in the header `X-PlugLytics-Api-Key: plk_...`.
+- A key is **read-only**. It works only on:
+  - `GET /api/v1/payments`
+  - `GET /api/v1/payments/:id`
+  - `GET /api/v1/subscriptions/:id`
+- A key is **scoped to one school**. It only sees that school's payment requests and subscriptions:
+  - `GET /api/v1/payments` lists only that school's requests.
+  - Asking for another school's ID returns `404` (`PAYMENT_NOT_FOUND` or `SUBSCRIPTION_NOT_FOUND`), so a key cannot even tell that the record exists.
+- Using a key on any other endpoint (creating, cancelling or confirming payments, managing webhooks) returns `403` `API_KEY_READ_ONLY`.
+- A PlugLytics admin creates the key for a school. It is shown **once**, and PlugLytics stores only a hash of it (it only needs to check the key, never to read it back).
+- Keep the key on your server, in `.env` (for example `PLUGLYTICS_API_KEY`). Never put it in a browser or mobile app.
 
 ### GET `/api/v1/payments/config`
 
@@ -581,7 +599,7 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 ### Sending webhooks to the customer
 
 - After a status changes, PlugLytics sends a signed `POST` to each **webhook URL the customer registered** (see [Webhook endpoints](#webhook-endpoints)).
-- Events: `payment.pending`, `payment.completed`, `payment.failed` (with `reason`: `expired`, `cancelled`, `underpaid` or `wrong_asset`), `refund.issued`, `settlement.completed`, `subscription.activated`, `subscription.past_due`.
+- Events: `payment.pending`, `payment.completed`, `payment.failed` (with `reason`: `expired`, `cancelled`, `underpaid` or `wrong_asset`), `refund.issued`, `settlement.completed`, `subscription.activated`, `subscription.past_due`, `subscription.cancelled`.
 - Each request is signed with **that endpoint's own secret** (from registration): header `X-PlugLytics-Signature: v1=<hex>`, an HMAC-SHA256 of `<timestamp>.<raw body>`, with the timestamp in `X-PlugLytics-Timestamp`.
 - See [webhooks.md](./webhooks.md) for the payloads, how the customer verifies the signature, retry rules and duplicate handling.
 
@@ -592,9 +610,10 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 400 | `INVALID_JSON` | The request body is not valid JSON |
 | 400 | `VALIDATION_ERROR` | A field is missing or invalid (for example `amount` is `0`) |
 | 400 | `UNSUPPORTED_ASSET` | The `asset` and `assetIssuer` pair is not in `supportedAssets` |
-| 401 | `AUTH_REQUIRED` | No Bearer token was sent |
-| 401 | `AUTH_INVALID` | The token is invalid or expired |
+| 401 | `AUTH_REQUIRED` | No Bearer token or API key was sent |
+| 401 | `AUTH_INVALID` | The token or API key is invalid, expired or revoked |
 | 403 | `FORBIDDEN` | Your role cannot use this endpoint |
+| 403 | `API_KEY_READ_ONLY` | A customer API key was used on an endpoint that changes data |
 | 404 | `PAYMENT_NOT_FOUND` | No payment request has that ID |
 | 404 | `SUBSCRIPTION_NOT_FOUND` | No subscription has that ID |
 | 404 | `WEBHOOK_NOT_FOUND` | No registered webhook URL has that ID |

@@ -65,6 +65,7 @@
 | `settlement.completed` | A batch of completed payments was settled (reconciled and reported) for a period |
 | `subscription.activated` | A subscription's payment was completed, so its seats are active for the new period (first payment or renewal) |
 | `subscription.past_due` | A subscription's payment for the new period was not completed in time, so it is now `past_due` |
+| `subscription.cancelled` | A subscription was cancelled. No more renewal payment requests will be created for it. |
 
 Good to know:
 
@@ -281,6 +282,31 @@ For a subscription payment, `data.type` is `subscription` and `data` also includ
 - `paymentId` is the renewal payment request that was not completed, and `paymentReason` is its `failed` reason (`expired`, `cancelled`, `underpaid` or `wrong_asset`).
 - Decide what happens to the seats (for example, a grace period or turning them off) in your own app. A new renewal payment that is completed sends `subscription.activated` again.
 
+### `subscription.cancelled`
+
+```json
+{
+  "id": "evt_01JDR2B4C5",
+  "type": "subscription.cancelled",
+  "createdAt": "2026-12-05T08:00:00.000Z",
+  "environment": "sandbox",
+  "data": {
+    "subscriptionId": "sub_01JD8ZB2MP",
+    "plan": "institution_monthly",
+    "status": "cancelled",
+    "seats": 50,
+    "period": "monthly",
+    "cancellationReason": "customer_request",
+    "cancelledAt": "2026-12-05T07:59:58.000Z",
+    "accessEndsAt": "2026-12-21T12:10:04.000Z"
+  }
+}
+```
+
+- `cancellationReason` is `customer_request` (the school asked to cancel) or `non_payment` (it stayed `past_due` and was cancelled).
+- `accessEndsAt` is the end of the last **paid** period. Keep the seats on until then. It is `null` if no period was ever paid (for example, cancelled while `past_due`).
+- `cancelled` is final for the subscription. To subscribe again, the school starts a new subscription, which sends `subscription.activated` when its first payment is completed.
+
 ## Verifying the signature
 
 Anyone can send a `POST` request to your webhook URL, so **always check the signature** before trusting an event.
@@ -387,7 +413,7 @@ If a delivery fails (non-`2xx` reply, timeout after 10 seconds, or connection er
 - After the last unsuccessful attempt, the event's delivery is marked `delivery_failed` and can be re-sent by hand later.
 - Delivery states are `pending`, `delivered` and `delivery_failed`. They describe whether **the webhook reached your server**, not the payment. They are separate from the payment status `failed`.
 - A `4xx` reply is retried too, in case it was caused by a temporary bug on your side. The one exception is `410 Gone`, which tells PlugLytics to stop sending to that URL.
-- Being down for a while is fine: events wait and are retried. Use `GET /api/v1/payments/:id` to catch up on the current status if needed.
+- Being down for a while is fine: events wait and are retried. To catch up on the current status, call `GET /api/v1/payments/:id` (or `GET /api/v1/payments?status=completed`) with your school's read-only **customer API key** in the `X-PlugLytics-Api-Key` header. No admin login is needed (see [payments-api.md](./payments-api.md#customer-api-keys)).
 
 ## Idempotency: handling duplicate events
 
