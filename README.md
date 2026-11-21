@@ -503,6 +503,8 @@ See [PROPOSAL.md](./PROPOSAL.md) for the PlugLytics grant proposal, Stellar Paym
 
 The current project uses synthetic payment data. No live Stellar Payments or Stellar network integration is claimed.
 
+See [docs/stellar/payments-api.md](./docs/stellar/payments-api.md) for the planned Stellar Payments API: the payment flow, endpoints, error codes, sandbox vs production setup, and testnet friendbot testing.
+
 ## Roadmap
 
 - [ ] Live public deployment with HTTPS
