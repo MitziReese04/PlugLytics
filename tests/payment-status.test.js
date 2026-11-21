@@ -166,6 +166,12 @@ describe("findPaymentsWithMemo", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  test("treats a merchant account Horizon does not know yet (404) as no payments", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({ status: 404 }) });
+    const found = await findPaymentsWithMemo({ horizonUrl: HORIZON, account: MERCHANT, memo: "PL-NEWACCT1", since, fetchImpl });
+    expect(found).toEqual([]);
+  });
+
   test("follows Horizon's next link when a page is full", async () => {
     const filler = Array.from({ length: 200 }, () => horizonPayment({ memo: "PL-OTHER000", createdAt: "2026-11-22T09:30:00.000Z" }));
     const target = horizonPayment({ memo: "PL-PAGE0002", createdAt: "2026-11-22T09:05:00.000Z" });

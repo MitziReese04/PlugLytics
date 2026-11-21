@@ -194,6 +194,65 @@ router.post("/", authenticate, authorize("student"), (req, res) => {
   return sendError(res, 500, "INTERNAL_ERROR", "Could not create a unique payment request");
 });
 
+// Lists the signed-in student's invoices, newest first, with what is still due
+// and the latest Stellar payment request for each (so the dashboard can resume
+// a pending one). Invoice status: due (nothing paid), partial, or settled.
+const listStudentInvoices = db.prepare(`
+  SELECT i.id, t.code AS term_code, t.name AS term_name, i.currency, i.final_amount, i.due_at,
+         ROUND(COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id), 0), 2) AS recorded
+  FROM invoices i
+  JOIN terms t ON t.id = i.term_id
+  WHERE i.student_id = ?
+  ORDER BY t.start_date DESC, i.id DESC
+`);
+const latestRequestFor = db.prepare(`
+  SELECT id, status, reason, amount, asset, expires_at, completed_at
+  FROM payment_requests
+  WHERE invoice_id = ?
+  ORDER BY created_at DESC
+  LIMIT 1
+`);
+const hasCompletedRequest = db.prepare(
+  "SELECT 1 FROM payment_requests WHERE invoice_id = ? AND status = 'completed' LIMIT 1"
+);
+
+router.get("/invoices", authenticate, authorize("student"), (req, res) => {
+  const studentId = studentIdFor(req.user.id);
+  if (studentId === null) return sendSuccess(res, [], { total: 0 });
+
+  const invoices = listStudentInvoices.all(studentId).map((invoice) => {
+    const paidThroughStellar = Boolean(hasCompletedRequest.get(invoice.id));
+    const outstanding = paidThroughStellar ? 0 : Math.max(0, Math.round((invoice.final_amount - invoice.recorded) * 100) / 100);
+    let status = "partial";
+    if (outstanding <= 0) status = "settled";
+    else if (invoice.recorded <= 0) status = "due";
+    const latest = latestRequestFor.get(invoice.id);
+    return {
+      id: invoice.id,
+      term: invoice.term_name || invoice.term_code,
+      termCode: invoice.term_code,
+      currency: invoice.currency,
+      finalAmount: invoice.final_amount.toFixed(2),
+      recordedPayments: invoice.recorded.toFixed(2),
+      outstanding: outstanding.toFixed(2),
+      dueAt: invoice.due_at,
+      status,
+      latestPaymentRequest: latest
+        ? {
+          id: latest.id,
+          status: latest.status,
+          reason: latest.reason || null,
+          amount: latest.amount,
+          asset: latest.asset,
+          expiresAt: latest.expires_at,
+          paidAt: latest.completed_at || null,
+        }
+        : null,
+    };
+  });
+  return sendSuccess(res, invoices, { total: invoices.length });
+});
+
 // Returns a payment request. While it is pending, checks Horizon first and
 // marks it completed or failed (see docs/stellar/settlement.md).
 router.get("/:id", authenticate, authorize("student", "admin"), async (req, res, next) => {

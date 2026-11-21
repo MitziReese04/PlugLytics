@@ -270,6 +270,7 @@ To keep the examples below short, only the `data` part is shown for success resp
 | GET | `/api/v1/payments/config` | Any signed-in user | Show the active network and merchant public key |
 | POST | `/api/v1/payments` | Student (own invoice, **built, sandbox only**); Admin (pay-per-use, planned) | Create a payment request |
 | GET | `/api/v1/payments` | Admin, or customer API key (own school, read-only) | List payment requests |
+| GET | `/api/v1/payments/invoices` | Student (**built**) | List your own invoices with what is still due and the latest Stellar payment request |
 | GET | `/api/v1/payments/:id` | Student (own invoice, **built**), Admin (**built**), or customer API key (own school, read-only, planned) | Get one payment request, checking Horizon first while it is pending |
 | POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
 | POST | `/api/v1/payments/:id/cancel` | Admin | Cancel a pending request |
@@ -539,6 +540,17 @@ While the request is `pending`, PlugLytics first checks Horizon (sandbox/testnet
 - For `completed`, `underpaid` and `wrong_asset`, the response includes `transactionHash`, `amountReceived` and `ledger`. `paidAt` is set only for `completed`.
 - Errors: `404 PAYMENT_NOT_FOUND`, `409 TRANSACTION_ALREADY_LINKED` (the matching transaction belongs to another request), `502 HORIZON_UNAVAILABLE` (the request stays `pending`; try again), `503 STELLAR_NOT_CONFIGURED` (a pending request needs the sandbox settings to be checked).
 - Horizon is read with plain HTTP requests (`src/stellarHorizon.js`), not the Stellar SDK.
+- If Horizon answers `404` for the merchant account (an account that has never been funded does not exist on the network yet), that counts as "no payments yet", not as an error.
+
+### GET `/api/v1/payments/invoices`
+
+**Built.** Lists the signed-in student's own invoices, newest term first. Used by the student dashboard's Payments section.
+
+Each item has `id`, `term`, `termCode`, `currency`, `finalAmount`, `recordedPayments`, `outstanding` (2-decimal strings), `dueAt`, `status` and `latestPaymentRequest`:
+
+- `status` is `due` (nothing paid yet), `partial` (some paid) or `settled` (nothing left to pay). An invoice with a `completed` Stellar payment request counts as `settled`.
+- `latestPaymentRequest` is the newest payment request for the invoice (`id`, `status`, `reason`, `amount`, `asset`, `expiresAt`, `paidAt`), or `null`. The dashboard uses it to reopen a request that is still `pending`.
+- Students only (`403` for admins and instructors).
 
 ### POST `/api/v1/payments/:id/confirm`
 

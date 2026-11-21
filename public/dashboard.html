@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PlugLytics Dashboard</title>
-  <link rel="stylesheet" href="./styles.css?v=6">
+  <link rel="stylesheet" href="./styles.css?v=7">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="dashboard-page">
@@ -81,8 +81,36 @@
       </details>
       <section id="summaryGrid" class="summary-grid" aria-label="Dashboard highlights"></section>
       <section id="widgetGrid" class="widget-grid" aria-label="Dashboard features"></section>
+      <section id="paymentsSection" class="widget-card payments-section" aria-labelledby="paymentsHeading" hidden>
+        <div class="widget-card-heading">
+          <div>
+            <h2 id="paymentsHeading">Payments</h2>
+            <p>Your invoices and what is still due. Pay with Stellar on the test network.</p>
+          </div>
+          <span class="testnet-badge">TESTNET – no real money</span>
+        </div>
+        <p id="paymentsMessage" class="payments-message" role="status" aria-live="polite"></p>
+        <div class="payments-table-wrap">
+          <table class="invoice-table">
+            <thead>
+              <tr><th scope="col">Term</th><th scope="col">Amount</th><th scope="col">Still due</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Action</span></th></tr>
+            </thead>
+            <tbody id="invoiceRows"></tbody>
+          </table>
+        </div>
+        <section id="paymentPanel" class="payment-panel" aria-labelledby="paymentPanelHeading" hidden>
+          <div class="payment-panel-heading">
+            <h3 id="paymentPanelHeading">Pay with Stellar (Testnet)</h3>
+            <button id="closePaymentPanel" class="outline-button" type="button">Close</button>
+          </div>
+          <p class="testnet-banner"><strong>TESTNET – no real money.</strong> Send this payment from a Stellar <em>testnet</em> wallet only.</p>
+          <dl id="paymentDetails" class="payment-details"></dl>
+          <p class="memo-warning">Include the memo exactly as shown. Without it, the payment cannot be matched to your invoice.</p>
+          <p class="payment-status-line">Status: <span id="paymentStatus" class="payment-status" role="status" aria-live="polite"></span> <small id="paymentExpiry"></small></p>
+        </section>
+      </section>
     </main>
   </div>
-  <script src="./app.js?v=5"></script>
+  <script src="./app.js?v=6"></script>
 </body>
 </html>

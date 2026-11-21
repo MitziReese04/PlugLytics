@@ -40,6 +40,11 @@ async function getJson(url, fetchImpl) {
   } catch (error) {
     throw new HorizonError(`Horizon could not be reached: ${error.message}`);
   }
+  // A merchant account that has never been funded does not exist on the network
+  // yet, so Horizon answers 404: that simply means no payments have arrived.
+  if (response.status === 404) {
+    return { _embedded: { records: [] }, _links: {} };
+  }
   if (!response.ok) {
     throw new HorizonError(`Horizon returned HTTP ${response.status}`);
   }

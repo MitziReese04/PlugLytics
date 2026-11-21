@@ -70,7 +70,11 @@ async function requestApi(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(body.error?.message || `PlugLytics API request failed (HTTP ${response.status}).`);
+    const error = new Error(body.error?.message || `PlugLytics API request failed (HTTP ${response.status}).`);
+    error.status = response.status;
+    error.code = body.error?.code;
+    error.details = body.error?.details;
+    throw error;
   }
   return body;
 }
@@ -154,6 +158,7 @@ async function startSession() {
   applyTheme(theme);
   renderCatalog();
   await renderWidgets();
+  if (state.role === "student") await loadInvoices();
 }
 
 function populateTerms(terms) {
@@ -484,3 +489,222 @@ if (state.token) {
     localStorage.removeItem("pluglytics_token");
   });
 }
+
+// ---------------------------------------------------------------------------
+// Student payments: invoices and Stellar testnet payment requests
+// ---------------------------------------------------------------------------
+
+const PAYMENT_POLL_MS = 5000;
+const payment = { current: null, timer: null, checking: false };
+
+const INVOICE_STATUS_LABELS = { due: "Due", partial: "Partly paid", settled: "Paid" };
+const FAILURE_LABELS = {
+  expired: "the payment request expired before a payment arrived",
+  cancelled: "the payment request was cancelled",
+  underpaid: "less than the requested amount arrived",
+  wrong_asset: "the payment used a different asset",
+};
+
+function setPaymentsMessage(text, isError = false) {
+  const message = byId("paymentsMessage");
+  message.textContent = text;
+  message.classList.toggle("widget-error", isError);
+}
+
+function formatMoney(amount, currency) {
+  const value = Number(amount);
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(value);
+  } catch (error) {
+    return `${value.toFixed(2)} ${currency}`;
+  }
+}
+
+function isOpenRequest(request) {
+  return request && request.status === "pending" && Date.parse(request.expiresAt) > Date.now();
+}
+
+async function loadInvoices() {
+  byId("paymentsSection").hidden = false;
+  try {
+    const result = await api("/payments/invoices");
+    renderInvoices(result.data);
+  } catch (error) {
+    byId("invoiceRows").innerHTML = "";
+    setPaymentsMessage(`Unable to load your invoices: ${error.message}`, true);
+  }
+}
+
+function renderInvoices(invoices) {
+  const rows = byId("invoiceRows");
+  if (!invoices.length) {
+    rows.innerHTML = `<tr><td colspan="5" class="muted-cell">You have no invoices.</td></tr>`;
+    return;
+  }
+  rows.innerHTML = invoices.map((invoice) => {
+    let action = `<span class="muted-cell">—</span>`;
+    if (invoice.status !== "settled") {
+      action = isOpenRequest(invoice.latestPaymentRequest)
+        ? `<button type="button" class="outline-button" data-open-payment="${escapeHtml(invoice.latestPaymentRequest.id)}">View pending payment</button>`
+        : `<button type="button" data-pay-invoice="${escapeHtml(invoice.id)}">Pay with Stellar (Testnet)</button>`;
+    }
+    return `<tr>
+      <td>${escapeHtml(invoice.term)}</td>
+      <td>${escapeHtml(formatMoney(invoice.finalAmount, invoice.currency))}</td>
+      <td>${escapeHtml(formatMoney(invoice.outstanding, invoice.currency))}</td>
+      <td><span class="invoice-status invoice-status-${escapeHtml(invoice.status)}">${escapeHtml(INVOICE_STATUS_LABELS[invoice.status] || invoice.status)}</span></td>
+      <td class="action-cell">${action}</td>
+    </tr>`;
+  }).join("");
+}
+
+function detailRow(label, field, value) {
+  return `<div class="payment-detail">
+    <dt>${escapeHtml(label)}</dt>
+    <dd><code>${escapeHtml(value)}</code>
+      <button type="button" class="outline-button copy-button" data-copy-field="${field}" aria-label="Copy ${escapeHtml(label.toLowerCase())}">Copy</button>
+    </dd>
+  </div>`;
+}
+
+function showPayment(data) {
+  payment.current = data;
+  byId("paymentPanel").hidden = false;
+  byId("paymentDetails").innerHTML = [
+    detailRow("Destination address", "destination", data.destination),
+    detailRow("Amount", "amount", data.amount),
+    detailRow("Asset", "asset", data.asset),
+    detailRow("Memo", "memo", data.memo),
+  ].join("");
+  updatePaymentStatus(data);
+}
+
+function updatePaymentStatus(data) {
+  payment.current = { ...payment.current, ...data };
+  const status = byId("paymentStatus");
+  status.className = `payment-status payment-status-${data.status}`;
+  if (data.status === "completed") {
+    status.textContent = "Completed – payment received";
+  } else if (data.status === "failed") {
+    status.textContent = `Failed – ${FAILURE_LABELS[data.reason] || data.reason || "unknown reason"}`;
+  } else {
+    status.textContent = "Waiting for payment…";
+  }
+  byId("paymentExpiry").textContent = data.status === "pending" && data.expiresAt
+    ? `Expires at ${new Date(data.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. Checking every few seconds.`
+    : "";
+}
+
+function stopPaymentPolling() {
+  if (payment.timer) clearInterval(payment.timer);
+  payment.timer = null;
+}
+
+function startPaymentPolling() {
+  stopPaymentPolling();
+  payment.timer = setInterval(checkPayment, PAYMENT_POLL_MS);
+}
+
+async function checkPayment() {
+  if (!payment.current || payment.checking) return;
+  payment.checking = true;
+  const id = payment.current.id;
+  try {
+    const result = await api(`/payments/${encodeURIComponent(id)}`);
+    if (payment.current?.id !== id) return;
+    updatePaymentStatus(result.data);
+    if (result.data.status !== "pending") {
+      stopPaymentPolling();
+      await loadInvoices();
+    }
+  } catch (error) {
+    // Horizon or the network may be briefly unavailable, so keep trying.
+    // Stop only if the request cannot be read at all.
+    setPaymentsMessage(`Could not check the payment: ${error.message}`, true);
+    if (error.status === 401 || error.status === 403 || error.status === 404) stopPaymentPolling();
+  } finally {
+    payment.checking = false;
+  }
+}
+
+async function openPayment(id) {
+  setPaymentsMessage("");
+  const result = await api(`/payments/${encodeURIComponent(id)}`);
+  showPayment(result.data);
+  if (result.data.status === "pending") startPaymentPolling();
+  else await loadInvoices();
+}
+
+async function payInvoice(invoiceId, button) {
+  setPaymentsMessage("");
+  button.disabled = true;
+  button.textContent = "Creating payment…";
+  try {
+    const result = await api("/payments", {
+      method: "POST",
+      body: JSON.stringify({ invoiceId: Number(invoiceId) }),
+    });
+    showPayment(result.data);
+    startPaymentPolling();
+    await loadInvoices();
+  } catch (error) {
+    if (error.code === "PAYMENT_ALREADY_PENDING" && error.details?.paymentId) {
+      await openPayment(error.details.paymentId);
+      return;
+    }
+    const messages = {
+      STELLAR_NOT_CONFIGURED: "Stellar testnet payments are not set up on this server yet.",
+      INVOICE_NOTHING_DUE: "This invoice has nothing left to pay.",
+    };
+    setPaymentsMessage(messages[error.code] || `Unable to create the payment: ${error.message}`, true);
+    button.disabled = false;
+    button.textContent = "Pay with Stellar (Testnet)";
+    if (error.code === "INVOICE_NOTHING_DUE") await loadInvoices();
+  }
+}
+
+async function copyText(text, button) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (error) {
+    const field = document.createElement("textarea");
+    field.value = text;
+    field.setAttribute("readonly", "");
+    field.style.position = "absolute";
+    field.style.left = "-9999px";
+    document.body.appendChild(field);
+    field.select();
+    document.execCommand("copy");
+    field.remove();
+  }
+  const original = button.textContent;
+  button.textContent = "Copied";
+  setTimeout(() => { button.textContent = original; }, 1500);
+}
+
+byId("paymentsSection").addEventListener("click", async (event) => {
+  const payButton = event.target.closest("[data-pay-invoice]");
+  if (payButton) {
+    await payInvoice(payButton.dataset.payInvoice, payButton);
+    return;
+  }
+  const openButton = event.target.closest("[data-open-payment]");
+  if (openButton) {
+    try {
+      await openPayment(openButton.dataset.openPayment);
+    } catch (error) {
+      setPaymentsMessage(`Unable to open the payment: ${error.message}`, true);
+    }
+    return;
+  }
+  const copyButton = event.target.closest("[data-copy-field]");
+  if (copyButton && payment.current) {
+    await copyText(String(payment.current[copyButton.dataset.copyField] ?? ""), copyButton);
+  }
+});
+
+byId("closePaymentPanel").addEventListener("click", () => {
+  stopPaymentPolling();
+  payment.current = null;
+  byId("paymentPanel").hidden = true;
+});
