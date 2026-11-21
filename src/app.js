@@ -14,9 +14,11 @@ const swaggerUi = require("swagger-ui-express");
 const openApi = require("./openapi");
 
 const app = express();
+const contentSecurityPolicy = helmet.contentSecurityPolicy.getDefaultDirectives();
+contentSecurityPolicy["script-src"] = ["'self'", "https://cdn.jsdelivr.net"];
 
 app.disable("x-powered-by");
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: { directives: contentSecurityPolicy } }));
 app.use(express.json({ limit: "1mb" }));
 app.use(
   rateLimit({

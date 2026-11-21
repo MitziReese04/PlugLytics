@@ -14,6 +14,21 @@ function getLmsDateOptionsUrl() {
     .trim();
 }
 
+async function readApiResponse(response, action) {
+  let body;
+  try {
+    body = await response.json();
+  } catch (error) {
+    throw new Error(
+      `${action} returned a non-JSON response (HTTP ${response.status}). Check that pluglytics.baseUrl points to the running PlugLytics API.`
+    );
+  }
+  if (!response.ok) {
+    throw new Error(body.error?.message || `${action} failed (HTTP ${response.status}).`);
+  }
+  return body;
+}
+
 function isDateValue(value, key) {
   if (!/(date|time|due|start|end|created|updated|submitted|activity|deadline|enrol|term)/i.test(key)) {
     return null;
@@ -95,10 +110,7 @@ async function getDateOptions(context) {
   const response = await fetch(`${getBaseUrl()}/api/v1/me/filter-options`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const body = await response.json();
-  if (!response.ok) {
-    throw new Error(body.error?.message || `Date lookup failed (${response.status})`);
-  }
+  const body = await readApiResponse(response, "Date lookup");
   await context.globalState.update("pluglytics.dateOptions", body.data);
   body.data.lmsDates = [];
   body.data.lmsDateError = null;
@@ -132,10 +144,8 @@ async function connectAccount(context) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  const body = await response.json();
-  if (!response.ok || !body.data?.token) {
-    throw new Error(body.error?.message || `Sign-in failed (${response.status})`);
-  }
+  const body = await readApiResponse(response, "Sign-in");
+  if (!body.data?.token) throw new Error("Sign-in response did not contain an access token.");
 
   await context.secrets.store("pluglytics.jwt", body.data.token);
   const options = await getDateOptions(context);
@@ -248,8 +258,7 @@ function activate(context) {
   const healthCheck = vscode.commands.registerCommand("pluglytics.healthCheck", async () => {
     try {
       const response = await fetch(`${getBaseUrl()}/api/v1/health`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const body = await response.json();
+      const body = await readApiResponse(response, "Health check");
       vscode.window.showInformationMessage(`PlugLytics is healthy: ${body.data.database}`);
     } catch (error) {
       vscode.window.showErrorMessage(`PlugLytics API is unavailable: ${error.message}`);
@@ -381,4 +390,4 @@ function activate(context) {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, extractDates };
+module.exports = { activate, deactivate, extractDates, readApiResponse };

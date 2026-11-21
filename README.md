@@ -1,4 +1,6 @@
-# PlugLytics
+<h1 align="center">
+  <img src="./logo/PlugLytics-logo-10-horizontal.png" alt="PlugLytics" width="420">
+</h1>
 
 <p align="center">
   <strong>Learning progress, made clear.</strong><br />
@@ -13,11 +15,15 @@
   <a href="#quick-start">Quick start</a>
 </p>
 
+<p align="center">
+  <img src="./public/pluglytics-website-screenshot.png" alt="PlugLytics product website showing the branded navigation, learning analytics hero, and dashboard preview" width="100%">
+</p>
+
 ## Live project
 
 | Surface | Local URL | Status |
 | --- | --- | --- |
-| Public website | `http://localhost:3000/public` | Available locally |
+| Public website | `http://localhost:3000/public` | Branded landing page with section navigation and direct extension download |
 | Analytics dashboard | `http://localhost:3000/public/dashboard.html` | Available locally |
 | REST API | `http://localhost:3000/api/v1` | Available locally |
 | Swagger UI | `http://localhost:3000/docs` | Available locally |
@@ -26,6 +32,8 @@
 | Public deployment |  | **Not yet provided** |
 
 PlugLytics is a zero-setup Learning Management System analytics API and role-aware web dashboard. It uses Node.js, Express, SQLite, JWT authentication, Zod validation, Chart.js, Swagger/OpenAPI, and a VS Code extension.
+
+The product website has a responsive dark-gradient header with the PlugLytics logo, centered section links, and a direct **Download PlugLytics** VSIX button. The dashboard sign-in screen also uses the PlugLytics navy-and-teal palette and logo mark. The website preview is illustrative; the live dashboard uses the API's synthetic demo records.
 
 The demo repository includes realistic synthetic data for:
 
@@ -76,6 +84,8 @@ npm run dev
 5. Change term, course, section, or widget selections and observe the data update.
 6. Open `http://localhost:3000/docs` for interactive API documentation.
 
+Open the dashboard through the running PlugLytics server at `http://localhost:3000/public/dashboard.html`. Do not open `public/dashboard.html` directly from the file system; the browser needs the server's `/api/v1` routes for sign-in and analytics.
+
 No external database, cloud account, or infrastructure is required for the demo.
 
 ## Problem / Solution
@@ -96,7 +106,7 @@ PlugLytics provides a single role-aware analytics surface backed by a versioned 
 
 | Layer | What it does |
 | --- | --- |
-| Public website | Explains the project and provides dashboard and plugin entry points |
+| Public website | Branded product landing page with role/use-case information, section navigation, and a direct VSIX download |
 | Analytics dashboard | Displays role-specific widgets and persisted custom layouts |
 | REST API | Returns consistently structured LMS and finance analytics |
 | Authentication | Verifies users through JWTs |
@@ -151,7 +161,8 @@ PlugLytics provides a single role-aware analytics surface backed by a versioned 
 - Page and result filtering
 - CSV export
 - Swagger/OpenAPI documentation
-- VS Code commands for dashboard, docs, health, and server startup
+- Branded login screen and responsive public product website
+- VS Code commands for dashboard, docs, health, server startup, account connection, and date filtering
 
 ## Role-by-role access
 
@@ -191,7 +202,7 @@ Instead, every API response follows the same verification and privacy model:
 ## Architecture
 
 ```text
-Browser dashboard / VS Code plugin
+Public website / browser dashboard / VS Code plugin
               |
               v
         Express API
@@ -227,6 +238,7 @@ The public/static dashboard is served from `/public`. API routes are served unde
 ```text
 PlugLytics/
 |- public/                 # Public website and role-aware dashboard
+|- logo/                   # Original PlugLytics brand image assets
 |- pluglytics-vscode/      # VS Code extension source and VSIX
 |- scripts/                # Database seed script
 |- src/
@@ -451,9 +463,11 @@ Commands:
 - `PlugLytics: Configure LMS Date API`
 - `PlugLytics: Set LMS API Token`
 
-The PlugLytics API URL is configurable with `pluglytics.baseUrl`. Once a user connects, the extension automatically refreshes role-scoped date choices from the API and can open the dashboard with the selected term or date range. An optional `pluglytics.lmsDateOptionsUrl` setting points to a JSON API on the institution's LMS; the extension can fetch ISO date fields and Unix-second timestamps from that endpoint. Configure its URL with **PlugLytics: Configure LMS Date API** and store an optional bearer token with **PlugLytics: Set LMS API Token**.
+The PlugLytics API URL is configurable with `pluglytics.baseUrl`. Once a user connects, the extension automatically refreshes role-scoped date choices from the API and can open the dashboard with the selected term or date range. An optional `pluglytics.lmsDateOptionsUrl` setting points to a JSON API on the institution's LMS; the extension can fetch ISO date fields and Unix-second or Unix-millisecond timestamps from that endpoint. Configure its URL with **PlugLytics: Configure LMS Date API** and store an optional bearer token with **PlugLytics: Set LMS API Token**.
 
 This generic date fetcher requires a REST JSON endpoint and does not support LMS web-page scraping, provider-specific OAuth, or automatic pagination. Provider adapters or import mappings are still needed to populate PlugLytics analytics with institution data. The demo currently uses synthetic seeded data.
+
+The public site's **Download PlugLytics** button downloads the VSIX at `public/pluglytics-0.1.0.vsix`. To run the extension's focused date-parser test, use `npm test` from `pluglytics-vscode`.
 
 ## Tests
 
@@ -470,6 +484,7 @@ Current coverage includes:
 - Finance collection-rate calculation
 - Dashboard layout persistence
 - Privacy-safe standing endpoint
+- Role-scoped date options and inverted-range validation
 
 To rerun a clean demo:
 
@@ -521,7 +536,7 @@ The following information is needed before the README and grant materials can be
 12. Pilot budget, grant amount, milestones, and reporting dates
 13. User-testing population and target sample size
 14. Security, accessibility, and compliance requirements
-15. Logo and official brand assets
+15. Confirmation that the supplied PlugLytics logo is approved for public and grant use
 16. Screenshot or video assets for the public repository
 17. License choice and maintainer information
 18. Support, privacy, terms, and vulnerability-disclosure URLs

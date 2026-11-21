@@ -9,6 +9,22 @@ async function login(email) {
 }
 
 describe("PlugLytics API", () => {
+  test("demo student login returns a token", async () => {
+    const response = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: "student@pluglytics.local", password: "Demo123!" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.token).toBeTruthy();
+  });
+
+  test("dashboard CSP allows the Chart.js CDN configured by the page", async () => {
+    const response = await request(app).get("/public/dashboard.html");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-security-policy"]).toContain("https://cdn.jsdelivr.net");
+  });
+
   test("health responds through the standard envelope", async () => {
     const response = await request(app).get("/api/v1/health");
     expect(response.status).toBe(200);

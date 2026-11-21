@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PlugLytics Dashboard</title>
-  <link rel="stylesheet" href="./styles.css?v=3">
+  <link rel="stylesheet" href="./styles.css?v=6">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="dashboard-page">
@@ -19,23 +19,57 @@
         <button type="submit">Sign in</button>
         <p id="loginError" class="error" role="alert"></p>
       </form>
+      <section id="fileProtocolHelp" class="server-help" hidden>
+        <h2>Start the PlugLytics server first</h2>
+        <p>This page was opened directly from your files. Sign-in and analytics need the local PlugLytics server.</p>
+        <ol>
+          <li>Open a terminal in the PlugLytics project folder.</li>
+          <li>Run <code>npm run dev</code> and keep it running.</li>
+          <li>Open the dashboard from the server below.</li>
+        </ol>
+        <a href="http://localhost:3000/public/dashboard.html">Open the local dashboard</a>
+      </section>
     </section>
   </div>
 
   <div id="app" class="app-shell" hidden>
-    <aside class="sidebar">
-      <a class="brand" href="./"><span class="brand-mark">P</span><span>PlugLytics</span></a>
-      <nav id="roleNav"></nav>
-      <button id="logoutButton" class="quiet-button">Sign out</button>
-    </aside>
-    <main>
-      <header class="topbar">
-        <div><p class="eyebrow" id="roleLabel"></p><h1 id="pageTitle">Dashboard</h1></div>
+    <header class="dashboard-header">
+      <a class="dashboard-brand" href="./" aria-label="PlugLytics home">
+        <img src="./pluglytics-logo-mark.png" alt="">
+        <span id="pageTitle">Student learning overview</span>
+      </a>
+      <div class="dashboard-actions">
+        <button id="customizeButton" class="outline-button customize-button" type="button" aria-expanded="false" aria-controls="customizePanel">
+          Customize dashboard <span aria-hidden="true">⌄</span>
+        </button>
         <label class="theme-toggle">Theme
-          <select id="themeSelect"><option value="light">Light</option><option value="dark">Dark</option></select>
+          <select id="themeSelect" aria-label="Dashboard color theme">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
         </label>
+        <button id="logoutButton" class="outline-button sign-out-button" type="button">Sign out</button>
+      </div>
+    </header>
+    <main class="dashboard-main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="roleLabel"></p>
+          <h1 id="dashboardHeading">Dashboard</h1>
+          <p class="dashboard-intro">A clear view of your learning, progress, and what’s next.</p>
+        </div>
       </header>
-      <section class="filter-bar">
+      <section id="customizePanel" class="widget-panel" hidden>
+        <div class="panel-heading">
+          <div><h2>Choose what to see</h2><p>Turn dashboard features on or off. Your selection is saved with your layout.</p></div>
+          <button id="saveLayout" type="button">Save dashboard</button>
+        </div>
+        <div id="widgetCatalog" class="widget-catalog"></div>
+        <p id="saveStatus" class="save-status" role="status" aria-live="polite"></p>
+      </section>
+      <details class="filter-panel">
+        <summary>Filters <span>Refine your dashboard by term, dates, course, or section</span></summary>
+        <section class="filter-bar">
         <label>Term<select id="termFilter"><option value="">All terms</option><option value="2023-1">Fall 2023</option><option value="2024-1">Spring 2024</option><option value="2024-2">Fall 2024</option><option value="2025-1">Spring 2025</option></select></label>
         <label>From<input id="fromFilter" type="date"></label>
         <label>To<input id="toFilter" type="date"></label>
@@ -43,13 +77,12 @@
         <label>Section<input id="sectionFilter" placeholder="e.g. Section A"></label>
         <label>Group<select id="groupFilter"><option value="">None</option><option value="term">Term</option><option value="course">Course</option><option value="section">Section</option></select></label>
         <button id="applyFilters" type="button">Apply filters</button>
-      </section>
-      <section class="content-grid">
-        <aside class="widget-panel"><h2>Widgets</h2><div id="widgetCatalog"></div><button id="saveLayout" type="button">Save layout</button></aside>
-        <section id="widgetGrid" class="widget-grid"></section>
-      </section>
+        </section>
+      </details>
+      <section id="summaryGrid" class="summary-grid" aria-label="Dashboard highlights"></section>
+      <section id="widgetGrid" class="widget-grid" aria-label="Dashboard features"></section>
     </main>
   </div>
-  <script src="./app.js?v=2"></script>
+  <script src="./app.js?v=5"></script>
 </body>
 </html>

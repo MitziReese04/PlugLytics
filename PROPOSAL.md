@@ -31,9 +31,20 @@ The initial PlugLytics implementation provides:
 - Custom widget layouts and named presets.
 - Swagger/OpenAPI documentation.
 - A static, role-aware dashboard.
+- A responsive product website with role and use-case sections, branded navigation, and a direct VSIX download button.
+- A PlugLytics-branded login screen using the navy-and-teal visual palette and supplied mark.
+- A VS Code extension that connects to PlugLytics and opens the dashboard with a selected term or date range.
 - Realistic seeded demo data and a zero-setup SQLite database.
 
 The grant-funded integration would connect PlugLytics to Stellar Payments so institutions can use a consistent merchant payment workflow with analytics they can explain.
+
+## Current website and application
+
+The public website introduces PlugLytics, explains its student, instructor, and administrator use cases, describes privacy principles, and provides a **Download PlugLytics** button for the VS Code VSIX. The top navigation places the logo beside centered section links and uses the same dark navy visual treatment as the product hero.
+
+The dashboard sign-in screen uses the PlugLytics logo mark, a navy gradient background, and teal controls. Once signed in, the dashboard presents role-scoped analytics and saved widget layouts.
+
+The extension refreshes role-permitted terms and dates from the authenticated PlugLytics API. It can also read dates from a manually configured LMS REST endpoint that returns JSON. This generic date reader does not scrape LMS web pages, implement provider-specific OAuth, paginate vendor APIs, or import LMS records. Provider adapters or import mappings are still needed to populate analytics with institutional data. The current demo website and dashboard use synthetic data.
 
 ## Stellar Payments integration opportunity
 
@@ -103,7 +114,7 @@ npm run seed
 npm run dev
 ```
 
-Open the dashboard at `http://localhost:3000/public` and API documentation at `http://localhost:3000/docs`.
+Open the product website at `http://localhost:3000/public`, the dashboard at `http://localhost:3000/public/dashboard.html`, and API documentation at `http://localhost:3000/docs`. The VSIX download is available at `http://localhost:3000/public/pluglytics-0.1.0.vsix`.
 
 Demo credentials are documented in [README.md](./README.md).
 
