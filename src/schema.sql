@@ -403,6 +403,84 @@ CREATE TABLE IF NOT EXISTS stellar_refunds (
 
 CREATE INDEX IF NOT EXISTS idx_stellar_refunds_payment ON stellar_refunds(payment_id);
 
+-- Reconciliation and settlement reports (see docs/stellar/settlement.md).
+-- One report per kind (daily/weekly), environment, asset and period. A re-run
+-- replaces the report's figures and items but keeps its ID.
+CREATE TABLE IF NOT EXISTS settlement_reports (
+  id TEXT PRIMARY KEY CHECK(id GLOB 'set_?*'),
+  kind TEXT NOT NULL CHECK(kind IN ('daily','weekly')),
+  environment TEXT NOT NULL CHECK(environment IN ('sandbox','production')),
+  asset TEXT NOT NULL CHECK(length(asset) BETWEEN 1 AND 12),
+  asset_issuer TEXT CHECK(asset_issuer IS NULL OR (length(asset_issuer) = 56 AND asset_issuer GLOB 'G*')),
+  period_start TEXT NOT NULL,
+  period_end TEXT NOT NULL CHECK(period_end > period_start),
+  payment_count INTEGER NOT NULL CHECK(payment_count >= 0),
+  gross_amount TEXT NOT NULL,
+  refund_count INTEGER NOT NULL CHECK(refund_count >= 0),
+  refunded_amount TEXT NOT NULL,
+  fees_paid TEXT NOT NULL,
+  net_amount TEXT NOT NULL,
+  matched_count INTEGER NOT NULL CHECK(matched_count >= 0),
+  exception_count INTEGER NOT NULL CHECK(exception_count >= 0),
+  open_exception_count INTEGER NOT NULL CHECK(open_exception_count BETWEEN 0 AND exception_count),
+  payment_ids TEXT NOT NULL CHECK(json_valid(payment_ids)),
+  -- Weekly balance check: opening + movements = expected closing, compared with the real balance.
+  opening_balance TEXT,
+  expected_closing_balance TEXT,
+  actual_closing_balance TEXT,
+  balance_status TEXT CHECK(balance_status IS NULL OR balance_status IN ('ok','mismatch','baseline')),
+  summary_hash TEXT NOT NULL,
+  run_source TEXT NOT NULL CHECK(run_source IN ('schedule','command','dashboard')),
+  run_by INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK(kind = 'weekly' OR balance_status IS NULL),
+  FOREIGN KEY (run_by) REFERENCES users(id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_settlement_reports_period
+  ON settlement_reports(kind, environment, asset, COALESCE(asset_issuer, ''), period_start);
+
+-- The line-by-line list of a report (exported as CSV). For a weekly report, the
+-- items are the week's open exceptions.
+CREATE TABLE IF NOT EXISTS settlement_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  report_id TEXT NOT NULL,
+  result TEXT NOT NULL CHECK(result IN ('matched','amount_mismatch','asset_mismatch','unmatched_onchain','unmatched_record','duplicate')),
+  direction TEXT NOT NULL CHECK(direction IN ('in','out')),
+  item_type TEXT NOT NULL CHECK(item_type IN ('payment','refund','unknown')),
+  payment_id TEXT,
+  refund_id TEXT,
+  school_id INTEGER,
+  memo TEXT,
+  asset TEXT NOT NULL,
+  asset_issuer TEXT,
+  amount_expected TEXT,
+  amount_received TEXT,
+  tx_hash TEXT,
+  ledger INTEGER,
+  counterparty TEXT,
+  occurred_at TEXT NOT NULL,
+  fee_paid TEXT NOT NULL DEFAULT '0.0000000',
+  note TEXT,
+  -- How an exception was fixed (a follow-up payment or a refund), or NULL while it is open.
+  resolution TEXT,
+  CHECK(result <> 'matched' OR resolution IS NULL),
+  FOREIGN KEY (report_id) REFERENCES settlement_reports(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_settlement_items_report ON settlement_items(report_id);
+
+-- Where the last daily run stopped reading the merchant account's payments on Horizon.
+CREATE TABLE IF NOT EXISTS reconciliation_cursors (
+  environment TEXT NOT NULL CHECK(environment IN ('sandbox','production')),
+  account TEXT NOT NULL,
+  paging_token TEXT NOT NULL,
+  record_time TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (environment, account)
+);
+
 -- Webhook outbox (see docs/stellar/webhooks.md). Each event is stored once with
 -- its exact JSON body, so every retry sends the same body and event ID.
 CREATE TABLE IF NOT EXISTS webhook_events (

@@ -207,6 +207,7 @@ async function startSession() {
     await loadAdminPayments();
     await loadAdminWebhooks();
     await loadAdminRefunds();
+    await loadAdminSettlements();
   }
 }
 
@@ -1984,7 +1985,7 @@ async function loadAdminRefunds() {
   const status = byId("adminRefundStatus").value;
   try {
     const result = await api(`/refunds${status ? `?status=${encodeURIComponent(status)}` : ""}`);
-    renderRefunds(result.data);
+    renderRefunds(result.data, result.meta.issuingEnabled === true);
   } catch (error) {
     byId("adminRefundRows").innerHTML = "";
     setRefundsMessage(`Unable to load refunds: ${error.message}`, true);
@@ -1997,8 +1998,9 @@ function refundStatusText(row) {
   return row.status.charAt(0).toUpperCase() + row.status.slice(1);
 }
 
-function renderRefunds(rows) {
+function renderRefunds(rows, issuingEnabled) {
   const body = byId("adminRefundRows");
+  byId("refundIssuingNote").hidden = issuingEnabled;
   if (!rows.length) {
     body.innerHTML = `<tr><td colspan="7" class="muted-cell">No refunds yet.</td></tr>`;
     return;
@@ -2015,7 +2017,9 @@ function renderRefunds(rows) {
       actions.push(`<button type="button" class="outline-button" data-refund-action="approve" data-refund-id="${escapeHtml(row.id)}">Approve</button>`);
     }
     if (row.status === "approved") {
-      actions.push(`<button type="button" data-refund-action="issue" data-refund-id="${escapeHtml(row.id)}" data-amount="${escapeHtml(row.amount)}" data-asset="${escapeHtml(row.asset)}" data-destination="${escapeHtml(row.destination)}">Send testnet refund</button>`);
+      actions.push(issuingEnabled
+        ? `<button type="button" data-refund-action="issue" data-refund-id="${escapeHtml(row.id)}" data-amount="${escapeHtml(row.amount)}" data-asset="${escapeHtml(row.asset)}" data-destination="${escapeHtml(row.destination)}">Send testnet refund</button>`
+        : `<button type="button" disabled aria-describedby="refundIssuingNote">Send testnet refund</button>`);
     }
     if (row.status === "requested" || (row.status === "approved" && !row.sendInProgress)) {
       actions.push(`<button type="button" class="outline-button cancel-payment-button" data-refund-action="reject" data-refund-id="${escapeHtml(row.id)}">Reject</button>`);
@@ -2073,4 +2077,175 @@ byId("adminRefundRows").addEventListener("click", (event) => {
 byId("adminPaymentRows").addEventListener("click", (event) => {
   const button = event.target.closest("[data-refund-payment]");
   if (button) openRefundForm(button);
+});
+
+// ---------------------------------------------------------------------------
+// Admin: settlement reports (daily and weekly reconciliation)
+// ---------------------------------------------------------------------------
+
+const settlementView = { id: null, label: "" };
+const SETTLEMENT_RESULT_LABELS = {
+  matched: "Matched",
+  amount_mismatch: "Amount mismatch",
+  asset_mismatch: "Asset mismatch",
+  unmatched_onchain: "Unmatched on chain",
+  unmatched_record: "Record not on chain",
+  duplicate: "Duplicate",
+};
+
+function setSettlementsMessage(text, isError = false) {
+  const message = byId("adminSettlementsMessage");
+  message.textContent = text;
+  message.classList.toggle("widget-error", isError);
+}
+
+function settlementPeriodText(row) {
+  const start = row.periodStart.slice(0, 10);
+  if (row.kind === "daily") return `${start} (day)`;
+  const end = new Date(Date.parse(row.periodEnd) - 86400000).toISOString().slice(0, 10);
+  return `${start} to ${end} (week)`;
+}
+
+async function loadAdminSettlements() {
+  byId("adminSettlementsSection").hidden = false;
+  const kind = byId("adminSettlementKind").value;
+  try {
+    const result = await api(`/settlements${kind ? `?kind=${encodeURIComponent(kind)}` : ""}`);
+    renderSettlements(result.data);
+  } catch (error) {
+    byId("adminSettlementRows").innerHTML = "";
+    setSettlementsMessage(`Unable to load settlement reports: ${error.message}`, true);
+  }
+}
+
+function settlementResultCell(row) {
+  const parts = [];
+  if (row.exceptionCount === 0) {
+    parts.push(`<span class="payment-status payment-status-completed">All ${row.matchedCount} matched</span>`);
+  } else {
+    const open = row.openExceptionCount;
+    parts.push(`<span class="payment-status ${open ? "payment-status-failed" : "invoice-status-partial"}">${row.matchedCount} matched · ${row.exceptionCount} exception${row.exceptionCount === 1 ? "" : "s"}${open ? ` (${open} open)` : " (all resolved)"}</span>`);
+  }
+  if (row.balance) {
+    const labels = { ok: "Balance OK", mismatch: "Balance does not match", baseline: "Balance baseline (first week)" };
+    parts.push(`<small class="${row.balance.status === "mismatch" ? "widget-error" : "muted-cell"}">${escapeHtml(labels[row.balance.status] || "")}: ${escapeHtml(row.balance.actualClosingBalance)} ${escapeHtml(row.asset)}${row.balance.status === "mismatch" ? ` (expected ${escapeHtml(row.balance.expectedClosingBalance)})` : ""}</small>`);
+  }
+  return parts.join("");
+}
+
+function renderSettlements(rows) {
+  const body = byId("adminSettlementRows");
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="9" class="muted-cell">No settlement reports yet. They appear after the first daily run.</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((row) => `<tr>
+      <td>${escapeHtml(settlementPeriodText(row))}</td>
+      <td>${escapeHtml(row.asset)}${row.assetIssuer ? `<small class="muted-cell"><code>${escapeHtml(shortHash(row.assetIssuer))}</code></small>` : ""}</td>
+      <td>${escapeHtml(String(row.paymentCount))}</td>
+      <td><code>${escapeHtml(row.grossAmount)}</code></td>
+      <td>${escapeHtml(String(row.refundCount))} · <code>${escapeHtml(row.refundedAmount)}</code></td>
+      <td><code>${escapeHtml(row.feesPaid)}</code></td>
+      <td><code>${escapeHtml(row.netAmount)}</code></td>
+      <td>${settlementResultCell(row)}</td>
+      <td class="action-cell"><button type="button" class="outline-button" data-settlement-id="${escapeHtml(row.settlementId)}" data-settlement-label="${escapeHtml(`${settlementPeriodText(row)}, ${row.asset}`)}">View</button></td>
+    </tr>`).join("");
+}
+
+async function openSettlement(button) {
+  settlementView.id = button.dataset.settlementId;
+  settlementView.label = button.dataset.settlementLabel;
+  try {
+    const { data } = await api(`/settlements/${encodeURIComponent(settlementView.id)}`);
+    byId("settlementDetailHeading").textContent = `${data.kind === "weekly" ? "Weekly" : "Daily"} report ${data.settlementId}: ${settlementView.label}`;
+    byId("settlementDetailSummary").textContent = data.kind === "weekly"
+      ? `Open exceptions from this week's daily reports (${data.items.length}). Exceptions open for more than 7 days are marked overdue.`
+      : `${data.items.length} item${data.items.length === 1 ? "" : "s"}: ${data.matchedCount} matched, ${data.exceptionCount} exception${data.exceptionCount === 1 ? "" : "s"} (${data.openExceptionCount} open).`;
+    renderSettlementItems(data.items);
+    byId("settlementDetailPanel").hidden = false;
+    byId("settlementDetailPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    setSettlementsMessage(`Unable to open the report: ${error.message}`, true);
+  }
+}
+
+function renderSettlementItems(items) {
+  const body = byId("settlementItemRows");
+  if (!items.length) {
+    body.innerHTML = `<tr><td colspan="8" class="muted-cell">Nothing in this report.</td></tr>`;
+    return;
+  }
+  body.innerHTML = items.map((it) => {
+    const status = it.result === "matched" ? "payment-status-completed" : it.open ? "payment-status-failed" : "invoice-status-partial";
+    const record = [it.paymentId && `<code>${escapeHtml(it.paymentId)}</code>`, it.refundId && `<code>${escapeHtml(it.refundId)}</code>`]
+      .filter(Boolean).join("<br>") || `<span class="muted-cell">${it.direction === "in" ? "Unknown payer" : "No refund record"}</span>`;
+    const tx = it.transactionHash
+      ? `<a href="${escapeHtml(explorerTxUrl(it.transactionHash, "sandbox"))}" target="_blank" rel="noopener noreferrer"><code>${escapeHtml(shortHash(it.transactionHash))}</code><span class="visually-hidden"> (opens stellar.expert in a new tab)</span></a>`
+      : "";
+    const todo = [
+      it.note && escapeHtml(it.note),
+      it.resolution && `<strong>Resolved:</strong> ${escapeHtml(it.resolution)}`,
+      it.overdue && `<span class="widget-error">Open for ${escapeHtml(String(it.ageDays))} days (over 7)</span>`,
+    ].filter(Boolean).join("<br>");
+    return `<tr>
+      <td>${escapeHtml(new Date(it.occurredAt).toLocaleString())}<small class="muted-cell">${it.direction === "in" ? "Received" : "Sent"}</small></td>
+      <td><span class="payment-status ${status}">${escapeHtml(SETTLEMENT_RESULT_LABELS[it.result] || it.result)}</span></td>
+      <td>${record}</td>
+      <td>${it.memo ? `<code>${escapeHtml(it.memo)}</code>` : `<span class="muted-cell">none</span>`}</td>
+      <td>${it.amountExpected ? `<code>${escapeHtml(it.amountExpected)}</code>` : ""}</td>
+      <td>${it.amountReceived ? `<code>${escapeHtml(it.amountReceived)}</code> ${escapeHtml(it.asset)}` : `<span class="muted-cell">not found</span>`}</td>
+      <td>${tx}</td>
+      <td>${todo}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function downloadSettlementCsv() {
+  if (!settlementView.id) return;
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/settlements/${encodeURIComponent(settlementView.id)}/items.csv`, {
+      headers: { Authorization: `Bearer ${state.token}` },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${settlementView.id}.csv`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    setSettlementsMessage(`Unable to download the CSV: ${error.message}`, true);
+  }
+}
+
+async function runSettlement(kind, button) {
+  const date = byId("adminSettlementDate").value;
+  button.disabled = true;
+  setSettlementsMessage(`Running the ${kind} reconciliation…`);
+  try {
+    const result = await api("/settlements/run", { method: "POST", body: JSON.stringify(date ? { kind, date } : { kind }) });
+    const open = result.data.reduce((sum, row) => sum + row.openExceptionCount, 0);
+    setSettlementsMessage(`${kind === "daily" ? "Daily" : "Weekly"} reconciliation for ${result.meta.date} done: ${result.data.length} report${result.data.length === 1 ? "" : "s"}`
+      + (open ? `, ${open} open exception${open === 1 ? "" : "s"} to review.` : ", everything matched or resolved."), open > 0);
+  } catch (error) {
+    setSettlementsMessage(`Unable to run the ${kind} reconciliation: ${error.message}`, true);
+  } finally {
+    button.disabled = false;
+    await loadAdminSettlements();
+  }
+}
+
+byId("adminSettlementKind").addEventListener("change", loadAdminSettlements);
+byId("adminRunDaily").addEventListener("click", (event) => runSettlement("daily", event.currentTarget));
+byId("adminRunWeekly").addEventListener("click", (event) => runSettlement("weekly", event.currentTarget));
+byId("adminSettlementRows").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-settlement-id]");
+  if (button) openSettlement(button);
+});
+byId("downloadSettlementCsv").addEventListener("click", downloadSettlementCsv);
+byId("closeSettlementDetail").addEventListener("click", () => {
+  settlementView.id = null;
+  byId("settlementDetailPanel").hidden = true;
 });

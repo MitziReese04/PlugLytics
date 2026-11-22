@@ -393,6 +393,7 @@
           </label>
           <button id="adminRefundsRefresh" class="outline-button" type="button">Refresh</button>
         </div>
+        <p id="refundIssuingNote" class="memo-warning" hidden>Sending refunds is switched off on this server (<code>REFUND_ISSUING_ENABLED</code> is not <code>true</code>). You can still request, approve and reject refunds.</p>
         <p id="adminRefundsMessage" class="payments-message"></p>
         <div class="payments-table-wrap">
           <table class="invoice-table admin-payments-table webhook-table">
@@ -402,6 +403,56 @@
             <tbody id="adminRefundRows"></tbody>
           </table>
         </div>
+      </section>
+      <section id="adminSettlementsSection" class="widget-card payments-section" aria-labelledby="adminSettlementsHeading" hidden>
+        <div class="widget-card-heading">
+          <div>
+            <h2 id="adminSettlementsHeading">Settlement reports</h2>
+            <p>Daily and weekly reconciliation of the merchant account on Horizon with our payments and refunds. Runs automatically after midnight UTC (weekly on Mondays).</p>
+          </div>
+          <span class="testnet-badge">TESTNET – no real money</span>
+        </div>
+        <div class="admin-payments-toolbar">
+          <label>Show
+            <select id="adminSettlementKind">
+              <option value="">Daily and weekly</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </label>
+          <label>Day (UTC)
+            <input id="adminSettlementDate" type="date">
+          </label>
+          <button id="adminRunDaily" class="outline-button" type="button">Run daily</button>
+          <button id="adminRunWeekly" class="outline-button" type="button">Run weekly (that week)</button>
+        </div>
+        <p id="adminSettlementsMessage" class="payments-message"></p>
+        <div class="payments-table-wrap">
+          <table class="invoice-table admin-payments-table webhook-table">
+            <thead>
+              <tr><th scope="col">Period</th><th scope="col">Asset</th><th scope="col">Payments</th><th scope="col">Gross</th><th scope="col">Refunds</th><th scope="col">Fees</th><th scope="col">Net</th><th scope="col">Result</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody id="adminSettlementRows"></tbody>
+          </table>
+        </div>
+        <section id="settlementDetailPanel" class="payment-panel" aria-labelledby="settlementDetailHeading" hidden>
+          <div class="payment-panel-heading">
+            <h3 id="settlementDetailHeading">Report</h3>
+            <div class="webhook-actions">
+              <button id="downloadSettlementCsv" class="outline-button" type="button">Download CSV</button>
+              <button id="closeSettlementDetail" class="outline-button" type="button">Close</button>
+            </div>
+          </div>
+          <p id="settlementDetailSummary" class="memo-warning"></p>
+          <div class="payments-table-wrap">
+            <table class="invoice-table admin-payments-table webhook-table">
+              <thead>
+                <tr><th scope="col">Time</th><th scope="col">Result</th><th scope="col">Record</th><th scope="col">Memo</th><th scope="col">Expected</th><th scope="col">On chain</th><th scope="col">Transaction</th><th scope="col">What to do</th></tr>
+              </thead>
+              <tbody id="settlementItemRows"></tbody>
+            </table>
+          </div>
+        </section>
       </section>
     </main>
   </div>

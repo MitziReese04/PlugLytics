@@ -46,8 +46,8 @@ Built with Node.js, Express, SQLite, JWT, Zod, Chart.js, and Swagger/OpenAPI, pl
 | Area | Status |
 | --- | --- |
 | Analytics API, dashboard, and public website | Working locally |
-| Stellar Testnet payments, refunds, webhooks, API keys | Working on Testnet, covered by automated tests |
-| USDC, anchors, settlement reports | Planned |
+| Stellar Testnet payments, refunds, webhooks, API keys, reconciliation and settlement reports | Working on Testnet, covered by automated tests |
+| USDC, anchors, subscriptions | Planned |
 | LMS provider import (Canvas) | Documented, not implemented ([plan](./docs/pilot/lms-integration.md)) |
 | Continuous integration | GitHub Actions on every push and pull request to `main` |
 | Public deployment | Deployed on Vercel as a Testnet demo with seeded data |
@@ -130,7 +130,7 @@ PlugLytics answers these from one role-aware analytics surface backed by a versi
 - Retention and dropout rates; GPA, pass rates, instructor ratings, and course demand
 - Gross and net billed, scholarships and discounts, collected, collection rate, outstanding balances by aging bucket, and refunds
 - Invoice management with scholarship, discount, fee, and instructor-cost fields
-- Stellar payment requests, late and memo-less payment matching, refunds, webhooks, and customer API keys
+- Stellar payment requests, late and memo-less payment matching, refunds, webhooks, customer API keys, and daily and weekly settlement reports
 
 ### Platform
 
@@ -148,7 +148,7 @@ PlugLytics answers these from one role-aware analytics surface backed by a versi
 | Section rosters, grade distribution, assessment analytics | - | Own sections | - |
 | At-risk indicators | Own records | Own sections | - |
 | Enrollment, finance, academic, and operations analytics | - | - | Yes |
-| Invoices, payments, refunds, webhooks, API keys | - | - | Yes |
+| Invoices, payments, refunds, webhooks, API keys, settlement reports | - | - | Yes |
 | Custom dashboard | Yes | Yes | Yes |
 | CSV export | Own tables | Own-section tables | Authorized reports |
 
@@ -162,10 +162,15 @@ PlugLytics converts an invoice into a Stellar payment request, waits for the stu
 | Horizon confirmation by memo, asset, and exact amount in stroops | Built (Testnet) |
 | Cancelling requests, accepting late payments, matching payments sent without a memo | Built (Testnet) |
 | Refunds with approval, rejection, second-admin threshold, and testnet refund payments | Built (Testnet) |
+| Switch to turn refund sending off (`REFUND_ISSUING_ENABLED`): off by default and on the public demo | Built |
 | Signed outgoing webhooks with per-customer secrets and automatic retries | Built (Testnet) |
 | Read-only, school-scoped customer API keys | Built |
+| Daily/weekly reconciliation and settlement reports (`npm run reconcile`, **Settlement reports** screen) | Built (Testnet) |
 | USDC payments, anchors, subscriptions | Planned |
-| Daily/weekly reconciliation and settlement reports | Planned |
+
+Still missing: USDC payment requests, subscriptions, admin pay-per-use requests, `GET /api/v1/payments/config` and `POST /api/v1/payments/:id/confirm`, watching Horizon by streaming or polling, wrong-asset refunds, dispute records, `REFUND_EXCEPTION_APPROVER`, subscription refunds, anchor payments, and production (Mainnet) support.
+
+Settings marked **TODO: group decision** (exchange rates, amount limits, refund window, approval thresholds, approved anchors) are placeholders in [`.env.example`](./.env.example); copy them into your `.env`.
 
 <details>
 <summary><strong>Try a Testnet payment end to end</strong></summary>
@@ -252,12 +257,12 @@ PlugLytics/
 ├── logo/                Brand assets
 ├── pluglytics-vscode/   VS Code extension source, tests, and VSIX
 ├── public/              Public website and role-aware dashboard
-├── scripts/             Seed, migrate, and backup scripts
+├── scripts/             Seed, migrate, backup, and reconcile scripts
 ├── src/
 │   ├── middleware/      JWT, RBAC, API keys, and query validation
-│   ├── routes/          Analytics, invoice, payment, refund, webhook, and API-key routes
+│   ├── routes/          Analytics, invoice, payment, refund, settlement, webhook, and API-key routes
 │   ├── utils/           Response envelope, CSV export, finance cache
-│   ├── stellar*.js      Stellar config, Horizon lookup, quotes, refund signer
+│   ├── stellar*.js      Stellar config, Horizon lookup, quotes, refund signer, reconciliation
 │   ├── webhook*.js      Webhook signing secrets and delivery
 │   ├── schema.sql       Tables, indexes, views, and triggers
 │   └── openapi.js       Swagger document
@@ -281,6 +286,7 @@ Create `.env` from `.env.example`. Stellar settings are described in [Stellar Te
 | `BACKUP_DIR` | Where `npm run backup` writes copies | `backups/` next to the database | No |
 | `BACKUP_KEEP` | Backup copies to keep | `7` | No |
 | `STELLAR_ENV` | `sandbox` selects the Stellar Testnet | - | For payments |
+| `REFUND_ISSUING_ENABLED` | Whether this server may send testnet refund payments | `false` | Set `true` locally to send testnet refunds; keep `false` on the public demo |
 
 | Command | What it does |
 | --- | --- |
@@ -289,6 +295,7 @@ Create `.env` from `.env.example`. Stellar settings are described in [Stellar Te
 | `npm run seed` | Rebuilds the demo database. **Replaces all data**; never run it on real data |
 | `npm run migrate` | Creates missing tables, indexes, views, and triggers; never deletes data |
 | `npm run backup` | Writes a checked copy of the database and keeps the newest `BACKUP_KEEP` copies |
+| `npm run reconcile` | Reconciles the Stellar Testnet merchant account and saves settlement reports (`-- daily YYYY-MM-DD` or `-- weekly [YYYY-MM-DD]`; default: yesterday). Read-only on Horizon; see [settlement.md](./docs/stellar/settlement.md#what-is-built) |
 | `npm test` | Runs the Jest test suites |
 | `npm run package:plugin` | Packages the VS Code extension as a VSIX |
 
@@ -385,6 +392,8 @@ Full interactive documentation is served at `/docs`. Every response uses the sam
 | POST | `/api/v1/webhooks/:id/rotate-secret` | Admin | Replace a signing secret |
 | GET / POST | `/api/v1/api-keys` | Admin | List or create customer API keys |
 | DELETE | `/api/v1/api-keys/:id` | Admin | Revoke a customer API key |
+| GET | `/api/v1/settlements`, `/api/v1/settlements/:id`, `/api/v1/settlements/:id/items.csv` | Admin | Settlement reports, their items, and the CSV export |
+| POST | `/api/v1/settlements/run` | Admin | Run a daily or weekly reconciliation now (Testnet only) |
 
 See [payments-api.md](./docs/stellar/payments-api.md) for request and response fields and error codes.
 
@@ -475,7 +484,7 @@ npm test                          # API test suites (Jest + Supertest)
 cd pluglytics-vscode && npm test  # VS Code extension tests
 ```
 
-The suites in [`tests/`](./tests) cover authentication and role boundaries, filters, dashboard layouts, finance and pricing calculations, invoices, payment requests, Horizon confirmation, late and memo-less matching, refunds, webhook registration and delivery, customer API keys, payment-policy settings, and dashboard assets. Horizon and the refund signer are replaced with test doubles, so the tests never call the real Stellar network.
+The suites in [`tests/`](./tests) cover authentication and role boundaries, filters, dashboard layouts, finance and pricing calculations, invoices, payment requests, Horizon confirmation, late and memo-less matching, refunds and the refund issuing switch, reconciliation and settlement reports, webhook registration and delivery, customer API keys, payment-policy settings, and dashboard assets. Horizon and the refund signer are replaced with test doubles, so the tests never call the real Stellar network.
 
 [GitHub Actions](./.github/workflows/ci.yml) runs install, seed, the API tests, and the extension tests on Node.js 22 for every push and pull request to `main`. CI does not deploy.
 
@@ -500,10 +509,10 @@ The suites in [`tests/`](./tests) cover authentication and role boundaries, filt
 
 - [x] Role-aware analytics API, dashboard, and public website
 - [x] Stellar Testnet payment adapter: payment requests, Horizon confirmation, late and memo-less matching, refunds, webhooks, customer API keys
+- [x] Daily and weekly reconciliation and settlement reports (Testnet)
 - [x] Automated CI with GitHub Actions
 - [x] Live public deployment on Vercel with HTTPS
 - [ ] USDC payments and anchors on Testnet, then a production rollout after the pilot review
-- [ ] Daily and weekly reconciliation and settlement reports
 - [ ] Provider-specific LMS integration (Canvas) for enrollments, courses, grades, attendance, and events
 - [ ] Revenue forecast and course-margin reporting
 - [ ] Code-quality (lint) workflow
@@ -525,8 +534,8 @@ The suites in [`tests/`](./tests) cover authentication and role boundaries, filt
 | 6 | Enrollment, retention, and finance definitions ([definitions](./docs/pilot/definitions.md)) | Documented | Confirmation by the school's registrar and finance office |
 | 7 | Ledger and accounting system ([accounting](./docs/pilot/accounting-and-ledger.md)) | Documented, not decided | School's accounting system, account codes, journal export |
 | 8 | Stellar merchant credentials ([payments API](./docs/stellar/payments-api.md#sandbox-vs-production)) | Testnet supported | Testnet merchant keys per deployment |
-| 9 | Settlement and webhooks ([settlement](./docs/stellar/settlement.md), [webhooks](./docs/stellar/webhooks.md)) | Payments, webhooks, refunds built on Testnet | Reconciliation runs, settlement reports, `settlement.*` and `subscription.*` events |
-| 10 | Payment methods and refunds ([methods](./docs/stellar/approved-payment-methods.md), [refunds](./docs/stellar/refunds-and-chargebacks.md)) | Refunds built on Testnet | Real limits, refund window, anchor list; disputes |
+| 9 | Settlement and webhooks ([settlement](./docs/stellar/settlement.md), [webhooks](./docs/stellar/webhooks.md)) | Payments, webhooks, refunds, reconciliation and settlement reports built on Testnet | `subscription.*` events, withdrawals as records, production (Mainnet) |
+| 10 | Payment methods and refunds ([methods](./docs/stellar/approved-payment-methods.md), [refunds](./docs/stellar/refunds-and-chargebacks.md)) | Refunds built on Testnet, with the `REFUND_ISSUING_ENABLED` switch | Wrong-asset refunds, disputes, `REFUND_EXCEPTION_APPROVER`, subscription refunds; real limits, refund window, approval thresholds and anchor list (placeholders in [`.env.example`](./.env.example)) |
 | 11 | Pricing fields ([payments API](./docs/stellar/payments-api.md#pricing-fields)) | Built (API and admin screen) | Course-margin reporting using instructor cost |
 | 12 | Pilot budget and grant ([budget](./docs/stellar/pilot-budget-and-grant.md)) | Draft | Grant amount, budget amounts, milestone and report dates |
 | 13 | User testing | Not started | Population and target sample size |

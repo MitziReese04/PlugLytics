@@ -1,6 +1,6 @@
 # PlugLytics Stellar Payments API
 
-> **Status: partly built (Stellar Testnet only).** Endpoints marked **built** in the [Endpoints](#endpoints) table are implemented and covered by the Jest tests in `tests/`. Everything else (pay-per-use requests, subscriptions, USDC payments, anchors, settlement reports) is still planned. Production (Mainnet) payments are not enabled: payment, confirmation and refund endpoints refuse to run unless `STELLAR_ENV=sandbox`. Field names and error codes may still change.
+> **Status: partly built (Stellar Testnet only).** Endpoints marked **built** in the [Endpoints](#endpoints) table are implemented and covered by the Jest tests in `tests/`. Built: student invoice payments with a locked quote, cancelling, the admin payment list and invoice endpoints (and the dashboard's **Invoices** screen), customer API keys, webhook registration and signed webhooks with retries, accepting late payments and matching payments without a memo, refunds (with the `REFUND_ISSUING_ENABLED` switch), and daily and weekly reconciliation with settlement reports. Each section says **Built** or **Not built yet**. Not built yet: `GET /api/v1/payments/config`, `POST /api/v1/payments/:id/confirm`, admin pay-per-use requests, subscriptions, USDC payment requests, anchors, and watching Horizon by streaming or polling. Production (Mainnet) payments are not enabled: payment, refund and reconciliation endpoints refuse to run unless `STELLAR_ENV=sandbox`. Settings marked **TODO: group decision** are placeholders in `.env.example`. Field names and error codes may still change.
 
 ## Contents
 
@@ -141,7 +141,7 @@ The request stores:
 - **The rate is locked only until `expiresAt`.** If the request expires, it becomes `failed` with reason `expired`. A new request for the same invoice gets a **new quote**, which may give a different asset amount.
 - **Before quoting again,** PlugLytics checks any expired request for the invoice that is still `pending` (nobody has opened it since it expired) on Horizon. If it was paid before it expired, it becomes `completed` and no new request is made (`409 INVOICE_NOTHING_DUE`). If Horizon cannot be reached, no new request is made (`502 HORIZON_UNAVAILABLE`), so the student is never asked to pay twice.
 - Matching on Horizon always uses the converted `amount` in the asset, never the invoice currency.
-- The source of exchange-rate quotes is set by `PAYMENT_RATE_SOURCE` (only `manual` so far; **TODO: group decision**, see [Payment policy settings](#payment-policy-settings)). It is recorded with each quote as `rateSource`: `manual` for configured manual rates, or `manual-default-testnet` for the built-in test rates.
+- The source of exchange-rate quotes is set by `PAYMENT_RATE_SOURCE` (only `manual` so far; **TODO: group decision**: set it in `.env`; every setting is listed in `.env.example`, and see [Payment policy settings](#payment-policy-settings)). It is recorded with each quote as `rateSource`: `manual` for configured manual rates, or `manual-default-testnet` for the built-in test rates.
 - To add a rate source later, add one function to `RATE_SOURCES` in `src/stellarQuotes.js`. Its name then becomes a valid `PAYMENT_RATE_SOURCE` value.
 - Requests that are not created from an invoice (for example, a pay-per-use item priced directly in the asset) have `invoiceId`, `invoiceCurrency`, `invoiceAmount`, `quotedRate`, `rateSource` and `rateQuotedAt` set to `null`.
 
@@ -245,16 +245,17 @@ const stellar = loadStellarConfig();
 
 ## Payment policy settings
 
-These settings live in `.env` (with placeholders in `.env.example`) and are loaded and checked by `src/paymentPolicy.js`. **Every value is a placeholder until the group decides it: TODO: group decision.**
+These settings live in `.env` and are loaded and checked by `src/paymentPolicy.js`. **`.env.example` lists every one of them, with a comment and its placeholder value:** copy them from there into your `.env`. Every value marked **TODO: group decision** is a placeholder until the group decides it.
 
 | Setting | Meaning | Default | Used by |
 | --- | --- | --- | --- |
-| `PAYMENT_RATE_SOURCE` | Where exchange-rate quotes come from. Only `manual` exists so far. **TODO: group decision.** | `manual` | Creating payment requests |
-| `PAYMENT_MANUAL_RATE_<CURRENCY>_<ASSET>` | Manual rate: asset units per 1 unit of the currency, up to 7 decimals (for example `PAYMENT_MANUAL_RATE_USD_XLM=2.5000000`). **TODO: group decision.** | If none is set: made-up testnet rates, 1 USD = 2.5 XLM and 1 PHP = 0.043 XLM | Creating payment requests |
-| `XLM_MIN_AMOUNT`, `XLM_MAX_AMOUNT`, `USDC_MIN_AMOUNT`, `USDC_MAX_AMOUNT` | Smallest and largest amount of one payment request, in that asset. **TODO: group decision.** | Empty = no limit | Creating payment requests |
-| `REFUND_WINDOW_DAYS` | Days after a payment during which a customer can ask for a refund (1 to 3650). **TODO: group decision.** | Empty = not decided: customer refunds (`customer_request`, `service_issue`) are refused | Requesting refunds |
-| `REFUND_APPROVAL_THRESHOLD_XLM`, `REFUND_APPROVAL_THRESHOLD_USDC` | Refunds above this amount (in that asset) need a second admin. **TODO: group decision.** | Empty = not decided: **every** refund needs two admins | Approving refunds |
-| `APPROVED_ANCHORS` | Comma-separated anchor home domains, for example `anchor.example.com`. **TODO: group decision.** | Empty = no anchors approved | Anchor payments (not built yet) |
+| `PAYMENT_RATE_SOURCE` | Where exchange-rate quotes come from. Only `manual` exists so far. **TODO: group decision** (placeholder in `.env.example`). | `manual` | Creating payment requests |
+| `PAYMENT_MANUAL_RATE_<CURRENCY>_<ASSET>` | Manual rate: asset units per 1 unit of the currency, up to 7 decimals (for example `PAYMENT_MANUAL_RATE_USD_XLM=2.5000000`). **TODO: group decision** (placeholder in `.env.example`). | If none is set: made-up testnet rates, 1 USD = 2.5 XLM and 1 PHP = 0.043 XLM | Creating payment requests |
+| `XLM_MIN_AMOUNT`, `XLM_MAX_AMOUNT`, `USDC_MIN_AMOUNT`, `USDC_MAX_AMOUNT` | Smallest and largest amount of one payment request, in that asset. **TODO: group decision** (placeholder in `.env.example`). | Empty = no limit | Creating payment requests |
+| `REFUND_WINDOW_DAYS` | Days after a payment during which a customer can ask for a refund (1 to 3650). **TODO: group decision** (placeholder in `.env.example`). | Empty = not decided: customer refunds (`customer_request`, `service_issue`) are refused | Requesting refunds |
+| `REFUND_APPROVAL_THRESHOLD_XLM`, `REFUND_APPROVAL_THRESHOLD_USDC` | Refunds above this amount (in that asset) need a second admin. **TODO: group decision** (placeholder in `.env.example`). | Empty = not decided: **every** refund needs two admins | Approving refunds |
+| `REFUND_ISSUING_ENABLED` | Whether this server may send refund payments: `true` or `false`. Keep it `false` on the public demo (`render.yaml` sets it). | Empty or `false` = refunds cannot be issued (`503 REFUND_ISSUING_DISABLED`); requesting, approving and rejecting still work | Issuing refunds |
+| `APPROVED_ANCHORS` | Comma-separated anchor home domains, for example `anchor.example.com`. **TODO: group decision** (placeholder in `.env.example`). | Empty = no anchors approved | Anchor payments (not built yet) |
 
 Rules:
 
@@ -301,7 +302,7 @@ To keep the examples below short, only the `data` part is shown for success resp
 
 | Method | Path | Who can call it | What it does |
 | --- | --- | --- | --- |
-| GET | `/api/v1/payments/config` | Any signed-in user | Show the active network and merchant public key |
+| GET | `/api/v1/payments/config` | Any signed-in user (not built yet) | Show the active network and merchant public key |
 | POST | `/api/v1/api-keys` | Admin (**built**) | Create a customer API key for a school (the key is shown once) |
 | GET | `/api/v1/api-keys` | Admin (**built**) | List customer API keys (never the key itself) |
 | DELETE | `/api/v1/api-keys/:id` | Admin (**built**) | Revoke a customer API key |
@@ -312,18 +313,20 @@ To keep the examples below short, only the `data` part is shown for success resp
 | GET | `/api/v1/invoices/students?number=` | Admin (**built**) | Find a student by student number, for example `STU-0001` |
 | POST | `/api/v1/invoices` | Admin (**built**) | Create an invoice with pricing fields |
 | PATCH | `/api/v1/invoices/:id` | Admin (**built**) | Change an invoice's pricing fields or due date (blocked once a payment is completed) |
-| POST | `/api/v1/payments` | Student (own invoice, **built, sandbox only**); Admin (pay-per-use, planned) | Create a payment request |
+| POST | `/api/v1/payments` | Student (own invoice, **built, sandbox only**); Admin (pay-per-use, not built yet) | Create a payment request |
 | GET | `/api/v1/payments` | Admin (**built**), or customer API key (own school, read-only, **built**) | List payment requests |
 | GET | `/api/v1/payments/invoices` | Student (**built**) | List your own invoices with what is still due and the latest Stellar payment request |
 | GET | `/api/v1/payments/:id` | Student (own invoice, **built**), Admin (**built**), or customer API key (own school, read-only, **built**) | Get one payment request, checking Horizon first while it is pending |
-| POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
+| POST | `/api/v1/payments/:id/confirm` | Admin (not built yet) | Check Horizon now and mark the payment completed if a match is found |
 | POST | `/api/v1/payments/:id/cancel` | Student (own invoice, **built**), Admin (**built**) | Cancel a pending request |
 | POST | `/api/v1/refunds` | Admin (**built**) | Request a refund for a payment (see [refunds-and-chargebacks.md](./refunds-and-chargebacks.md#what-is-built)) |
 | POST | `/api/v1/refunds/:id/approve`, `/reject`, `/issue` | Admin (**built**) | Approve, reject, or send a refund (issuing is testnet only) |
+| GET | `/api/v1/settlements`, `/api/v1/settlements/:id`, `/api/v1/settlements/:id/items.csv` | Admin (**built**) | Settlement reports and their items (see [settlement.md](./settlement.md#what-is-built)) |
+| POST | `/api/v1/settlements/run` | Admin (**built**) | Run a daily or weekly reconciliation now (testnet only) |
 | POST | `/api/v1/payments/:id/accept-late-payment` | Admin (**built**) | Record a payment that arrived after expiry as a new `completed` payment |
 | POST | `/api/v1/payments/:id/match-transaction` | Admin (**built**) | Record a payment that arrived without a memo as a new `completed` payment |
-| POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
-| GET | `/api/v1/subscriptions/:id` | Admin, or customer API key (own school, read-only) | Get a subscription and its current period |
+| POST | `/api/v1/subscriptions` | Admin (not built yet) | Create a seat subscription and its first payment request |
+| GET | `/api/v1/subscriptions/:id` | Admin, or customer API key (own school, read-only) (not built yet) | Get a subscription and its current period |
 | POST | `/api/v1/webhooks` | Admin (**built**) | Register a school's webhook URL and get its signing secret (shown once) |
 | GET | `/api/v1/webhooks` | Admin (**built**) | List registered webhook URLs |
 | DELETE | `/api/v1/webhooks/:id` | Admin (**built**) | Remove a webhook URL |
@@ -394,7 +397,7 @@ Response `201` (`data`):
 
 ### GET `/api/v1/payments/config`
 
-Returns public information only. Secret keys are **never** returned.
+**Not built yet.** This is the planned response. Returns public information only. Secret keys are **never** returned.
 
 Response `200` (`data`):
 
@@ -522,7 +525,7 @@ What PlugLytics does:
 
 - Uses the **sandbox** (testnet) settings from `src/stellarConfig.js`. If `STELLAR_ENV` is not `sandbox`, or a sandbox credential is missing, it returns `503 STELLAR_NOT_CONFIGURED`.
 - Charges the invoice's **outstanding balance**: `finalAmount` minus payments already recorded for it.
-- Converts it to XLM with a **sandbox quote** from the manual rates in the [payment policy](#payment-policy-settings) (`PAYMENT_MANUAL_RATE_<CURRENCY>_<ASSET>`). If none are set, fixed, made-up test rates are used, because testnet XLM has no value. Real quotes are still **TODO: group decision**.
+- Converts it to XLM with a **sandbox quote** from the manual rates in the [payment policy](#payment-policy-settings) (`PAYMENT_MANUAL_RATE_<CURRENCY>_<ASSET>`). If none are set, fixed, made-up test rates are used, because testnet XLM has no value. Real quotes are still **TODO: group decision** (`PAYMENT_RATE_SOURCE` and the manual rates are placeholders in `.env.example`).
 - Refuses amounts outside the asset's minimum and maximum (`XLM_MIN_AMOUNT` and `XLM_MAX_AMOUNT`) with `400 VALIDATION_ERROR`.
 - Creates a unique ID (`pay_` + 16 characters) and a unique memo (`PL-` + 8 characters).
 - Sets `expiresAt` to **30 minutes** after creation. The quoted rate is locked until then.
@@ -567,7 +570,7 @@ Errors specific to this use:
 - `400 UNSUPPORTED_ASSET`, `400 VALIDATION_ERROR`, `503 STELLAR_NOT_CONFIGURED`
 - Admins and instructors get `403 FORBIDDEN` until the pay-per-use use is built.
 
-#### Admin pay-per-use requests (planned)
+#### Admin pay-per-use requests (not built yet)
 
 Creates a pay-per-use payment request.
 
@@ -689,7 +692,7 @@ Response `201` (`data`):
 
 ### GET `/api/v1/payments`
 
-Lists payment requests, newest first. **Built for admins** (students and instructors get `403`). Used by the admin dashboard's Stellar Payments view.
+Lists payment requests, newest first. **Built** for admins, and for customer API keys, which see only their own school's requests (see [Customer API keys](#customer-api-keys)). Students and instructors get `403`. Used by the admin dashboard's Stellar Payments view.
 
 Query parameters (all optional):
 
@@ -704,7 +707,7 @@ The list shows statuses **as stored**. It does not ask Horizon, so a request can
 
 ### GET `/api/v1/payments/:id`
 
-Returns one payment request in the same shape as the create response. **Built** for students (their own invoices only; anything else returns `404 PAYMENT_NOT_FOUND`) and admins.
+Returns one payment request in the same shape as the create response. **Built** for students (their own invoices only; anything else returns `404 PAYMENT_NOT_FOUND`), admins, and customer API keys (their own school's requests only).
 
 While the request is `pending`, PlugLytics first checks Horizon (sandbox/testnet) for a payment to the merchant account with the request's memo, and updates the request before returning it:
 
@@ -735,6 +738,8 @@ Each item has `id`, `term`, `termCode`, `currency`, `finalAmount`, `recordedPaym
 - Students only (`403` for admins and instructors).
 
 ### POST `/api/v1/payments/:id/confirm`
+
+**Not built yet.** For now, `GET /api/v1/payments/:id` runs the same Horizon check for a pending request. This is the planned design.
 
 Asks Horizon right away whether a matching payment has arrived. Calling it more than once is safe.
 
@@ -883,6 +888,8 @@ Response `201` (`data`):
 
 ### POST `/api/v1/subscriptions`
 
+**Not built yet.** This is the planned design.
+
 Creates a seat subscription and the payment request for its first period.
 
 Request:
@@ -935,7 +942,7 @@ Response `201` (`data`):
 
 ### GET `/api/v1/subscriptions/:id`
 
-Returns the subscription, its current period and its latest payment request, in the same shape as the create response.
+**Not built yet.** Returns the subscription, its current period and its latest payment request, in the same shape as the create response.
 
 ### Webhook endpoints
 
@@ -1056,17 +1063,19 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 
 ### Watching Horizon for incoming payments
 
+**Not built yet:** streaming and polling, described below. Today a pending request is checked on Horizon when someone opens it (`GET /api/v1/payments/:id`, which the student dashboard calls every few seconds) or cancels it, and the [daily reconciliation](./settlement.md#what-is-built) reports every payment that reached the merchant account, including ones nobody checked.
+
 - PlugLytics watches the merchant account's payments on Horizon:
   - **Streaming (main method):** it keeps a live connection open to `GET {horizonUrl}/accounts/{merchantPublicKey}/payments?cursor=now` (Server-Sent Events). Horizon pushes each new payment as soon as its ledger closes.
   - **Polling (backup):** every minute, and whenever the stream reconnects, it asks the same endpoint for anything newer than the last `paging_token` it saved, so no payment is missed while the stream was down.
 - For each incoming payment, PlugLytics reads the transaction's memo and looks up the payment request with that memo. The memo links the Stellar payment to the payment ID.
 - It then runs the checks from [step 3 of the payment flow](#3-confirm-on-horizon) (destination, memo, asset, amount, success, expiry) and sets the status to `completed`, or to `failed` with a `reason`.
-- `POST /api/v1/payments/:id/confirm` runs the same check for a single request on demand. It is useful for testing, or if you don't want to wait.
+- `POST /api/v1/payments/:id/confirm` (not built yet) will run the same check for a single request on demand. It is useful for testing, or if you don't want to wait.
 
 ### Sending webhooks to the customer
 
 - After a status changes, PlugLytics sends a signed `POST` to each **webhook URL the customer registered** (see [Webhook endpoints](#webhook-endpoints)).
-- Events: `payment.pending`, `payment.completed`, `payment.failed` (with `reason`: `expired`, `cancelled`, `underpaid` or `wrong_asset`), `refund.issued`, `settlement.completed`, `subscription.activated`, `subscription.past_due`, `subscription.cancelled`.
+- Events: `payment.pending`, `payment.completed`, `payment.failed` (with `reason`: `expired`, `cancelled`, `underpaid` or `wrong_asset`), `refund.issued`, `settlement.completed`, `subscription.activated`, `subscription.past_due`, `subscription.cancelled`. The `subscription.*` events are not sent yet, because subscriptions are not built.
 - Each request is signed with **that endpoint's own secret** (from registration): header `X-PlugLytics-Signature: v1=<hex>`, an HMAC-SHA256 of `<timestamp>.<raw body>`, with the timestamp in `X-PlugLytics-Timestamp`.
 - See [webhooks.md](./webhooks.md) for the payloads, how the customer verifies the signature, retry rules and duplicate handling.
 
@@ -1104,6 +1113,11 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 422 | `DESTINATION_NOT_FOUND`, `DESTINATION_NO_TRUSTLINE` | The refund destination cannot receive the payment |
 | 502 | `REFUND_SEND_FAILED`, `REFUND_SEND_UNCONFIRMED` | Horizon rejected the refund payment, or its result is not known yet |
 | 503 | `REFUNDS_TESTNET_ONLY` | Issuing refunds is refused unless `STELLAR_ENV=sandbox` |
+| 503 | `REFUND_ISSUING_DISABLED` | Issuing refunds is switched off on this server (`REFUND_ISSUING_ENABLED` is not `true`) |
+| 404 | `SETTLEMENT_NOT_FOUND` | No settlement report has that ID |
+| 409 | `PERIOD_NOT_OVER` | The day or week to reconcile has not ended yet |
+| 409 | `RECONCILIATION_RUNNING` | Another reconciliation is running |
+| 503 | `RECONCILIATION_TESTNET_ONLY` | Reconciliation is refused unless `STELLAR_ENV=sandbox` |
 | 409 | `INVOICE_HAS_COMPLETED_PAYMENT` | The invoice cannot be changed, because it already has a completed or recorded payment |
 | 409 | `PAYMENT_ALREADY_PENDING` | The invoice already has a `pending`, unexpired payment request |
 | 422 | `RATE_UNAVAILABLE` | No exchange-rate quote is available for this invoice currency and asset |

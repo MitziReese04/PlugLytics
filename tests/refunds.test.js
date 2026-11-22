@@ -22,7 +22,7 @@ const FAKE_SECRET = "S" + "A".repeat(55);
 const VARS = [
   "STELLAR_ENV", "SANDBOX_MERCHANT_PUBLIC_KEY", "SANDBOX_MERCHANT_SECRET_KEY", "SANDBOX_WEBHOOK_SIGNING_SECRET",
   "PRODUCTION_MERCHANT_PUBLIC_KEY", "PRODUCTION_MERCHANT_SECRET_KEY", "PRODUCTION_WEBHOOK_SIGNING_SECRET",
-  "REFUND_WINDOW_DAYS", "REFUND_APPROVAL_THRESHOLD_XLM", "REFUND_APPROVAL_THRESHOLD_USDC",
+  "REFUND_WINDOW_DAYS", "REFUND_APPROVAL_THRESHOLD_XLM", "REFUND_APPROVAL_THRESHOLD_USDC", "REFUND_ISSUING_ENABLED",
 ];
 const savedEnv = {};
 function useSandbox(extra = {}) {
@@ -30,7 +30,7 @@ function useSandbox(extra = {}) {
   Object.assign(process.env, {
     STELLAR_ENV: "sandbox", SANDBOX_MERCHANT_PUBLIC_KEY: MERCHANT, SANDBOX_MERCHANT_SECRET_KEY: FAKE_SECRET,
     SANDBOX_WEBHOOK_SIGNING_SECRET: "test-only-server-key-refunds", REFUND_WINDOW_DAYS: "30",
-    REFUND_APPROVAL_THRESHOLD_XLM: "100", ...extra,
+    REFUND_APPROVAL_THRESHOLD_XLM: "100", REFUND_ISSUING_ENABLED: "true", ...extra,
   });
 }
 
@@ -382,6 +382,46 @@ describe("issuing a refund (a new testnet payment)", () => {
     signerSucceeds();
     await api("post", `/${refund.id}/issue`);
     expect(signer.sendRefundPayment.mock.calls[0][0]).toMatchObject({ destination: EXCHANGE, memo: "EXCH-USER-42" });
+  });
+});
+
+describe("the REFUND_ISSUING_ENABLED switch", () => {
+  test.each([
+    ["not set (the default)", undefined],
+    ["false", "false"],
+  ])("when it is %s, issuing is refused and nothing is sent", async (_, value) => {
+    const refund = await approvedRefund();
+    if (value === undefined) delete process.env.REFUND_ISSUING_ENABLED;
+    else process.env.REFUND_ISSUING_ENABLED = value;
+    signerSucceeds();
+    const response = await api("post", `/${refund.id}/issue`);
+    expect(response.status).toBe(503);
+    expect(response.body.error).toMatchObject({ code: "REFUND_ISSUING_DISABLED", message: expect.stringMatching(/REFUND_ISSUING_ENABLED/) });
+    expect(signer.sendRefundPayment).not.toHaveBeenCalled();
+    expect(stored(refund.id)).toMatchObject({ status: "approved", tx_hash: null, pending_tx_hash: null });
+  });
+
+  test("requesting, approving and rejecting still work while it is off", async () => {
+    process.env.REFUND_ISSUING_ENABLED = "false";
+    const first = (await requestRefund({ paymentId: addPayment(), amount: "2" })).body.data;
+    expect((await api("post", `/${first.id}/approve`).send({})).body.data.status).toBe("approved");
+    const second = (await requestRefund({ paymentId: addPayment(), amount: "2" })).body.data;
+    expect((await api("post", `/${second.id}/reject`).send({ note: "Not eligible" })).body.data.status).toBe("rejected");
+  });
+
+  test("the list tells the dashboard whether issuing is on", async () => {
+    expect((await api("get", "")).body.meta.issuingEnabled).toBe(true);
+    process.env.REFUND_ISSUING_ENABLED = "false";
+    expect((await api("get", "")).body.meta.issuingEnabled).toBe(false);
+  });
+
+  test("an invalid value is refused as an invalid setting, not treated as on", async () => {
+    const refund = await approvedRefund();
+    process.env.REFUND_ISSUING_ENABLED = "yes";
+    const response = await api("post", `/${refund.id}/issue`);
+    expect(response.status).toBe(503);
+    expect(response.body.error.code).toBe("PAYMENT_POLICY_INVALID");
+    expect(signer.sendRefundPayment).not.toHaveBeenCalled();
   });
 });
 

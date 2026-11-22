@@ -13,6 +13,7 @@ const invoiceRoutes = require("./routes/invoices");
 const apiKeyRoutes = require("./routes/apiKeys");
 const { router: webhookRoutes } = require("./routes/webhooks");
 const { router: refundRoutes } = require("./routes/refunds");
+const { router: settlementRoutes } = require("./routes/settlements");
 const { apiKeyGate } = require("./middleware/apiKey");
 const path = require("path");
 const { sendError } = require("./utils/envelope");
@@ -60,6 +61,7 @@ app.use("/api/v1/invoices", invoiceRoutes);
 app.use("/api/v1/api-keys", apiKeyRoutes);
 app.use("/api/v1/webhooks", webhookRoutes);
 app.use("/api/v1/refunds", refundRoutes);
+app.use("/api/v1/settlements", settlementRoutes);
 
 app.use((req, res) => {
   return sendError(res, 404, "NOT_FOUND", "The requested endpoint does not exist");
