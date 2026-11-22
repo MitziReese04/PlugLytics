@@ -48,7 +48,7 @@ Built with Node.js, Express, SQLite, JWT, Zod, Chart.js, and Swagger/OpenAPI, pl
 | Analytics API, dashboard, and public website | Working locally |
 | Stellar Testnet payments, refunds, webhooks, API keys, reconciliation and settlement reports | Working on Testnet, covered by automated tests |
 | USDC, anchors, subscriptions | Planned |
-| Canvas LTI 1.3 launch (PlugLytics tab inside Canvas) | Built and covered by automated tests; not yet tried in a real Canvas ([install guide](./docs/pilot/canvas-lti-install.md)) |
+| Canvas LTI 1.3 launch (PlugLytics tab inside Canvas) | Working: tested end to end in an Instructure-hosted Canvas (Nov 22, 2026) and covered by automated tests ([install guide](./docs/pilot/canvas-lti-install.md)) |
 | LMS provider import (Canvas) | Documented, not implemented ([plan](./docs/pilot/lms-integration.md)) |
 | Continuous integration | GitHub Actions on every push and pull request to `main` |
 | Public deployment | Deployed on Vercel as a Testnet demo with seeded data |
@@ -132,6 +132,13 @@ PlugLytics answers these from one role-aware analytics surface backed by a versi
 - Gross and net billed, scholarships and discounts, collected, collection rate, outstanding balances by aging bucket, and refunds
 - Invoice management with scholarship, discount, fee, and instructor-cost fields
 - Stellar payment requests, late and memo-less payment matching, refunds, webhooks, customer API keys, and daily and weekly settlement reports
+
+### Canvas LMS integration (LTI 1.3)
+
+- A Canvas admin installs PlugLytics once; a **PlugLytics** tab then appears in every course (and in the admin account menu)
+- Students and teachers click the tab and the dashboard opens **inside Canvas**, already signed in with the right role; there is no second login
+- Each Canvas user is linked once to their PlugLytics account: students and teachers automatically by matching email and role, admins by hand for security
+- Tested end to end in an Instructure-hosted Canvas; see the [install guide](./docs/pilot/canvas-lti-install.md)
 
 ### Platform
 
@@ -519,7 +526,9 @@ The suites in [`tests/`](./tests) cover authentication and role boundaries, filt
 - [x] Automated CI with GitHub Actions
 - [x] Live public deployment on Vercel with HTTPS
 - [ ] USDC payments and anchors on Testnet, then a production rollout after the pilot review
-- [x] Canvas LTI 1.3 launch: a PlugLytics tab inside Canvas ([install guide](./docs/pilot/canvas-lti-install.md)); still to be tried in a real Canvas
+- [x] Canvas LTI 1.3 launch: a PlugLytics tab inside Canvas, tested in an Instructure-hosted Canvas ([install guide](./docs/pilot/canvas-lti-install.md))
+- [ ] "Link my account" page: users connect their Canvas and PlugLytics accounts themselves by signing in once, instead of an admin running `npm run lti:link`
+- [ ] Account provisioning from Canvas or a registrar CSV, so new students and teachers can open PlugLytics from Canvas with no setup
 - [ ] Provider-specific LMS integration (Canvas) for enrollments, courses, grades, attendance, and events
 - [ ] Revenue forecast and course-margin reporting
 - [ ] Code-quality (lint) workflow
@@ -536,7 +545,7 @@ The suites in [`tests/`](./tests) cover authentication and role boundaries, filt
 | 1 | Hosting provider and domain ([deployment](./docs/pilot/deployment.md#1-hosting-provider-and-domain)) | Documented, partly built | Vercel demo deployed; custom domain, account owner, and production hosting decisions remain |
 | 2 | Public API and Swagger URLs ([deployment](./docs/pilot/deployment.md#2-public-api-and-swagger-urls)) | Live on Vercel demo | Production/public API URL strategy remains |
 | 3 | Production database and backups ([deployment](./docs/pilot/deployment.md#3-production-database-strategy)) | Partly built (`migrate`, `backup`) | Scheduled and off-site backups, versioned migrations, PostgreSQL plan |
-| 4 | Pilot LMS provider ([LMS integration](./docs/pilot/lms-integration.md)) | Canvas chosen; LTI 1.3 launch built ([install guide](./docs/pilot/canvas-lti-install.md)) | Test in the school's Canvas; school's Canvas URL, quiz engine, attendance source; importer |
+| 4 | Pilot LMS provider ([LMS integration](./docs/pilot/lms-integration.md)) | Canvas chosen; LTI 1.3 launch working, tested in an Instructure-hosted Canvas ([install guide](./docs/pilot/canvas-lti-install.md)) | Install in the pilot school's Canvas; account provisioning; school's quiz engine and attendance source; importer |
 | 5 | Pilot institution and contact ([template](./docs/pilot/pilot-institution.md)) | Template only | No school has agreed yet |
 | 6 | Enrollment, retention, and finance definitions ([definitions](./docs/pilot/definitions.md)) | Documented | Confirmation by the school's registrar and finance office |
 | 7 | Ledger and accounting system ([accounting](./docs/pilot/accounting-and-ledger.md)) | Documented, not decided | School's accounting system, account codes, journal export |

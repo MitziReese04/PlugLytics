@@ -1,6 +1,6 @@
 # Installing PlugLytics in Canvas (LTI 1.3)
 
-> **Status: built, not yet tested in a real Canvas.** PlugLytics can be launched from Canvas as an LTI 1.3 tool: a **PlugLytics** tab in each course (and in the admin account menu) opens the dashboard inside Canvas, signed in as the right person with the right role. The launch is covered by automated tests against a simulated Canvas (`tests/lti.test.js`). It still needs a test in a real Canvas, which requires a Canvas **admin**. A Canvas Free-for-Teacher account cannot create LTI developer keys.
+> **Status: working, tested in a real Canvas.** PlugLytics can be launched from Canvas as an LTI 1.3 tool: a **PlugLytics** tab in each course (and in the admin account menu) opens the dashboard inside Canvas, signed in as the right person with the right role. It was tested end to end in an Instructure-hosted Canvas on Nov 22, 2026 (see [Tested in a real Canvas](#tested-in-a-real-canvas)) and is covered by automated tests against a simulated Canvas (`tests/lti.test.js`). Installing it needs a Canvas **admin**; a Canvas Free-for-Teacher account cannot create LTI developer keys.
 
 ## Contents
 
@@ -13,6 +13,8 @@
 - [Who can sign in, and how accounts are linked](#who-can-sign-in-and-how-accounts-are-linked)
 - [Settings](#settings)
 - [Testing the launch](#testing-the-launch)
+- [Testing locally with a tunnel](#testing-locally-with-a-tunnel)
+- [Tested in a real Canvas](#tested-in-a-real-canvas)
 - [Known limits](#known-limits)
 - [Troubleshooting](#troubleshooting)
 
@@ -79,6 +81,8 @@ In Canvas, as an admin:
 5. **Save**, then switch the key's **State** to **ON**.
 6. Copy the **Client ID**, the long number in the Details column.
 
+Newer Canvas versions show a banner saying LTI tools are now managed in **Canvas Apps**. Creating the key under Developer Keys still works, and the key then appears in **Admin → Apps → Manage**. If the form has no **Enter URL** option, choose manual entry and use the values from `/lti/config.json`: Target Link URI and placement URIs `…/lti/launch`, OpenID Connect Initiation URL `…/lti/login`, Public JWK URL `…/lti/jwks`, **Privacy Level: Public** (otherwise Canvas sends no email or name), and the **Course Navigation** and **Account Navigation** placements.
+
 ## Step 3: Connect PlugLytics to that key
 
 Add these settings to PlugLytics and redeploy:
@@ -91,6 +95,15 @@ LTI_DEPLOYMENT_IDS=<Deployment ID from step 4>
 The Deployment ID only exists after step 4, so this step is done in two passes: set `LTI_CLIENT_ID` now, and `LTI_DEPLOYMENT_IDS` right after step 4. Launches are refused until both are set.
 
 ## Step 4: Install the app in Canvas
+
+**With Canvas Apps** (newer Canvas):
+
+1. **Admin → (account) → Apps → Manage**, and open **PlugLytics**. If it is not listed, use **Install a New App** with the Client ID.
+2. **Copy Client ID** at the top gives the exact Client ID for `LTI_CLIENT_ID`.
+3. On the **Availability and Exceptions** tab, the deployment shows its **Deployment ID** (for example `5872:5e1e…`). Copy it into `LTI_DEPLOYMENT_IDS`.
+4. If the deployment says **Not Available**, click the **pencil** and set it to **Available**. Until then, the PlugLytics tab does not appear in Canvas menus.
+
+**With the classic Apps page:**
 
 1. **Admin → (account or the pilot sub-account) → Settings → Apps → View App Configurations → + App.**
 2. **Configuration Type:** By Client ID. Paste the Client ID and **Submit**, then **Install**.
@@ -141,11 +154,45 @@ The three Canvas URLs default to Instructure-hosted production Canvas. For Canva
 - **Automated:** `npm test` runs `tests/lti.test.js`, which acts as Canvas: it serves a test key set, signs launch tokens, and checks valid launches, replays, forged tokens, wrong audience, unknown deployments, role mismatches, admin linking, and framing headers.
 - **In a real Canvas:** needs admin access, so use the pilot school's Canvas **test or beta** environment, or a self-hosted Canvas. Canvas Free-for-Teacher accounts cannot create LTI developer keys.
 
+## Testing locally with a tunnel
+
+Canvas needs a public HTTPS address for PlugLytics. For a test on a laptop, a free Cloudflare quick tunnel gives one without deploying:
+
+1. Install it once: `brew install cloudflared` (macOS).
+2. Create `.env` from `.env.example` and add a key with `npm run lti:keygen`.
+3. In a separate terminal, run `cloudflared tunnel --url http://localhost:3000` and copy the `https://….trycloudflare.com` address it prints.
+4. In `.env`, set `LTI_TOOL_URL` to that address, `FRAME_ANCESTORS=https://*.instructure.com` and `TRUST_PROXY=1`.
+5. Run `npm run dev` and check `https://<tunnel>/lti/config.json`.
+6. Follow steps 2–4 above with the tunnel address, then restart the server after setting `LTI_CLIENT_ID` and `LTI_DEPLOYMENT_IDS`.
+
+The tunnel address changes every time `cloudflared` restarts. When it does, update `LTI_TOOL_URL` and the developer key's Redirect URI and URLs. Use a fresh `LTI_PRIVATE_KEY` for any real deployment; never reuse a test key.
+
+## Tested in a real Canvas
+
+| | |
+| --- | --- |
+| Date | Nov 22, 2026 |
+| Canvas | Instructure-hosted (cloud), production environment, account admin |
+| PlugLytics | Local server (`npm run dev`) behind a Cloudflare quick tunnel |
+| Setup used | Developer key from `/lti/config.json`, installed through Canvas Apps, deployment set to Available |
+
+Verified:
+
+- The **PlugLytics** link appears in the Canvas account menu and opens the dashboard inside Canvas (`/accounts/<id>/external_tools/<tool id>`).
+- The full launch: login initiation, Canvas authorization, signed `id_token`, signature, issuer, client ID, deployment, nonce and role checks.
+- An unlinked Canvas admin sees the "not linked" page with their Canvas user ID; after `npm run lti:link`, the next launch opens the **Admin** workspace with no PlugLytics password.
+- Framing works with `FRAME_ANCESTORS=https://*.instructure.com`.
+- The dashboard shows the same figures as the API (for example tuition collected of 5,370,428, 83.7% of net billed).
+
+Still to test in Canvas: the course tab as a teacher and a student, and a role mismatch (`LTI_ROLE_MISMATCH`).
+
 ## Known limits
 
 - **Hosting:** account links and used nonces are stored in the PlugLytics database. On the Vercel demo, that database is a fresh copy on each new server instance, so hand-made admin links can disappear and are not reliable there. The pilot needs persistent storage (see [deployment.md](./deployment.md#3-production-database-strategy)).
 - **Browser privacy settings:** the launch does not use cookies, because browsers often block them inside the Canvas frame. The dashboard keeps its sign-in in the browser's storage for the PlugLytics site; if a browser blocks that inside frames, the user can open PlugLytics in a new tab and sign in normally. Canvas's "LTI platform storage" is a possible later improvement.
 - **Course filter:** the dashboard opens on the user's normal view, not filtered to the Canvas course yet.
+- **No self-service linking yet:** users without a matching account see a "not linked" page. A planned "Link my account" page would let them sign in once with their PlugLytics password to link, and account provisioning (a Canvas importer or registrar CSV) would remove the step for most users.
+- **App icon:** Canvas shows a broken image for the PlugLytics icon, because the server's `Cross-Origin-Resource-Policy: same-origin` header stops Canvas from loading it. Cosmetic only; fix by allowing cross-origin loading for the logo file.
 - **Email trust:** automatic linking relies on Canvas emails. Ask the Canvas admin whether users can change their own email address; if they can, consider linking instructors by hand too (`LTI_EMAIL_LINK_ROLES=student`).
 
 ## Troubleshooting
