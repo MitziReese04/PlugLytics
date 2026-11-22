@@ -4,319 +4,71 @@
 
 <p align="center">
   <strong>Learning progress, made clear.</strong><br />
-  Privacy-conscious LMS analytics for students, instructors, and administrators
+  Privacy-conscious LMS analytics for students, instructors, and administrators, with Stellar Testnet tuition payments.
+</p>
+
+<p align="center">
+  <a href="https://github.com/MitziReese04/PlugLytics/actions/workflows/ci.yml"><img src="https://github.com/MitziReese04/PlugLytics/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D22.12-339933?logo=node.js&logoColor=white" alt="Node.js 22.12 or newer">
+  <img src="https://img.shields.io/badge/Stellar-Testnet%20only-0b1f3a?logo=stellar&logoColor=white" alt="Stellar Testnet only">
+  <img src="https://img.shields.io/badge/license-not%20selected-lightgrey" alt="License not selected">
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#stellar-testnet-payments">Stellar payments</a> ·
+  <a href="#api-reference">API</a> ·
+  <a href="#documentation">Docs</a> ·
+  <a href="#roadmap">Roadmap</a>
 </p>
 
 <p align="center">
   <img src="./public/pluglytics-website-screenshot.png" alt="PlugLytics website hero with branded navigation and student dashboard preview" width="100%">
 </p>
 
-## Live project
+## Overview
 
-| Surface | Local URL | Status |
-| --- | --- | --- |
-| Public website | `http://localhost:3000/public` | Branded landing page with section navigation and direct extension download |
-| Analytics dashboard | `http://localhost:3000/public/dashboard.html` | Available locally |
-| REST API | `http://localhost:3000/api/v1` | Available locally |
-| Swagger UI | `http://localhost:3000/docs` | Available locally |
-| Health check | `http://localhost:3000/api/v1/health` | Available locally |
-| VS Code plugin | [pluglytics-vscode](./pluglytics-vscode) | VSIX source packaged locally |
-| Public deployment | Planned on Render, Singapore region: see [deployment plan](./docs/pilot/deployment.md#2-public-api-and-swagger-urls) | **Not yet deployed** |
+PlugLytics is a zero-setup Learning Management System (LMS) analytics API and role-aware web dashboard. Students see their own progress, instructors see only the sections they teach, and administrators see enrollment, finance, and academic-quality reports. Invoices can be paid in XLM on the **Stellar Testnet**, confirmed through Horizon, and reconciled against the institution's records.
 
-PlugLytics is a zero-setup Learning Management System analytics API and role-aware web dashboard. It uses Node.js, Express, SQLite, JWT authentication, Zod validation, Chart.js, Swagger/OpenAPI, and a VS Code extension.
+Built with Node.js, Express, SQLite, JWT, Zod, Chart.js, and Swagger/OpenAPI, plus a companion VS Code extension. The demo runs entirely on synthetic seeded data: 500+ students, 25 instructors, 60 courses, 6 specializations, and 4 academic terms.
 
-The product website has a responsive dark-gradient header with the PlugLytics logo, centered section links, and a direct **Download PlugLytics** VSIX button. It includes interactive Student, Instructor, and Admin dashboard previews. The demo curriculum and upcoming-event fixtures are static browser assets; they are not inserted into or returned by the analytics API. The API calculates reports from normalized SQLite records (synthetic records in the local demo).
+> [!IMPORTANT]
+> PlugLytics is a technical demo and pilot candidate. Stellar payments run on **Testnet only**; Mainnet (real-money) payments are not enabled, and there is no public deployment yet.
 
-The demo repository includes realistic synthetic data for:
+## Project status
 
-- 500+ students
-- 25 instructors
-- 60 courses
-- 6 specializations
-- 4 academic terms
-
-## Contents
-
-- [Try it in 30 seconds](#try-it-in-30-seconds)
-- [Problem / Solution](#problem--solution)
-- [Features](#features)
-- [Role-by-role access](#role-by-role-access)
-- [How verification works](#how-verification-works)
-- [Architecture](#architecture)
-- [Tech stack](#tech-stack)
-- [Repository layout](#repository-layout)
-- [Quick start](#quick-start)
-- [Environment variables](#environment-variables)
-- [Demo accounts](#demo-accounts)
-- [API overview](#api-overview)
-- [Universal filters](#universal-filters)
-- [Metric formulas](#metric-formulas)
-- [Privacy and security](#privacy-and-security)
-- [VS Code plugin](#vs-code-plugin)
-- [Tests](#tests)
-- [CI](#ci)
-- [Grant proposal](#grant-proposal)
-- [Try Stellar testnet payments](#try-stellar-testnet-payments)
-- [Roadmap](#roadmap)
-- [Information still needed](#information-still-needed)
-- [License](#license)
-
-## Try it in 30 seconds
-
-1. Open a terminal in the repository root.
-2. Install dependencies, seed the demo database, and start the server:
-
-```bash
-npm install
-npm run seed
-npm run dev
-```
-
-3. Open `http://localhost:3000/public`.
-4. Sign in with any [demo account](#demo-accounts).
-5. Change term, course, section, or widget selections and observe the data update.
-6. Open `http://localhost:3000/docs` for interactive API documentation.
-
-Open the dashboard through the running PlugLytics server at `http://localhost:3000/public/dashboard.html`. Do not open `public/dashboard.html` directly from the file system; the browser needs the server's `/api/v1` routes for sign-in and analytics.
-
-No external database, cloud account, or infrastructure is required for the demo.
-
-## Problem / Solution
-
-### Problem
-
-Learning and financial information is often spread across LMS platforms, registrar spreadsheets, payment systems, and instructor reports. This makes it difficult to answer questions consistently:
-
-- Which students need support, without exposing unnecessary personal records?
-- Which sections, assignments, or quiz items are causing trouble?
-- How much tuition is billed, collected, outstanding, refunded, or discounted?
-- Which courses, specializations, and terms are performing well?
-- Can the same evidence be used by different roles without broadening access?
-
-### Solution
-
-PlugLytics provides a single role-aware analytics surface backed by a versioned REST API.
-
-| Layer | What it does |
+| Area | Status |
 | --- | --- |
-| Public website | Branded product landing page with role/use-case information, section navigation, and a direct VSIX download |
-| Analytics dashboard | Displays role-specific widgets and persisted custom layouts |
-| REST API | Returns consistently structured analytics from normalized records |
-| Authentication | Verifies users through JWTs |
-| RBAC | Limits endpoints and filters by role |
-| Row-level checks | Resolves each student or instructor from the signed-in account |
-| Privacy controls | Enforces role-scoped records and minimum cohort size for sensitive aggregates |
-| Export | Downloads table endpoints as CSV |
-
-## Features
-
-### Student analytics
-
-- Course progress percentage by enrolled course
-- Quiz, assignment, and exam grade averages
-- GPA trend by academic term
-- Upcoming deadlines and overdue items
-- Curriculum checklist grouped by year level, with term checklists, completion percentage, and completed/remaining units
-- Monthly calendar of API-backed assignment deadlines; demo-only events are clearly labeled
-- Attendance and time-on-platform data
-- Plain-language at-risk indicators
-
-### Instructor analytics
-
-- Analytics limited to sections owned by the signed-in instructor
-- Class folders with per-student grades, attendance, assignment/quiz submission, lateness, and missed-work tracking
-- Grade distribution histogram
-- Submission, late, and missing rates by assignment and quiz
-- Hardest quiz questions by incorrect-response percentage
-- Engagement by weekday and hour
-- Section-scoped student follow-up list
-- Section and term comparisons
-
-### Administrator analytics
-
-- Enrollment totals by term, specialization, program, and year level
-- Waitlist totals and seat utilization
-- Retention and dropout rates
-- Tuition billed, collected, collection rate, outstanding balances, and refunds
-- Income by specialization, program, and payment method
-- Filterable term, specialization, program, course, section, year-level, and enrollment-status views
-- GPA by specialization and course pass rates
-- Instructor ratings
-- Course popularity and enrollment timing
-
-### Product features
-
-- Role-aware widget catalog
-- Custom widget selection and order
-- Default filters and chart preferences
-- Named dashboard presets
-- Dark/light mode
-- Page and result filtering
-- Full-width analytics tables with reduced side spacing
-- CSV export
-- Swagger/OpenAPI documentation
-- Interactive Student, Instructor, and Admin dashboard previews
-- Branded login screen and responsive public product website
-- VS Code commands for dashboard, docs, health, server startup, account connection, and date filtering
-
-## Role-by-role access
-
-| Capability | Student | Instructor | Admin |
-| --- | --- | --- | --- |
-| Own course progress | Yes | - | - |
-| Own grade trend | Yes | - | - |
-| Own curriculum checklist, deadlines, attendance, and risk | Yes | - | - |
-| Own sections and class rosters | - | Yes | - |
-| Grade distribution | - | Own sections | - |
-| Assignment and quiz analytics | - | Own sections | - |
-| Quiz item analysis | - | Own sections | - |
-| Engagement and attendance | - | Own sections | - |
-| At-risk indicators | Own records | Own sections | - |
-| Enrollment analytics | - | - | Yes |
-| Finance analytics | - | - | Yes |
-| Academic quality | - | - | Yes |
-| Operations analytics | - | - | Yes |
-| Custom dashboard | Yes | Yes | Yes |
-| CSV export | Own tables | Own-section tables | Authorized reports |
-
-## How verification works
-
-The demo does not rely on cryptographic verification because it is an LMS application, not a Stellar-anchored ledger product.
-
-Instead, every API response follows the same verification and privacy model:
-
-1. The JWT identifies the user.
-2. RBAC middleware verifies the role.
-3. Student and instructor endpoints apply row-level constraints.
-4. The server validates every accepted query parameter.
-5. Analytics calculate from the SQLite database.
-6. Small cohorts are withheld or reduced to anonymous bands.
-7. CSV and dashboard views use the same filtered server response envelope.
-
-## Architecture
-
-```text
-Public website / browser dashboard / VS Code plugin
-              |
-              v
-        Express API
-   JWT + RBAC middleware
-   Zod query validation
-   analytics route modules
-              |
-              v
-       SQLite database
-  better-sqlite3 + SQL views
-```
-
-The public/static dashboard is served from `/public`. API routes are served under `/api/v1`. Swagger UI is served at `/docs`.
-
-## Tech stack
-
-| Layer | Package or technology |
-| --- | --- |
-| Runtime | Node.js |
-| API | Express |
-| Database | SQLite through `better-sqlite3` |
-| Authentication | JWT |
-| Password hashing | bcrypt |
-| Validation | Zod |
-| API docs | Swagger UI / OpenAPI |
-| Tests | Jest and Supertest |
-| Dashboard | Vanilla JavaScript and Chart.js |
-| VS Code | VS Code Extension API |
-| Security | Helmet and express-rate-limit |
-
-## Repository layout
-
-```text
-PlugLytics/
-|- public/                 # Public website and role-aware dashboard
-|- logo/                   # Original PlugLytics brand image assets
-|- pluglytics-vscode/      # VS Code extension source and VSIX
-|- docs/
-|  |- pilot/               # Deployment, Canvas LMS, pilot school, definitions, accounting
-|  |- stellar/             # Stellar Payments documentation
-|- scripts/                # Seed, migrate, and backup scripts
-|- src/
-|  |- middleware/          # JWT, RBAC, and query validation
-|  |- routes/              # Auth and analytics endpoints
-|  |- utils/               # Response envelope and CSV export
-|  |- app.js               # Express application
-|  |- db.js                # SQLite connection
-|  |- schema.sql           # Tables, indexes, and views
-|  |- openapi.js           # Swagger document
-|- tests/                  # API and RBAC tests
-|- .vscode/                # Debug, tasks, and extension launch setup
-|- api.http                # REST Client request examples
-|- PROPOSAL.md             # Grant proposal
-|- render.yaml             # Render deployment Blueprint (demo)
-|- README.md
-```
+| Analytics API, dashboard, and public website | Working locally |
+| Stellar Testnet payments, refunds, webhooks, API keys | Working on Testnet, covered by automated tests |
+| Stellar Mainnet, USDC, anchors, settlement reports | Not implemented |
+| LMS provider import (Canvas) | Documented, not implemented ([plan](./docs/pilot/lms-integration.md)) |
+| Continuous integration | GitHub Actions on every push and pull request to `main` |
+| Public deployment | Planned on Render, Singapore region ([plan](./docs/pilot/deployment.md)); not deployed |
 
 ## Quick start
 
-### Prerequisites
-
-- Node.js 22.12 or newer (required by better-sqlite3 13 and @stellar/stellar-sdk 17)
-- npm
-- Windows PowerShell, macOS, or Linux
-- Optional: VS Code REST Client extension
-
-### Run the API and website
+**Prerequisites:** Node.js 22.12 or newer (required by `better-sqlite3` 13 and `@stellar/stellar-sdk` 17) and npm. Windows, macOS, and Linux are supported.
 
 ```bash
-copy .env.example .env
+cp .env.example .env      # Windows: copy .env.example .env
 npm install
-npm run seed
-npm run dev
+npm run seed              # builds the demo SQLite database
+npm run dev               # starts the server on http://localhost:3000
 ```
 
-macOS or Linux:
-
-```bash
-cp .env.example .env
-npm install
-npm run seed
-npm run dev
-```
-
-Open:
-
-- Public website: `http://localhost:3000/public`
-- Dashboard: `http://localhost:3000/public/dashboard.html`
-- Swagger: `http://localhost:3000/docs`
-
-### Package the VS Code plugin
-
-```bash
-npm run package:plugin
-code --install-extension pluglytics-vscode/pluglytics-0.1.0.vsix
-```
-
-## Environment variables
-
-| Variable | Needed for | Default | Required |
-| --- | --- | --- | --- |
-| `PORT` | API listen port | `3000` | No |
-| `JWT_SECRET` | Signing JWTs | Development fallback | Production: yes |
-| `JWT_EXPIRES_IN` | JWT lifetime | `8h` | No |
-| `DATABASE_PATH` | SQLite database location | `./data/pluglytics.db` | No |
-| `TRUST_PROXY` | Number of reverse proxies in front of the app, so rate limiting sees each visitor's IP | `0` | On Render: `1` |
-| `BACKUP_DIR` | Where `npm run backup` writes database copies | `backups/` next to the database | No |
-| `BACKUP_KEEP` | How many backup copies to keep | `7` | No |
-
-Create a local `.env` from `.env.example`. Use a unique JWT secret outside development.
-
-Database scripts:
-
-| Command | What it does |
+| Surface | URL |
 | --- | --- |
-| `npm run seed` | Rebuilds the demo database. **Replaces all data**: never run it on real data |
-| `npm run migrate` | Creates missing tables, indexes, views and triggers. Never deletes data |
-| `npm run backup` | Writes a checked copy of the database and keeps the newest `BACKUP_KEEP` copies |
+| Public website | <http://localhost:3000/public> |
+| Analytics dashboard | <http://localhost:3000/public/dashboard.html> |
+| REST API | <http://localhost:3000/api/v1> |
+| Swagger UI | <http://localhost:3000/docs> |
+| Health check | <http://localhost:3000/api/v1/health> |
 
-## Demo accounts
+Open the dashboard through the running server, not from the file system: sign-in and analytics need the server's `/api/v1` routes. No external database, cloud account, or other infrastructure is required.
+
+### Demo accounts
 
 | Role | Email | Password |
 | --- | --- | --- |
@@ -324,234 +76,87 @@ Database scripts:
 | Instructor | `instructor@pluglytics.local` | `Demo123!` |
 | Admin | `admin@pluglytics.local` | `Demo123!` |
 
-Demo credentials are seeded only for local demonstration.
+These accounts are created by `npm run seed` for local demonstration only.
 
-## API overview
+## Why PlugLytics
 
-### Authentication
+Learning and financial information is often spread across LMS platforms, registrar spreadsheets, payment systems, and instructor reports. That makes it hard to answer simple questions consistently:
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| POST | `/api/v1/auth/login` | Log in and receive a JWT |
-| GET | `/api/v1/auth/me` | Return the signed-in user |
+- Which students need support, without exposing unnecessary personal records?
+- Which sections, assignments, or quiz items are causing trouble?
+- How much tuition is billed, collected, outstanding, refunded, or discounted?
+- Which courses, specializations, and terms are performing well?
+- Can different roles rely on the same evidence without broadening access?
 
-### Student
+PlugLytics answers these from one role-aware analytics surface backed by a versioned REST API, with access rules enforced on the server.
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| GET | `/api/v1/student/progress` | Own course progress |
-| GET | `/api/v1/student/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD` | Own assignment deadlines for a calendar range |
-| GET | `/api/v1/student/curriculum` | Program course checklist and unit completion |
-| GET | `/api/v1/student/grades` | Own grade and GPA trend |
-| GET | `/api/v1/student/deadlines` | Upcoming and overdue items |
-| GET | `/api/v1/student/attendance` | Own attendance summary |
-| GET | `/api/v1/student/activity-summary` | Own learning activity by course |
-| GET | `/api/v1/student/risk` | Plain-language at-risk indicator |
+## Features
 
-### Instructor
+### Students
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| GET | `/api/v1/instructor/sections` | Own sections |
-| GET | `/api/v1/instructor/sections/:sectionId/roster` | Section-scoped grades, attendance, and assessment completion |
-| GET | `/api/v1/instructor/attendance` | Attendance rates for owned sections |
-| GET | `/api/v1/instructor/distribution` | Grade distribution |
-| GET | `/api/v1/instructor/assignments` | Assignment analytics |
-| GET | `/api/v1/instructor/item-analysis` | Quiz item difficulty |
-| GET | `/api/v1/instructor/engagement` | Weekday/hour activity |
-| GET | `/api/v1/instructor/at-risk` | At-risk indicators for owned sections |
-| GET | `/api/v1/instructor/compare` | Section and term comparisons |
+- Course progress, quiz/assignment/exam averages, and GPA trend by term
+- Upcoming and overdue deadlines, with a monthly calendar of assignment due dates
+- Curriculum checklist grouped by year level, with completion percentage and remaining units
+- Attendance, time on platform, and plain-language at-risk indicators
+- Pay an open invoice in XLM on the Stellar Testnet
 
-### Admin
+### Instructors
 
-| Method | Endpoint group | Description |
-| --- | --- | --- |
-| GET | `/api/v1/admin/enrollment/*` | Enrollment and seat analytics |
-| GET | `/api/v1/admin/finance/*` | Billing and collection analytics |
-| GET | `/api/v1/admin/academics/*` | GPA, pass rates, and ratings |
-| GET | `/api/v1/admin/operations/*` | Course popularity and operations |
+- Analytics limited to sections the signed-in instructor owns
+- Class folders with per-student grades, attendance, submissions, lateness, and missed work
+- Grade distribution, submission/late/missing rates, and hardest quiz questions
+- Engagement by weekday and hour, section comparisons, and a follow-up list
 
-### Dashboard
+### Administrators
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| GET | `/api/v1/widgets` | Role-available widget catalog |
-| GET | `/api/v1/me/dashboard` | Read saved layout |
-| PUT | `/api/v1/me/dashboard` | Save layout |
-| POST | `/api/v1/me/dashboard/presets` | Save named preset |
-| GET | `/api/v1/me/dashboard/render` | Render selected widgets |
-| GET | `/api/v1/me/filter-options` | Fetch role-permitted term and activity dates |
+- Enrollment by term, specialization, program, and year level; waitlists and seat utilization
+- Retention and dropout rates; GPA, pass rates, instructor ratings, and course demand
+- Gross and net billed, scholarships and discounts, collected, collection rate, outstanding balances by aging bucket, and refunds
+- Invoice management with scholarship, discount, fee, and instructor-cost fields
+- Stellar payment requests, late and memo-less payment matching, refunds, webhooks, and customer API keys
 
-The dashboard fetches role-permitted filter options after sign-in. Analytics routes accept their supported subset of term, date, program, specialization, course, section, instructor, year-level, and status filters; student and instructor records remain scoped to the signed-in person or owned sections.
+### Platform
 
-Example login:
+- Role-aware widget catalog, custom layouts, named presets, and dark/light mode
+- Universal filters, pagination, and CSV export
+- Interactive Student, Instructor, and Admin previews on the public website
+- Swagger/OpenAPI documentation and a VS Code extension
 
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"student@pluglytics.local","password":"Demo123!"}'
-```
+### Access by role
 
-Example authenticated request:
+| Capability | Student | Instructor | Admin |
+| --- | --- | --- | --- |
+| Own progress, grades, curriculum, deadlines, attendance | Yes | - | - |
+| Pay own invoices (Stellar Testnet) | Yes | - | - |
+| Section rosters, grade distribution, assessment analytics | - | Own sections | - |
+| At-risk indicators | Own records | Own sections | - |
+| Enrollment, finance, academic, and operations analytics | - | - | Yes |
+| Invoices, payments, refunds, webhooks, API keys | - | - | Yes |
+| Custom dashboard | Yes | Yes | Yes |
+| CSV export | Own tables | Own-section tables | Authorized reports |
 
-```bash
-curl http://localhost:3000/api/v1/student/progress \
-  -H "Authorization: Bearer YOUR_JWT"
-```
+## Stellar Testnet payments
 
-Example CSV export:
+PlugLytics converts an invoice into a Stellar payment request, waits for the student's payment, and confirms it on Horizon. Everything below runs on the **Testnet**: the payment, confirmation, and refund endpoints refuse to run unless `STELLAR_ENV=sandbox`.
 
-```text
-GET /api/v1/admin/enrollment/by-specialization?term=2025-1&format=csv
-```
-
-## Universal filters
-
-Every analytics endpoint accepts the role-permitted subset of:
-
-`term`, `from`, `to`, `specialization`, `program`, `course`, `section`, `instructor`, `yearLevel`, `status`, `groupBy`, `granularity`, `compare`, `sort`, `page`, `limit`
-
-A disallowed filter returns HTTP `403` with a clear `FILTER_FORBIDDEN` response. Results use the same response envelope:
-
-```json
-{
-  "data": {},
-  "meta": {
-    "filtersApplied": {},
-    "generatedAt": "",
-    "page": 1,
-    "total": 0
-  },
-  "error": null
-}
-```
-
-## Metric formulas
-
-| Metric | Formula |
+| Capability | Status |
 | --- | --- |
-| Course progress | Submitted or late items / total assigned items x 100 |
-| Submission rate | Submitted or late submissions / enrolled students x 100 |
-| Average score | Sum of `(submission score / maximum score x 100)` / score count |
-| Gross billed | Sum of invoice base amounts |
-| Scholarships total | Sum of invoice scholarship amounts |
-| Net billed | Sum of invoice final amounts: gross billed - scholarships - discounts + fees |
-| Collection rate | Collected payments / net billed (after scholarships and discounts) x 100 |
-| Retention rate | Active enrollments / total enrollments x 100 |
-| Dropout rate | Dropped or withdrawn enrollments / total enrollments x 100 |
-| Pass rate | Enrollments with final grade >= 60 / graded enrollments x 100 |
-| Seat utilization | Enrolled students / section capacity x 100 |
-| Outstanding balance | Net billed per invoice (final amount, after scholarships, discounts and fees) - payments |
-| Aging bucket | Outstanding days since due date: 0-30, 31-60, or 60+ |
-| At-risk | 2+ missing submissions and/or attendance below 75%, plus plain-language reasons |
+| Payment requests: invoice converted to XLM at a configurable rate, locked for 30 minutes | Built (Testnet) |
+| Horizon confirmation by memo, asset, and exact amount in stroops | Built (Testnet) |
+| Cancelling requests, accepting late payments, matching payments sent without a memo | Built (Testnet) |
+| Refunds with approval, rejection, second-admin threshold, and testnet refund payments | Built (Testnet) |
+| Signed outgoing webhooks with per-customer secrets and automatic retries | Built (Testnet) |
+| Read-only, school-scoped customer API keys | Built |
+| USDC payments, anchors, subscriptions | Not built |
+| Daily/weekly reconciliation and settlement reports | Not built |
+| Mainnet (production) payments | Not enabled |
 
-## Privacy and security
+<details>
+<summary><strong>Try a Testnet payment end to end</strong></summary>
 
-- JWT authentication with role claims
-- Role-based route authorization
-- Student identity derived from the signed-in account
-- Instructor queries constrained to owned sections
-- Minimum cohort size of five for privacy-sensitive aggregates
-- Instructor student-level reports constrained to owned sections
-- Password hashing with bcrypt
-- Helmet security headers
-- Per-IP rate limiting
-- Zod input/query validation
-- Indexed SQLite queries
-- Standardized error envelopes
-- No stack traces returned to clients
+Testnet XLM has **no real value**, so nothing here costs money.
 
-This repository is a technical demo. Production use still requires a privacy review, threat model, audit logging, secret management, backups, HTTPS, and an appropriate deployment database strategy.
-
-## VS Code plugin
-
-The source is in [pluglytics-vscode](./pluglytics-vscode). A VSIX is also placed in [public](./public).
-
-Commands:
-
-- `PlugLytics: Open Dashboard`
-- `PlugLytics: Open API Documentation`
-- `PlugLytics: Start API`
-- `PlugLytics: Check API Health`
-- `PlugLytics: Connect Account`
-- `PlugLytics: Refresh Available LMS Dates`
-- `PlugLytics: Filter Dashboard by Date`
-- `PlugLytics: Configure LMS Date API`
-- `PlugLytics: Set LMS API Token`
-
-The PlugLytics API URL is configurable with `pluglytics.baseUrl`. Once a user connects, the extension automatically refreshes role-scoped date choices from the API and can open the dashboard with the selected term or date range. An optional `pluglytics.lmsDateOptionsUrl` setting points to a JSON API on the institution's LMS; the extension can fetch ISO date fields and Unix-second or Unix-millisecond timestamps from that endpoint. Configure its URL with **PlugLytics: Configure LMS Date API** and store an optional bearer token with **PlugLytics: Set LMS API Token**. This date-only connector does not currently sync LMS course enrollments or degree-audit curriculum.
-
-The sample Student dashboard and public role previews load a February 2025 Software Development curriculum and illustrative November/December 2026 events from static files under `public/`. Course statuses and event details are demo-only and never enter SQLite or the analytics API. The authenticated student curriculum API uses program catalog and enrollment data. The live calendar API currently supplies assignment deadlines; meetings, class times, and other events require a real connected source.
-
-This generic date fetcher requires a REST JSON endpoint and does not support LMS web-page scraping, provider-specific OAuth, or automatic pagination. It fetches dates only; it does not import LMS enrollments, grades, courses, curriculum, attendance, or events. Provider adapters or import mappings are still needed to populate PlugLytics analytics with institution data. Until that integration is configured, the API's local demo uses synthetic seeded database records.
-
-The public site's **Download PlugLytics** button downloads the VSIX at `public/pluglytics-0.1.0.vsix`. To run the extension's focused date-parser test, use `npm test` from `pluglytics-vscode`.
-
-## Tests
-
-```bash
-npm test
-```
-
-Current coverage includes:
-
-- Health response envelope
-- Student filter restrictions
-- Student-to-instructor authorization boundary
-- Instructor-to-admin authorization boundary
-- Finance collection-rate calculation
-- Dashboard layout persistence
-- Student curriculum API excludes the browser-only demo curriculum
-- Demo curriculum and filler calendar events are static assets, not API records
-- Instructor roster access is restricted to owned sections
-- Role-scoped date options and inverted-range validation
-
-To rerun a clean demo:
-
-```bash
-npm run seed
-npm test
-```
-
-## CI
-
-[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs on every push and pull request to `main`, on Node.js 22: `npm ci`, `npm run seed`, `npm test` (API tests), and the VS Code extension tests in `pluglytics-vscode`. It does not deploy anything.
-
-## Grant proposal
-
-See [PROPOSAL.md](./PROPOSAL.md) for the PlugLytics grant proposal, Stellar Payments integration opportunity, planned roadmap, impact, budget categories, and evaluation metrics.
-
-The current project uses synthetic payment data. Stellar **testnet** payments work (see [Try Stellar testnet payments](#try-stellar-testnet-payments)); production (real-money) payments are not enabled.
-
-See [docs/stellar/payments-api.md](./docs/stellar/payments-api.md) for the Stellar Payments API (Testnet endpoints built, the rest planned): the payment flow, endpoints, error codes, sandbox vs production setup, and testnet friendbot testing.
-
-## Stellar Payments
-
-Stellar **testnet** payments work. **Production (Mainnet, real-money) payments are not enabled**: the payment, confirmation and refund endpoints refuse to run unless `STELLAR_ENV=sandbox`.
-
-Built on Testnet (with Jest tests in `tests/`):
-
-- Students pay an invoice in XLM from the dashboard; the invoice amount is converted with a configurable exchange rate that is locked for 30 minutes.
-- Payments are confirmed through Horizon when a pending request is checked, by memo, asset and exact amount in stroops.
-- Admins see every payment request, can cancel pending ones, accept late payments, and match payments sent without a memo.
-- Refund requests with approval, rejection, and testnet refund payments.
-- Signed outgoing webhooks with per-customer secrets and retries; read-only, school-scoped customer API keys.
-- An admin invoice screen for scholarship, discount, fee and instructor-cost fields.
-
-Not built yet: USDC payments, anchors, subscriptions, daily/weekly reconciliation and settlement reports, and Mainnet. The documents below mark which parts are built:
-
-- [Payments API](./docs/stellar/payments-api.md): payment flow, endpoints, customer API keys, webhook registration, error codes, and sandbox vs production
-- [Webhooks](./docs/stellar/webhooks.md): event types, example payloads, signature verification, retries, and duplicate handling
-- [Settlement and reconciliation](./docs/stellar/settlement.md): accepted assets (XLM and USDC), daily and weekly reconciliation, settlement reports, and handling mismatches
-- [Approved payment methods](./docs/stellar/approved-payment-methods.md): which methods are accepted (USDC, XLM, anchors), who can use them, amount limits, and what is not accepted
-- [Refunds and chargebacks](./docs/stellar/refunds-and-chargebacks.md): who can request a refund, the refund procedure, partial refunds, anchor and card on-ramp disputes, and record-keeping
-- [Pilot budget and grant](./docs/stellar/pilot-budget-and-grant.md): pilot budget by category, grant amount, milestones, and reporting dates
-
-## Try Stellar testnet payments
-
-Testnet is Stellar's test network. Its XLM has **no real value**, so nothing here costs money. Production (real-money) payments are not enabled.
-
-1. **Copy the Stellar settings into `.env`.** Copy the Stellar lines (everything from `# --- Stellar merchant credentials ---` down) from `.env.example` into your `.env`, and keep `STELLAR_ENV=sandbox`. Never put real keys in `.env.example` or any committed file.
+1. **Copy the Stellar settings into `.env`.** Copy everything from `# --- Stellar merchant credentials ---` down from `.env.example` into your `.env`, and keep `STELLAR_ENV=sandbox`. Never put real keys in `.env.example` or any committed file.
 2. **Create a testnet merchant account** (it receives the payments): open the [Stellar Laboratory](https://laboratory.stellar.org), switch to **Testnet**, and generate a keypair.
 3. **Fund it with Friendbot**, which gives a new testnet account 10,000 test XLM:
 
@@ -567,76 +172,350 @@ Testnet is Stellar's test network. Its XLM has **no real value**, so nothing her
    SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string>
    ```
 
-5. **Restart the server** so it reads the new settings: stop `npm run dev` and start it again. (Run `npm run seed` first if you have not seeded since pulling.)
-6. **Log in as the demo student** (`student@pluglytics.local` / `Demo123!`). In the **Payments** section, click **Pay with Stellar (Testnet)** on the unpaid 50 USD invoice. It asks for 125 XLM (sandbox rate: 1 USD = 2.5 XLM). Copy the **destination address**, **amount** and **memo**.
-7. **Pay with a second testnet account:** generate another keypair in the Stellar Laboratory (Testnet) or use a wallet that supports testnet, fund it with Friendbot, and send exactly that amount of XLM to the destination address with the memo as a **text memo**, within 30 minutes. Without the memo, the payment cannot be matched.
-8. The page checks every few seconds and shows **Completed** once the payment is found, or **Failed** with the reason. Log in as `admin@pluglytics.local` / `Demo123!` to see the request in **Stellar Payments**, linked to the transaction on [stellar.expert](https://stellar.expert/explorer/testnet).
+5. **Restart the server** so it reads the new settings (run `npm run seed` first if you have not seeded since pulling).
+6. **Sign in as the demo student.** In **Payments**, click **Pay with Stellar (Testnet)** on the unpaid 50 USD invoice. It asks for 125 XLM (sandbox rate: 1 USD = 2.5 XLM). Copy the **destination address**, **amount**, and **memo**.
+7. **Pay from a second testnet account:** fund another keypair with Friendbot and send exactly that amount of XLM to the destination with the memo as a **text memo**, within 30 minutes. Without the memo, an admin has to match the payment manually.
+8. The page checks every few seconds and shows **Completed** once the payment is found, or **Failed** with the reason. Sign in as the admin to see the request under **Stellar Payments**, linked to the transaction on [stellar.expert](https://stellar.expert/explorer/testnet).
 
-The testnet is reset from time to time. After a reset, fund new accounts with Friendbot again.
+The testnet is reset from time to time; after a reset, fund new accounts with Friendbot again.
+
+</details>
+
+## Architecture
+
+```text
+Public website  /  browser dashboard  /  VS Code extension
+                          |
+                          v
+                     Express API  ------------->  Stellar Horizon (Testnet)
+            JWT + RBAC + API-key middleware        payment lookup, refunds
+                Zod query validation
+             analytics and payment routes  ---->  Customer webhooks (signed)
+                          |
+                          v
+                   SQLite database
+              better-sqlite3 + SQL views
+```
+
+The static site and dashboard are served from `/public`, the API under `/api/v1`, and Swagger UI at `/docs`.
+
+### Access-control model
+
+Every API request passes through the same checks:
+
+1. The JWT (or a customer API key, for read-only payment routes) identifies the caller.
+2. RBAC middleware verifies the role.
+3. Student and instructor endpoints apply row-level constraints derived from the signed-in account.
+4. Every accepted query parameter is validated; disallowed filters return `403 FILTER_FORBIDDEN`.
+5. Small cohorts are withheld or reduced to anonymous bands.
+6. Dashboard views and CSV exports use the same filtered response envelope.
+
+### Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| Runtime and API | Node.js 22, Express 5 |
+| Database | SQLite through `better-sqlite3` |
+| Authentication | JWT, bcrypt password hashing |
+| Validation | Zod |
+| Payments | Stellar Horizon REST API, `@stellar/stellar-sdk` (refund signing) |
+| Security | Helmet, express-rate-limit |
+| API docs | Swagger UI / OpenAPI |
+| Dashboard | Vanilla JavaScript and Chart.js |
+| Tests and CI | Jest, Supertest, GitHub Actions |
+| Editor integration | VS Code Extension API |
+
+### Repository layout
+
+```text
+PlugLytics/
+├── .github/workflows/   CI workflow
+├── docs/
+│   ├── pilot/           Deployment, Canvas LMS, pilot school, definitions, accounting
+│   └── stellar/         Payments API, webhooks, settlement, refunds, budget
+├── logo/                Brand assets
+├── pluglytics-vscode/   VS Code extension source, tests, and VSIX
+├── public/              Public website and role-aware dashboard
+├── scripts/             Seed, migrate, and backup scripts
+├── src/
+│   ├── middleware/      JWT, RBAC, API keys, and query validation
+│   ├── routes/          Analytics, invoice, payment, refund, webhook, and API-key routes
+│   ├── utils/           Response envelope, CSV export, finance cache
+│   ├── stellar*.js      Stellar config, Horizon lookup, quotes, refund signer
+│   ├── webhook*.js      Webhook signing secrets and delivery
+│   ├── schema.sql       Tables, indexes, views, and triggers
+│   └── openapi.js       Swagger document
+├── tests/               Jest test suites
+├── api.http             REST Client request examples
+├── PROPOSAL.md          Grant proposal
+└── render.yaml          Render deployment Blueprint (demo)
+```
+
+## Configuration
+
+Create `.env` from `.env.example`. Stellar settings are described in [Stellar Testnet payments](#stellar-testnet-payments) and [payments-api.md](./docs/stellar/payments-api.md#payment-policy-settings).
+
+| Variable | Purpose | Default | Required |
+| --- | --- | --- | --- |
+| `PORT` | API listen port | `3000` | No |
+| `JWT_SECRET` | Signs JWTs | Development fallback | In production |
+| `JWT_EXPIRES_IN` | JWT lifetime | `8h` | No |
+| `DATABASE_PATH` | SQLite database location | `./data/pluglytics.db` | No |
+| `TRUST_PROXY` | Reverse proxies in front of the app, so rate limiting sees each visitor's IP | `0` | On Render: `1` |
+| `BACKUP_DIR` | Where `npm run backup` writes copies | `backups/` next to the database | No |
+| `BACKUP_KEEP` | Backup copies to keep | `7` | No |
+| `STELLAR_ENV` | `sandbox` (Testnet); `production` is read but payments are refused | - | For payments |
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Starts the server and restarts it on file changes |
+| `npm start` | Starts the server |
+| `npm run seed` | Rebuilds the demo database. **Replaces all data**; never run it on real data |
+| `npm run migrate` | Creates missing tables, indexes, views, and triggers; never deletes data |
+| `npm run backup` | Writes a checked copy of the database and keeps the newest `BACKUP_KEEP` copies |
+| `npm test` | Runs the Jest test suites |
+| `npm run package:plugin` | Packages the VS Code extension as a VSIX |
+
+## API reference
+
+Full interactive documentation is served at `/docs`. Every response uses the same envelope:
+
+```json
+{
+  "data": {},
+  "meta": { "filtersApplied": {}, "generatedAt": "", "page": 1, "total": 0 },
+  "error": null
+}
+```
+
+<details>
+<summary><strong>Authentication and dashboard</strong></summary>
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| POST | `/api/v1/auth/login` | Sign in and receive a JWT |
+| GET | `/api/v1/auth/me` | Return the signed-in user |
+| GET | `/api/v1/widgets` | Role-available widget catalog |
+| GET / PUT | `/api/v1/me/dashboard` | Read or save the dashboard layout |
+| POST | `/api/v1/me/dashboard/presets` | Save a named preset |
+| GET | `/api/v1/me/dashboard/render` | Render selected widgets |
+| GET | `/api/v1/me/filter-options` | Role-permitted term and activity dates |
+
+</details>
+
+<details>
+<summary><strong>Student</strong></summary>
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/api/v1/student/progress` | Own course progress |
+| GET | `/api/v1/student/calendar?from=&to=` | Own assignment deadlines for a date range |
+| GET | `/api/v1/student/curriculum` | Program checklist and unit completion |
+| GET | `/api/v1/student/grades` | Own grade and GPA trend |
+| GET | `/api/v1/student/deadlines` | Upcoming and overdue items |
+| GET | `/api/v1/student/attendance` | Own attendance summary |
+| GET | `/api/v1/student/activity-summary` | Own learning activity by course |
+| GET | `/api/v1/student/risk` | Plain-language at-risk indicator |
+
+</details>
+
+<details>
+<summary><strong>Instructor</strong></summary>
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/api/v1/instructor/sections` | Own sections |
+| GET | `/api/v1/instructor/sections/:sectionId/roster` | Section grades, attendance, and assessment completion |
+| GET | `/api/v1/instructor/attendance` | Attendance rates for owned sections |
+| GET | `/api/v1/instructor/distribution` | Grade distribution |
+| GET | `/api/v1/instructor/assignments` | Assignment analytics |
+| GET | `/api/v1/instructor/item-analysis` | Quiz item difficulty |
+| GET | `/api/v1/instructor/engagement` | Weekday/hour activity |
+| GET | `/api/v1/instructor/at-risk` | At-risk indicators for owned sections |
+| GET | `/api/v1/instructor/compare` | Section and term comparisons |
+
+</details>
+
+<details>
+<summary><strong>Admin analytics</strong></summary>
+
+| Method | Endpoint group | Description |
+| --- | --- | --- |
+| GET | `/api/v1/admin/enrollment/*` | Enrollment, retention, and seat analytics |
+| GET | `/api/v1/admin/finance/*` | Billing, collection, outstanding, and refund analytics |
+| GET | `/api/v1/admin/academics/*` | GPA, pass rates, and ratings |
+| GET | `/api/v1/admin/operations/*` | Course popularity |
+
+</details>
+
+<details>
+<summary><strong>Invoices and Stellar payments</strong></summary>
+
+| Method | Endpoint | Who | Description |
+| --- | --- | --- | --- |
+| GET / POST | `/api/v1/invoices` | Admin | List or create invoices with pricing fields |
+| GET / PATCH | `/api/v1/invoices/:id` | Admin | Read or update an invoice |
+| POST | `/api/v1/payments` | Student | Create a Testnet payment request for an own invoice |
+| GET | `/api/v1/payments` | Admin, API key | List payment requests |
+| GET | `/api/v1/payments/invoices` | Student | Own invoices with amount due and latest request |
+| GET | `/api/v1/payments/:id` | Student, admin, API key | Read a request, checking Horizon while it is pending |
+| POST | `/api/v1/payments/:id/cancel` | Student, admin | Cancel a pending request |
+| POST | `/api/v1/payments/:id/accept-late-payment` | Admin | Record a payment that arrived after expiry |
+| POST | `/api/v1/payments/:id/match-transaction` | Admin | Record a payment sent without a memo |
+| GET / POST | `/api/v1/refunds` | Admin | List or request refunds |
+| POST | `/api/v1/refunds/:id/approve`, `/reject`, `/issue` | Admin | Decide on or send a refund (Testnet only) |
+| GET / POST | `/api/v1/webhooks` | Admin | List or register webhook endpoints |
+| DELETE | `/api/v1/webhooks/:id` | Admin | Remove a webhook endpoint |
+| POST | `/api/v1/webhooks/:id/rotate-secret` | Admin | Replace a signing secret |
+| GET / POST | `/api/v1/api-keys` | Admin | List or create customer API keys |
+| DELETE | `/api/v1/api-keys/:id` | Admin | Revoke a customer API key |
+
+See [payments-api.md](./docs/stellar/payments-api.md) for request and response fields and error codes.
+
+</details>
+
+<details>
+<summary><strong>Examples</strong></summary>
+
+```bash
+# Sign in
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"student@pluglytics.local","password":"Demo123!"}'
+
+# Authenticated request
+curl http://localhost:3000/api/v1/student/progress \
+  -H "Authorization: Bearer YOUR_JWT"
+
+# CSV export
+curl "http://localhost:3000/api/v1/admin/enrollment/by-specialization?term=2025-1&format=csv" \
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+</details>
+
+### Filters
+
+Analytics endpoints accept the role-permitted subset of `term`, `from`, `to`, `specialization`, `program`, `course`, `section`, `instructor`, `yearLevel`, `status`, `groupBy`, `granularity`, `compare`, `sort`, `page`, and `limit`. A disallowed filter returns HTTP `403` with `FILTER_FORBIDDEN`.
+
+### Metric formulas
+
+| Metric | Formula |
+| --- | --- |
+| Course progress | Submitted or late items / total assigned items × 100 |
+| Submission rate | Submitted or late submissions / enrolled students × 100 |
+| Average score | Sum of (score / maximum score × 100) / score count |
+| Gross billed | Sum of invoice base amounts |
+| Net billed | Gross billed − scholarships − discounts + fees |
+| Collection rate | Collected payments / net billed × 100 |
+| Outstanding balance | Net billed per invoice − payments |
+| Aging bucket | Days since due date: 0–30, 31–60, or 60+ |
+| Retention rate | Active enrollments / total enrollments × 100 |
+| Dropout rate | Dropped or withdrawn enrollments / total enrollments × 100 |
+| Pass rate | Final grade ≥ 60 / graded enrollments × 100 |
+| Seat utilization | Enrolled students / section capacity × 100 |
+| At-risk | 2+ missing submissions and/or attendance below 75%, with plain-language reasons |
+
+Known gaps in these definitions (for example, retention for finished terms, and Stellar payments and refunds not yet counted in "collected") are tracked in [definitions.md](./docs/pilot/definitions.md) for review with the pilot school.
+
+## Privacy and security
+
+- JWT authentication with role claims and role-based route authorization
+- Student identity derived from the signed-in account; instructor queries limited to owned sections
+- Minimum cohort size of five for privacy-sensitive aggregates
+- bcrypt password hashing, Helmet security headers, and per-IP rate limiting
+- Zod validation of inputs and query parameters
+- Customer API keys stored as SHA-256 hashes; webhook secrets stored encrypted and shown once
+- Stellar secret keys read only from the environment and never logged
+- Standardized error envelopes with no stack traces returned to clients
+
+Production use still requires a privacy review, threat model, audit logging, secret management, HTTPS, backups, and a production database strategy.
+
+## VS Code extension
+
+The extension source is in [pluglytics-vscode](./pluglytics-vscode); a packaged VSIX is also served from the public website's **Download PlugLytics** button.
+
+```bash
+npm run package:plugin
+code --install-extension pluglytics-vscode/pluglytics-0.1.0.vsix
+```
+
+Commands: **Open Dashboard**, **Open API Documentation**, **Start API**, **Check API Health**, **Connect Account**, **Refresh Available LMS Dates**, **Filter Dashboard by Date**, **Configure LMS Date API**, and **Set LMS API Token** (all prefixed with `PlugLytics:`).
+
+The API URL is set with `pluglytics.baseUrl`. After connecting, the extension refreshes role-scoped date choices and can open the dashboard filtered to a term or date range. An optional `pluglytics.lmsDateOptionsUrl` points to a JSON endpoint on the institution's LMS from which the extension reads ISO dates or Unix timestamps.
+
+> [!NOTE]
+> The LMS connector reads dates only. It does not scrape LMS pages, implement provider-specific OAuth or pagination, or import enrollments, grades, courses, curriculum, attendance, or events. The sample curriculum and demo events on the website are static files under `public/` and never enter the API or database.
+
+## Testing and CI
+
+```bash
+npm run seed
+npm test                          # API test suites (Jest + Supertest)
+cd pluglytics-vscode && npm test  # VS Code extension tests
+```
+
+The suites in [`tests/`](./tests) cover authentication and role boundaries, filters, dashboard layouts, finance and pricing calculations, invoices, payment requests, Horizon confirmation, late and memo-less matching, refunds, webhook registration and delivery, customer API keys, payment-policy settings, and dashboard assets. Horizon and the refund signer are replaced with test doubles, so the tests never call the real Stellar network.
+
+[GitHub Actions](./.github/workflows/ci.yml) runs install, seed, the API tests, and the extension tests on Node.js 22 for every push and pull request to `main`. CI does not deploy.
+
+## Documentation
+
+| Document | Contents |
+| --- | --- |
+| [PROPOSAL.md](./PROPOSAL.md) | Grant proposal, roadmap, impact, and evaluation metrics |
+| [Payments API](./docs/stellar/payments-api.md) | Payment flow, endpoints, API keys, error codes, sandbox vs production |
+| [Webhooks](./docs/stellar/webhooks.md) | Event types, payloads, signature verification, retries |
+| [Settlement](./docs/stellar/settlement.md) | Accepted assets, reconciliation, settlement reports, mismatches |
+| [Approved payment methods](./docs/stellar/approved-payment-methods.md) | XLM, USDC, anchors, limits, and what is not accepted |
+| [Refunds and chargebacks](./docs/stellar/refunds-and-chargebacks.md) | Refund procedure, partial refunds, disputes, record-keeping |
+| [Pilot budget and grant](./docs/stellar/pilot-budget-and-grant.md) | Budget categories, milestones, and reporting dates |
+| [Deployment](./docs/pilot/deployment.md) | Hosting, URLs, database, and backups |
+| [LMS integration](./docs/pilot/lms-integration.md) | Canvas LMS import and LTI plan |
+| [Definitions](./docs/pilot/definitions.md) | Enrollment, retention, and finance definitions |
+| [Accounting and ledger](./docs/pilot/accounting-and-ledger.md) | Journal export and accounting mapping |
+| [Pilot institution](./docs/pilot/pilot-institution.md) | Pilot school template |
 
 ## Roadmap
 
+- [x] Role-aware analytics API, dashboard, and public website
+- [x] Stellar Testnet payment adapter: payment requests, Horizon confirmation, late and memo-less matching, refunds, webhooks, customer API keys
+- [x] Automated CI with GitHub Actions
 - [ ] Live public deployment with HTTPS
-- [x] Stellar Testnet payment adapter (payment requests, Horizon confirmation, late and memo-less matching, refunds, webhooks, customer API keys)
 - [ ] Stellar Mainnet (production) payments, USDC, and anchors
 - [ ] Daily and weekly reconciliation and settlement reports
-- [ ] Revenue forecast endpoint
-- [ ] Instructor cost and course-margin reporting
-- [ ] Provider-specific LMS integration for enrollments, courses, grades, attendance, curriculum, and events
-- [x] Automated CI (GitHub Actions: install, seed, tests)
+- [ ] Provider-specific LMS integration (Canvas) for enrollments, courses, grades, attendance, and events
+- [ ] Revenue forecast and course-margin reporting
 - [ ] Code-quality (lint) workflow
-- [ ] Complete VS Code Marketplace publication
+- [ ] VS Code Marketplace publication
 - [ ] Pilot institution approval and data-governance review
-- [ ] Production backup, migration, logging, and monitoring setup
-- [ ] Pilot user testing and accessibility audit
-- [ ] Formal privacy and security review
+- [ ] Production backups, versioned migrations, logging, and monitoring
+- [ ] Pilot user testing, accessibility audit, and formal privacy and security review
 
-## Information still needed
+<details>
+<summary><strong>Open items before the pilot</strong></summary>
 
-The following information is needed before the README and grant materials can be fully finalized:
+| # | Item | Status | Still missing |
+| --- | --- | --- | --- |
+| 1 | Hosting provider and domain ([deployment](./docs/pilot/deployment.md#1-hosting-provider-and-domain)) | Documented, partly built | Render service name, custom domain, account owner; nothing deployed |
+| 2 | Public API and Swagger URLs ([deployment](./docs/pilot/deployment.md#2-public-api-and-swagger-urls)) | Documented, not deployed | Real URLs after the first deploy |
+| 3 | Production database and backups ([deployment](./docs/pilot/deployment.md#3-production-database-strategy)) | Partly built (`migrate`, `backup`) | Scheduled and off-site backups, versioned migrations, PostgreSQL plan |
+| 4 | Pilot LMS provider ([LMS integration](./docs/pilot/lms-integration.md)) | Canvas chosen, not built | School's Canvas URL, quiz engine, attendance source; importer |
+| 5 | Pilot institution and contact ([template](./docs/pilot/pilot-institution.md)) | Template only | No school has agreed yet |
+| 6 | Enrollment, retention, and finance definitions ([definitions](./docs/pilot/definitions.md)) | Documented | Confirmation by the school's registrar and finance office |
+| 7 | Ledger and accounting system ([accounting](./docs/pilot/accounting-and-ledger.md)) | Documented, not decided | School's accounting system, account codes, journal export |
+| 8 | Stellar merchant credentials ([payments API](./docs/stellar/payments-api.md#sandbox-vs-production)) | Testnet supported | Real sandbox keys per deployment; production not enabled |
+| 9 | Settlement and webhooks ([settlement](./docs/stellar/settlement.md), [webhooks](./docs/stellar/webhooks.md)) | Payments, webhooks, refunds built on Testnet | Reconciliation runs, settlement reports, `settlement.*` and `subscription.*` events |
+| 10 | Payment methods and refunds ([methods](./docs/stellar/approved-payment-methods.md), [refunds](./docs/stellar/refunds-and-chargebacks.md)) | Refunds built on Testnet | Real limits, refund window, anchor list; disputes |
+| 11 | Pricing fields ([payments API](./docs/stellar/payments-api.md#pricing-fields)) | Built (API and admin screen) | Course-margin reporting using instructor cost |
+| 12 | Pilot budget and grant ([budget](./docs/stellar/pilot-budget-and-grant.md)) | Draft | Grant amount, budget amounts, milestone and report dates |
+| 13 | User testing | Not started | Population and target sample size |
+| 14 | Compliance | Not started | Security, accessibility, and compliance requirements |
+| 15 | Brand and media | Pending | Logo approval for public and grant use; video assets |
+| 16 | Publication | Pending | License, maintainers, support/privacy/terms/disclosure URLs, release strategy, Marketplace publisher ID |
 
-1. Public production domain and hosting provider: **Documented, partly built** ([deployment.md](./docs/pilot/deployment.md#1-hosting-provider-and-domain), [render.yaml](./render.yaml))
-   - Decided: Render, Singapore region; free instance for the demo, Starter instance with a persistent disk for the pilot.
-   - Still missing: the Render service name, a custom domain, and who owns the Render account. Nothing is deployed yet.
-2. Public API and Swagger URLs: **Documented, not deployed** ([deployment.md](./docs/pilot/deployment.md#2-public-api-and-swagger-urls))
-   - Planned: `https://<host>/api/v1` and `https://<host>/docs`, with `pluglytics.onrender.com` as the first host.
-   - Still missing: the real URLs, which exist only after the first deploy.
-3. Production database strategy and backup requirements: **Documented, partly built** ([deployment.md](./docs/pilot/deployment.md#3-production-database-strategy))
-   - Built: `npm run migrate` (schema only, never deletes data) and `npm run backup` (checked copies, keeps the newest 7).
-   - Still missing: scheduled nightly backups, off-site copies, versioned migrations, and the PostgreSQL plan for more than one school.
-4. LMS provider(s) used by the pilot institution: **Documented, not built** ([lms-integration.md](./docs/pilot/lms-integration.md))
-   - Decided: Canvas LMS, through the Canvas REST API first and LTI 1.3 later.
-   - Still missing: the pilot school's Canvas URL, quiz engine and attendance source; the importer is not built.
-5. Pilot institution name, program, and authorized contact: **Template only** ([pilot-institution.md](./docs/pilot/pilot-institution.md))
-   - Still missing: no school has agreed yet. Institution, program, contacts and approvals are TODO.
-6. Real enrollment, retention, and financial definitions: **Documented, not built** ([definitions.md](./docs/pilot/definitions.md))
-   - Found: the current retention rate shows 0% for finished terms, and collected amounts leave out Stellar payments and refunds.
-   - Still missing: the school's registrar and finance office must confirm the proposed definitions before the code is changed.
-7. Ledger and accounting system used for tuition reconciliation: **Documented, not decided** ([accounting-and-ledger.md](./docs/pilot/accounting-and-ledger.md))
-   - Planned: a daily journal-entry CSV that any accounting system can import.
-   - Still missing: the pilot school's accounting system, its account codes, and the journal-export endpoint.
-8. Stellar Payments sandbox and production merchant credentials: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#sandbox-vs-production))
-   - Still missing: real sandbox keys in `.env`, and production merchant credentials (production is not enabled).
-9. Stellar Payments API, webhook, and settlement documentation: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md), [webhooks.md](./docs/stellar/webhooks.md), [settlement.md](./docs/stellar/settlement.md))
-   - Built (Testnet): payment requests, Horizon confirmation, signed webhooks with retries, refunds, and customer API keys.
-   - Still missing: daily and weekly reconciliation, settlement reports, and the `settlement.completed` and `subscription.*` webhooks.
-10. Approved payment methods and refund/chargeback procedures: **Documented, partly built** ([approved-payment-methods.md](./docs/stellar/approved-payment-methods.md), [refunds-and-chargebacks.md](./docs/stellar/refunds-and-chargebacks.md))
-    - Built (Testnet): refund requests, approval, rejection, and refund payments; amount limits and the refund window are settings.
-    - Still missing: real values for amount limits, the refund window and the approved anchor list (placeholders today); disputes are not built.
-11. Scholarship, discount, fee, and instructor-cost fields: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#pricing-fields))
-    - Built: admins can set these fields through the API (`POST /api/v1/invoices`, `PATCH /api/v1/invoices/:id`) and the dashboard's admin invoice screen.
-    - Still missing: course-margin reporting that uses instructor cost.
-12. Pilot budget, grant amount, milestones, and reporting dates: **Documented, partly built** ([pilot-budget-and-grant.md](./docs/stellar/pilot-budget-and-grant.md))
-    - Still missing: the grant amount, budget amounts, and milestone and report dates are TODO.
-13. User-testing population and target sample size
-14. Security, accessibility, and compliance requirements
-15. Confirmation that the supplied PlugLytics logo is approved for public and grant use
-16. Additional video assets for the public repository
-17. License choice and maintainer information
-18. Support, privacy, terms, and vulnerability-disclosure URLs
-19. GitHub repository release/tag and publication strategy
-20. VS Code Marketplace publisher ID
+</details>
 
 ## License
 
-**License:** not yet selected.
+A license has not been selected yet. Until one is added, all rights are reserved by the authors.
