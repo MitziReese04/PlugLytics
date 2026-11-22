@@ -1,8 +1,21 @@
 require("dotenv").config();
 
+const DEVELOPMENT_JWT_SECRET = "pluglytics-development-secret";
+
+// The development fallback is public (it is in this file), so anyone could forge
+// tokens with it. Refuse to start in production without a real secret.
+function resolveJwtSecret(env = process.env) {
+  const secret = typeof env.JWT_SECRET === "string" ? env.JWT_SECRET.trim() : "";
+  if (env.NODE_ENV === "production" && (!secret || secret === DEVELOPMENT_JWT_SECRET || secret === "change-this-secret-in-production")) {
+    throw new Error("JWT_SECRET must be set to a unique value when NODE_ENV=production");
+  }
+  return secret || DEVELOPMENT_JWT_SECRET;
+}
+
 module.exports = {
+  resolveJwtSecret,
   port: Number(process.env.PORT || 3000),
-  jwtSecret: process.env.JWT_SECRET || "pluglytics-development-secret",
+  jwtSecret: resolveJwtSecret(),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "8h",
   databasePath: process.env.DATABASE_PATH || "./data/pluglytics.db",
   // Number of reverse proxies in front of the app (Render uses 1). 0 = trust none.

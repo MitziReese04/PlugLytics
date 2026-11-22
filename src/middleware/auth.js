@@ -10,7 +10,7 @@ function authenticate(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(header.slice(7), config.jwtSecret);
+    const payload = jwt.verify(header.slice(7), config.jwtSecret, { algorithms: ["HS256"] });
     const user = db.prepare(
       "SELECT id, email, role, name, is_active FROM users WHERE id = ?"
     ).get(payload.sub);

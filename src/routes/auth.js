@@ -30,7 +30,7 @@ router.post("/login", (req, res) => {
   const token = jwt.sign(
     { sub: user.id, role: user.role },
     config.jwtSecret,
-    { expiresIn: config.jwtExpiresIn }
+    { algorithm: "HS256", expiresIn: config.jwtExpiresIn }
   );
 
   return sendSuccess(res, {
