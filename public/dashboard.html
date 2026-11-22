@@ -325,6 +325,7 @@
           </label>
           <button id="adminRefundsRefresh" class="outline-button" type="button">Refresh</button>
         </div>
+        <p id="refundIssuingNote" class="memo-warning" hidden>Sending refunds is switched off on this server (<code>REFUND_ISSUING_ENABLED</code> is not <code>true</code>). You can still request, approve and reject refunds.</p>
         <p id="adminRefundsMessage" class="payments-message"></p>
         <div class="payments-table-wrap">
           <table class="invoice-table admin-payments-table webhook-table">
@@ -389,6 +390,6 @@
   </div>
   <script src="./financeChart.js?v=1"></script>
   <script src="./pricingPreview.js?v=1"></script>
-  <script src="./app.js?v=15"></script>
+  <script src="./app.js?v=16"></script>
 </body>
 </html>

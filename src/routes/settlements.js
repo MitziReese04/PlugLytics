@@ -74,7 +74,7 @@ router.post("/run", async (req, res, next) => {
   try {
     const run = kind === "daily" ? recon.runDaily : recon.runWeekly;
     const ids = await run({ date, stellar, runSource: "dashboard", runBy: req.user.id });
-    return sendSuccess(res, ids.map((id) => recon.reportResponse(findReport.get(id))), { kind, date });
+    return sendSuccess(res, ids.map((id) => recon.reportResponse(findReport.get(id))), { extra: { kind, date } });
   } catch (error) {
     if (error instanceof recon.ReconcileError) return sendError(res, error.status, error.code, error.message);
     if (error instanceof HorizonError) return sendError(res, 502, "HORIZON_UNAVAILABLE", `Horizon could not be read: ${error.message}`);

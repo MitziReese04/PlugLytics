@@ -312,6 +312,7 @@ code --install-extension pluglytics-vscode/pluglytics-0.1.0.vsix
 | `TRUST_PROXY` | Number of reverse proxies in front of the app, so rate limiting sees each visitor's IP | `0` | On Render: `1` |
 | `BACKUP_DIR` | Where `npm run backup` writes database copies | `backups/` next to the database | No |
 | `BACKUP_KEEP` | How many backup copies to keep | `7` | No |
+| `REFUND_ISSUING_ENABLED` | Whether this server may send testnet refund payments | `false` | Set `true` locally to send testnet refunds; keep `false` on the public demo |
 
 Create a local `.env` from `.env.example`. Use a unique JWT secret outside development.
 

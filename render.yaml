@@ -31,6 +31,10 @@ services:
         value: 8h
       - key: STELLAR_ENV
         value: sandbox
+      # The demo admin password is public, so the demo must never send refunds.
+      # Requesting, approving and rejecting refunds still work.
+      - key: REFUND_ISSUING_ENABLED
+        value: "false"
       # Set these in the Render Dashboard, never in this file.
       - key: SANDBOX_MERCHANT_PUBLIC_KEY
         sync: false

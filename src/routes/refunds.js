@@ -182,7 +182,14 @@ router.get("/", (req, res) => {
   if (parsed.data.paymentId) { where.push("payment_id = @paymentId"); params.paymentId = parsed.data.paymentId; }
   if (parsed.data.status) { where.push("status = @status"); params.status = parsed.data.status; }
   const rows = db.prepare(`SELECT * FROM stellar_refunds ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY requested_at DESC, id DESC`).all(params);
-  return sendSuccess(res, rows.map(toResponse), { total: rows.length, filtersApplied: parsed.data });
+  // Tells the dashboard whether to offer the "Send testnet refund" button.
+  let issuingEnabled = false;
+  try {
+    issuingEnabled = loadPaymentPolicy().refundIssuingEnabled;
+  } catch (error) {
+    issuingEnabled = false;
+  }
+  return sendSuccess(res, rows.map(toResponse), { total: rows.length, filtersApplied: parsed.data, extra: { issuingEnabled } });
 });
 
 router.get("/:id", (req, res) => {
@@ -250,6 +257,13 @@ function finishIssued(res, refundId, { hash, ledger, issuedAt }, stellar) {
 async function issueRefund(req, res) {
   const row = findRefund.get(req.params.id);
   if (!row) return sendError(res, 404, "REFUND_NOT_FOUND", "No refund has that ID");
+  // The switch for servers that must never send money, such as the public demo.
+  const policy = policyOrError(res);
+  if (!policy) return undefined;
+  if (!policy.refundIssuingEnabled) {
+    return sendError(res, 503, "REFUND_ISSUING_DISABLED",
+      "Sending refunds is switched off on this server (REFUND_ISSUING_ENABLED is not true). Requesting, approving and rejecting still work.");
+  }
   if (row.status === "issued") return sendError(res, 409, "REFUND_ALREADY_ISSUED", "This refund has already been issued");
   if (row.status !== "approved") {
     return sendError(res, 409, "REFUND_NOT_APPROVED",

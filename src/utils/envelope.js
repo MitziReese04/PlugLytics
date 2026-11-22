@@ -7,6 +7,8 @@ function sendSuccess(res, data, meta = {}, status = 200) {
       page: meta.page || 1,
       total: meta.total ?? (Array.isArray(data) ? data.length : 0),
       ...(meta.pageSize ? { pageSize: meta.pageSize } : {}),
+      // Route-specific values, only when a route asks for them.
+      ...(meta.extra || {}),
     },
     error: null,
   });

@@ -254,6 +254,7 @@ These settings live in `.env` (with placeholders in `.env.example`) and are load
 | `XLM_MIN_AMOUNT`, `XLM_MAX_AMOUNT`, `USDC_MIN_AMOUNT`, `USDC_MAX_AMOUNT` | Smallest and largest amount of one payment request, in that asset. **TODO: group decision.** | Empty = no limit | Creating payment requests |
 | `REFUND_WINDOW_DAYS` | Days after a payment during which a customer can ask for a refund (1 to 3650). **TODO: group decision.** | Empty = not decided: customer refunds (`customer_request`, `service_issue`) are refused | Requesting refunds |
 | `REFUND_APPROVAL_THRESHOLD_XLM`, `REFUND_APPROVAL_THRESHOLD_USDC` | Refunds above this amount (in that asset) need a second admin. **TODO: group decision.** | Empty = not decided: **every** refund needs two admins | Approving refunds |
+| `REFUND_ISSUING_ENABLED` | Whether this server may send refund payments: `true` or `false`. Keep it `false` on the public demo (`render.yaml` sets it). | Empty or `false` = refunds cannot be issued (`503 REFUND_ISSUING_DISABLED`); requesting, approving and rejecting still work | Issuing refunds |
 | `APPROVED_ANCHORS` | Comma-separated anchor home domains, for example `anchor.example.com`. **TODO: group decision.** | Empty = no anchors approved | Anchor payments (not built yet) |
 
 Rules:
@@ -1106,6 +1107,7 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 422 | `DESTINATION_NOT_FOUND`, `DESTINATION_NO_TRUSTLINE` | The refund destination cannot receive the payment |
 | 502 | `REFUND_SEND_FAILED`, `REFUND_SEND_UNCONFIRMED` | Horizon rejected the refund payment, or its result is not known yet |
 | 503 | `REFUNDS_TESTNET_ONLY` | Issuing refunds is refused unless `STELLAR_ENV=sandbox` |
+| 503 | `REFUND_ISSUING_DISABLED` | Issuing refunds is switched off on this server (`REFUND_ISSUING_ENABLED` is not `true`) |
 | 404 | `SETTLEMENT_NOT_FOUND` | No settlement report has that ID |
 | 409 | `PERIOD_NOT_OVER` | The day or week to reconcile has not ended yet |
 | 409 | `RECONCILIATION_RUNNING` | Another reconciliation is running |

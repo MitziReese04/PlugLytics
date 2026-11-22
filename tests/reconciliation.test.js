@@ -389,6 +389,7 @@ describe("settlement API", () => {
     const response = await api("post", "/run").send({ kind: "daily", date: "2026-10-09" });
     expect(response.status).toBe(200);
     expect(response.body.data[0]).toMatchObject({ kind: "daily", asset: "XLM", runSource: "dashboard", periodStart: "2026-10-09T00:00:00.000Z" });
+    expect(response.body.meta).toMatchObject({ kind: "daily", date: "2026-10-09" });
     expect((await api("post", "/run").send({ kind: "monthly" })).status).toBe(400);
     expect((await api("post", "/run").send({ kind: "daily", date: "2999-01-01" })).body.error.code).toBe("PERIOD_NOT_OVER");
   });

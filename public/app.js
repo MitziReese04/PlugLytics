@@ -1481,7 +1481,7 @@ async function loadAdminRefunds() {
   const status = byId("adminRefundStatus").value;
   try {
     const result = await api(`/refunds${status ? `?status=${encodeURIComponent(status)}` : ""}`);
-    renderRefunds(result.data);
+    renderRefunds(result.data, result.meta.issuingEnabled === true);
   } catch (error) {
     byId("adminRefundRows").innerHTML = "";
     setRefundsMessage(`Unable to load refunds: ${error.message}`, true);
@@ -1494,8 +1494,9 @@ function refundStatusText(row) {
   return row.status.charAt(0).toUpperCase() + row.status.slice(1);
 }
 
-function renderRefunds(rows) {
+function renderRefunds(rows, issuingEnabled) {
   const body = byId("adminRefundRows");
+  byId("refundIssuingNote").hidden = issuingEnabled;
   if (!rows.length) {
     body.innerHTML = `<tr><td colspan="7" class="muted-cell">No refunds yet.</td></tr>`;
     return;
@@ -1512,7 +1513,9 @@ function renderRefunds(rows) {
       actions.push(`<button type="button" class="outline-button" data-refund-action="approve" data-refund-id="${escapeHtml(row.id)}">Approve</button>`);
     }
     if (row.status === "approved") {
-      actions.push(`<button type="button" data-refund-action="issue" data-refund-id="${escapeHtml(row.id)}" data-amount="${escapeHtml(row.amount)}" data-asset="${escapeHtml(row.asset)}" data-destination="${escapeHtml(row.destination)}">Send testnet refund</button>`);
+      actions.push(issuingEnabled
+        ? `<button type="button" data-refund-action="issue" data-refund-id="${escapeHtml(row.id)}" data-amount="${escapeHtml(row.amount)}" data-asset="${escapeHtml(row.asset)}" data-destination="${escapeHtml(row.destination)}">Send testnet refund</button>`
+        : `<button type="button" disabled aria-describedby="refundIssuingNote">Send testnet refund</button>`);
     }
     if (row.status === "requested" || (row.status === "approved" && !row.sendInProgress)) {
       actions.push(`<button type="button" class="outline-button cancel-payment-button" data-refund-action="reject" data-refund-id="${escapeHtml(row.id)}">Reject</button>`);

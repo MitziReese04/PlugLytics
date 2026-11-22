@@ -35,6 +35,7 @@ How the rules below are enforced:
 - **Two-person rule:** a refund above the asset's `REFUND_APPROVAL_THRESHOLD_<ASSET>` needs a second admin who neither requested it nor gave the first approval (`403 SECOND_APPROVER_REQUIRED`). **While no threshold is set, every refund needs two admins** (the safe default, **TODO: group decision**). The database also refuses a second approver who is the requester or the first approver.
 - **Destination:** by default the account that paid (`sourceAccount`). A destination given in writing (`destination`, optional `destinationMemo`) is stored as `destinationSource: "written"`. The refund payment's memo is `destinationMemo` if given, otherwise `RF-` plus 8 characters.
 - **Issuing:**
+  - Refused unless `REFUND_ISSUING_ENABLED=true` (`503 REFUND_ISSUING_DISABLED`). It is `false` by default and on the public demo (`render.yaml`), whose admin password is public. Requesting, approving and rejecting still work, and the dashboard shows **Send testnet refund** disabled, with a note.
   - Refused unless `STELLAR_ENV=sandbox` with the testnet network passphrase (`503 REFUNDS_TESTNET_ONLY`).
   - The destination must exist on the network (`422 DESTINATION_NOT_FOUND`) and, for non-XLM assets, have a trustline (`422 DESTINATION_NO_TRUSTLINE`).
   - The payment is built, signed with the merchant secret key and submitted by `src/stellarRefundSigner.js`, the only code that sends money. PlugLytics pays the network fee.
