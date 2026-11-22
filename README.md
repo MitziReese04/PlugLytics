@@ -66,20 +66,20 @@ npm run dev               # starts the server on http://localhost:3000
 | Surface | Localhost URL | Live URL |
 | --- | --- | --- |
 | Public website | <http://localhost:3000/public> | <https://pluglytics.xyz> |
-| Analytics dashboard | <http://localhost:3000/public/dashboard.html> | <https://pluglytics.vercel.app/public/dashboard.html> |
-| REST API | <http://localhost:3000/api/v1> | <https://pluglytics.vercel.app/api/v1> |
-| Swagger UI | <http://localhost:3000/docs> | <https://pluglytics.vercel.app/docs> |
-| Health check | <http://localhost:3000/api/v1/health> | <https://pluglytics.vercel.app/api/v1/health> |
+| Analytics dashboard | <http://localhost:3000/public/dashboard.html> | <https://pluglytics.xyz/public/dashboard.html> |
+| REST API | <http://localhost:3000/api/v1> | <https://pluglytics.xyz/api/v1> |
+| Swagger UI | <http://localhost:3000/docs> | <https://pluglytics.xyz/docs> |
+| Health check | <http://localhost:3000/api/v1/health> | <https://pluglytics.xyz/api/v1/health> |
 
 Open the dashboard through the running server, not from the file system: sign-in and analytics need the server's `/api/v1` routes. No external database, cloud account, or other infrastructure is required.
 
 ## Live demo on Vercel
 
 - Website: <https://pluglytics.xyz>
-- Dashboard: <https://pluglytics.vercel.app/public/dashboard.html>
-- API: <https://pluglytics.vercel.app/api/v1>
-- Swagger docs: <https://pluglytics.vercel.app/docs>
-- Health check: <https://pluglytics.vercel.app/api/v1/health>
+- Dashboard: <https://pluglytics.xyz/public/dashboard.html>
+- API: <https://pluglytics.xyz/api/v1>
+- Swagger docs: <https://pluglytics.xyz/docs>
+- Health check: <https://pluglytics.xyz/api/v1/health>
 
 The live demo runs on seeded synthetic data and Stellar Testnet only, with no real money.
 
