@@ -746,17 +746,10 @@ function renderMetricCard(card, rows, widgetId) {
       ["Enrolled students", row.enrolledStudents],
       ["Waitlisted", row.waitlisted],
     ],
-    "finance-overview": [
-      ["Gross billed", row.grossBilled],
-      ["Scholarships and discounts", row.scholarshipsAndDiscounts],
-      ["Net billed", row.netBilled],
-      ["Tuition collected", row.collected],
-      ["Collection rate", `${row.collectionRate ?? 0}%`],
-    ],
     "finance-refunds": [["Refund total", row.refunds]],
   }[widgetId] || [];
   card.innerHTML += `<div class="metric-card-grid">${metrics.map(([label, value]) => `
-    <div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value == null ? "—" : typeof value === "number" && widgetId !== "finance-overview"
+    <div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value == null ? "—" : typeof value === "number"
       ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value)
       : value)}</strong></div>
   `).join("")}</div>`;
