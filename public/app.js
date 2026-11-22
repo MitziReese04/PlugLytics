@@ -843,25 +843,99 @@ function renderAdminPayments(rows) {
 
   const body = byId("adminPaymentRows");
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="6" class="muted-cell">No payment requests${status ? " with this status" : " yet"}.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" class="muted-cell">No payment requests${status ? " with this status" : " yet"}.</td></tr>`;
     return;
   }
   body.innerHTML = rows.map((row) => {
     const label = PAYMENT_STATUS_LABELS[row.status] || row.status;
     const reason = row.reason ? ` · ${REASON_LABELS[row.reason] || row.reason}` : "";
+    const followUp = row.relatedPaymentId
+      ? `<small class="muted-cell">Follow-up of <code>${escapeHtml(row.relatedPaymentId)}</code>${row.acceptedBy ? ` · by ${escapeHtml(row.acceptedBy)}` : ""}</small>`
+      : "";
+    const actions = row.status === "failed"
+      ? [
+        row.reason === "expired"
+          ? `<button type="button" class="outline-button" data-fix-payment="late" data-payment-id="${escapeHtml(row.id)}" data-memo="${escapeHtml(row.memo)}" data-amount="${escapeHtml(row.amount)}" data-asset="${escapeHtml(row.asset)}">Accept late payment</button>`
+          : "",
+        `<button type="button" class="outline-button" data-fix-payment="no_memo" data-payment-id="${escapeHtml(row.id)}" data-memo="${escapeHtml(row.memo)}" data-amount="${escapeHtml(row.amount)}" data-asset="${escapeHtml(row.asset)}">Match transaction</button>`,
+      ].join("")
+      : "";
     const tx = row.transactionHash
       ? `<a href="${escapeHtml(explorerTxUrl(row.transactionHash, row.network))}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(row.transactionHash)}"><code>${escapeHtml(shortHash(row.transactionHash))}</code><span class="visually-hidden"> (opens stellar.expert in a new tab)</span></a>`
       : `<span class="muted-cell">—</span>`;
     return `<tr>
       <td>${escapeHtml(new Date(row.createdAt).toLocaleString())}</td>
-      <td><span class="payment-status payment-status-${escapeHtml(row.status)}">${escapeHtml(label + reason)}</span></td>
+      <td><span class="payment-status payment-status-${escapeHtml(row.status)}">${escapeHtml(label + reason)}</span>${followUp}</td>
       <td><code>${escapeHtml(row.amount)}</code></td>
       <td>${escapeHtml(row.asset)}</td>
       <td><code>${escapeHtml(row.memo)}</code></td>
       <td>${tx}</td>
+      <td class="action-cell webhook-actions">${actions}</td>
     </tr>`;
   }).join("");
 }
+
+// Admin: accept a late payment, or match a payment that arrived without a memo.
+const paymentFix = { mode: null, paymentId: null };
+
+function openPaymentFix(button) {
+  paymentFix.mode = button.dataset.fixPayment;
+  paymentFix.paymentId = button.dataset.paymentId;
+  const late = paymentFix.mode === "late";
+  byId("paymentFixHeading").textContent = late ? "Accept late payment" : "Match a payment without a memo";
+  byId("paymentFixIntro").textContent = late
+    ? `For ${paymentFix.paymentId} (memo ${button.dataset.memo}, ${button.dataset.amount} ${button.dataset.asset}). The transaction must carry this memo and at least this amount. The expired request stays as it is; a new completed payment is created and linked to it.`
+    : `For ${paymentFix.paymentId} (${button.dataset.amount} ${button.dataset.asset}). The transaction must have no memo (or one no payment request uses) and at least this amount. The request stays as it is; a new completed payment is created and linked to it.`;
+  const form = byId("paymentFixForm");
+  form.reset();
+  byId("paymentFixErrors").innerHTML = "";
+  byId("paymentFixPanel").hidden = false;
+  form.elements.transactionHash.focus();
+}
+
+function closePaymentFix() {
+  paymentFix.mode = null;
+  paymentFix.paymentId = null;
+  byId("paymentFixPanel").hidden = true;
+}
+
+async function submitPaymentFix(event) {
+  event.preventDefault();
+  const form = byId("paymentFixForm");
+  const transactionHash = form.elements.transactionHash.value.trim();
+  const note = form.elements.note.value.trim();
+  const problems = [];
+  if (!/^[0-9a-fA-F]{64}$/.test(transactionHash)) problems.push("Transaction hash: paste the 64-character hash");
+  if (!note) problems.push("Note: say why, for audits");
+  const show = (list) => { byId("paymentFixErrors").innerHTML = list.map((text) => `<li>${escapeHtml(text)}</li>`).join(""); };
+  show(problems);
+  if (problems.length) return;
+
+  const action = paymentFix.mode === "late" ? "accept-late-payment" : "match-transaction";
+  const button = byId("submitPaymentFix");
+  button.disabled = true;
+  try {
+    const result = await api(`/payments/${encodeURIComponent(paymentFix.paymentId)}/${action}`, {
+      method: "POST",
+      body: JSON.stringify({ transactionHash, note }),
+    });
+    const original = paymentFix.paymentId;
+    closePaymentFix();
+    setAdminPaymentsMessage(`Created ${result.data.id} (completed, ${result.data.amountReceived} ${result.data.asset} received), linked to ${original}.`);
+    await loadAdminPayments();
+  } catch (error) {
+    show([error.message]);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+byId("adminPaymentRows").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-fix-payment]");
+  if (button) openPaymentFix(button);
+});
+byId("cancelPaymentFix").addEventListener("click", closePaymentFix);
+byId("paymentFixForm").addEventListener("submit", submitPaymentFix);
 
 byId("adminPaymentStatus").addEventListener("change", () => {
   adminPayments.page = 1;

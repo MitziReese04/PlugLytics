@@ -318,8 +318,8 @@ To keep the examples below short, only the `data` part is shown for success resp
 | GET | `/api/v1/payments/:id` | Student (own invoice, **built**), Admin (**built**), or customer API key (own school, read-only, planned) | Get one payment request, checking Horizon first while it is pending |
 | POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
 | POST | `/api/v1/payments/:id/cancel` | Student (own invoice, **built**), Admin (**built**) | Cancel a pending request |
-| POST | `/api/v1/payments/:id/accept-late-payment` | Admin | Record a payment that arrived after expiry as a new `completed` payment |
-| POST | `/api/v1/payments/:id/match-transaction` | Admin | Record a payment that arrived without a memo as a new `completed` payment |
+| POST | `/api/v1/payments/:id/accept-late-payment` | Admin (**built**) | Record a payment that arrived after expiry as a new `completed` payment |
+| POST | `/api/v1/payments/:id/match-transaction` | Admin (**built**) | Record a payment that arrived without a memo as a new `completed` payment |
 | POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
 | GET | `/api/v1/subscriptions/:id` | Admin, or customer API key (own school, read-only) | Get a subscription and its current period |
 | POST | `/api/v1/webhooks` | Admin (**built**) | Register a school's webhook URL and get its signing secret (shown once) |
@@ -771,6 +771,20 @@ Response `200` when nothing has arrived yet: the same shape with `"status": "pen
 
 Use this when a correct payment arrived **after** `expiresAt`, and an admin has decided to accept it instead of refunding it.
 
+**Built. Admin only.** The admin dashboard's **Stellar Payments** view has a button for it on each failed request.
+
+How it works (both this endpoint and the other one):
+
+- The transaction is looked up on Horizon testnet (`GET /transactions/{hash}` and its payments). If Horizon does not know it, it is refused (`422 TRANSACTION_MISMATCH`). If Horizon cannot be reached, nothing is created (`502 HORIZON_UNAVAILABLE`).
+- The amount is compared in stroops, and paying **more** than the request is accepted (as for a normal completion). If the transaction has several payments to the merchant in the right asset, the largest one is used.
+- **A transaction is never reused:** if any payment record already has it, the request is refused with `409 TRANSACTION_ALREADY_LINKED` (the hash is compared in lowercase).
+- **An invoice is never paid twice:** if the invoice already has a `completed` payment, the request is refused with `409 INVOICE_NOTHING_DUE`. Refund the transaction instead.
+- The new record keeps the original request's `amount`, asset and quote (`quotedRate`, `invoiceAmount`), and gets its **own** memo (memos are unique; payers never use it). It stores the payer (`sourceAccount`), `note` and `acceptedBy` (the admin's email).
+- `payment.completed` is sent for the new record, with `relatedPaymentId` set to the original (see [webhooks.md](./webhooks.md)).
+- The original request is never changed.
+- Errors: `400 VALIDATION_ERROR` (the hash must be 64 hex characters; `note` is required, up to 500 characters), `404 PAYMENT_NOT_FOUND`, `409 RELATED_PAYMENT_NOT_FAILED`, `409 TRANSACTION_ALREADY_LINKED`, `409 INVOICE_NOTHING_DUE`, `422 TRANSACTION_MISMATCH`, `502 HORIZON_UNAVAILABLE`, `503 STELLAR_NOT_CONFIGURED`.
+- `:id` must be `failed` with reason **`expired`**. Any other request is refused with `409 RELATED_PAYMENT_NOT_FAILED`.
+
 - `:id` is the expired request. It **stays** `failed` with reason `expired`.
 - PlugLytics creates a **new** payment record with status `completed` and `relatedPaymentId` set to `:id`.
 - It sends `payment.completed` for the **new** record (and `subscription.activated` if it is a subscription payment).
@@ -808,6 +822,7 @@ Response `201` (`data`):
   "transactionHash": "9b1e5d3a7c2f8e4b0a6d1c9f5e3b7a2d8c4f0e6b1a9d5c3f7e2b8a4d0c6f1e9b",
   "ledger": 1236012,
   "relatedPaymentId": "pay_01JDC5T8LM",
+  "sourceAccount": "GCUS...TMR",
   "note": "Customer paid 2 hours late; accepted by finance",
   "acceptedBy": "admin@pluglytics.local"
 }
@@ -816,6 +831,8 @@ Response `201` (`data`):
 ### POST `/api/v1/payments/:id/match-transaction`
 
 Use this when a payment arrived **without a memo** (or with a memo that matches no request), and an admin has found which payment request it was meant for, using the sender's account, the amount and the time.
+
+**Built. Admin only.** It follows the same rules as [accept-late-payment](#post-apiv1paymentsidaccept-late-payment) above, except for the memo: the transaction must have no memo, or a memo that **no** payment request uses. A memo that belongs to a payment request is refused (`422 TRANSACTION_MISMATCH`), because that payment is not one without a memo.
 
 - `:id` is the payment request the money was meant for. It **stays as it was**: this endpoint never changes its status.
 - That request must already be `failed` (usually `expired`, or `cancelled`). If it is still `pending`, cancel it first with `POST /api/v1/payments/:id/cancel`. Otherwise a later payment with its memo could complete it, and the same charge would be paid twice.

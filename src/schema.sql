@@ -244,6 +244,10 @@ CREATE TABLE IF NOT EXISTS payment_requests (
     amount_received GLOB '[0-9]*.[0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND amount_received NOT GLOB '*[^0-9.]*'
   )),
   ledger INTEGER CHECK(ledger IS NULL OR ledger > 0),
+  -- For records an admin created by hand (accept-late-payment, match-transaction):
+  -- why, and who did it. Saved for audits.
+  note TEXT CHECK(note IS NULL OR length(trim(note)) BETWEEN 1 AND 500),
+  accepted_by INTEGER REFERENCES users(id),
   -- The Stellar account the matched payment came from (for webhooks and refunds).
   source_account TEXT CHECK(source_account IS NULL OR (length(source_account) = 56 AND source_account GLOB 'G*')),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),

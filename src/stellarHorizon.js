@@ -117,4 +117,53 @@ function decideOutcome(request, payments, now = new Date()) {
   return null;
 }
 
-module.exports = { HorizonError, toStroops, findPaymentsWithMemo, decideOutcome };
+// One transaction and its payment operations, for an admin who matches a payment
+// by hand. Returns null when Horizon does not know the transaction (404).
+async function getTransactionWithPayments({ horizonUrl, hash, fetchImpl = fetch }) {
+  const base = horizonUrl.replace(/\/+$/, "");
+  const load = async (url) => {
+    let response;
+    try {
+      response = await fetchImpl(url, { headers: { Accept: "application/hal+json" }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    } catch (error) {
+      throw new HorizonError(`Horizon could not be reached: ${error.message}`);
+    }
+    if (response.status === 404) return null;
+    if (!response.ok) throw new HorizonError(`Horizon returned HTTP ${response.status}`);
+    return response.json();
+  };
+  const transaction = await load(`${base}/transactions/${encodeURIComponent(hash)}`);
+  if (!transaction) return null;
+  const page = await load(`${base}/transactions/${encodeURIComponent(hash)}/payments?limit=200`);
+  return { transaction, payments: (page && page._embedded && page._embedded.records) || [] };
+}
+
+// Checks a transaction an admin wants to link to a failed request by hand.
+//   mode "late":    the memo must be the request's memo (accept-late-payment)
+//   mode "no_memo": no memo, or a memo no payment request uses (match-transaction)
+// Returns { ok: true, payment, transaction } or { ok: false, problem }.
+function checkManualMatch(request, found, { mode, memoBelongsToARequest }) {
+  if (!found) return { ok: false, problem: "The transaction was not found on Horizon" };
+  const { transaction, payments } = found;
+  if (transaction.successful !== true) return { ok: false, problem: "The transaction did not succeed" };
+
+  const memo = transaction.memo_type === "text" ? transaction.memo : null;
+  if (mode === "late" && memo !== request.memo) {
+    return { ok: false, problem: "The transaction's memo does not match the payment request" };
+  }
+  if (mode === "no_memo" && memo !== null && memoBelongsToARequest(memo)) {
+    return { ok: false, problem: "The transaction has a memo that belongs to a payment request; it is not a payment without a memo" };
+  }
+
+  const toMerchant = payments.filter((p) => PAYMENT_TYPES.has(p.type) && p.to === request.destination);
+  if (!toMerchant.length) return { ok: false, problem: "The transaction did not pay the merchant account" };
+  const rightAsset = toMerchant.filter((p) => sameAsset(p, request));
+  if (!rightAsset.length) return { ok: false, problem: "The transaction paid a different asset or issuer" };
+  const payment = rightAsset.reduce((best, p) => (toStroops(p.amount) > toStroops(best.amount) ? p : best));
+  if (toStroops(payment.amount) < toStroops(request.amount)) {
+    return { ok: false, problem: `The transaction paid ${payment.amount} ${request.asset}, less than the requested ${request.amount}` };
+  }
+  return { ok: true, payment, transaction };
+}
+
+module.exports = { HorizonError, toStroops, findPaymentsWithMemo, decideOutcome, getTransactionWithPayments, checkManualMatch };

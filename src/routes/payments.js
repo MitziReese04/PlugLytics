@@ -9,7 +9,9 @@ const { loadStellarConfig } = require("../stellarConfig");
 const { toAssetAmount } = require("../pricing");
 const { getQuote, RateUnavailableError } = require("../stellarQuotes");
 const { loadPaymentPolicy, checkAmountLimits } = require("../paymentPolicy");
-const { HorizonError, findPaymentsWithMemo, decideOutcome } = require("../stellarHorizon");
+const {
+  HorizonError, findPaymentsWithMemo, decideOutcome, getTransactionWithPayments, checkManualMatch,
+} = require("../stellarHorizon");
 const { enqueuePaymentEvent } = require("../webhookDelivery");
 
 const router = express.Router();
@@ -102,11 +104,20 @@ function toResponse(row, network) {
     createdAt: row.created_at,
     expiresAt: row.expires_at,
     amountReceived: row.amount_received || null,
+    sourceAccount: row.source_account || null,
     paidAt: row.completed_at || null,
     transactionHash: row.tx_hash || null,
     ledger: row.ledger || null,
     relatedPaymentId: row.related_payment_id || null,
+    note: row.note || null,
+    acceptedBy: row.accepted_by ? acceptedByEmail(row.accepted_by) : null,
   };
+}
+
+const userEmail = db.prepare("SELECT email FROM users WHERE id = ?");
+function acceptedByEmail(userId) {
+  const user = userEmail.get(userId);
+  return user ? user.email : null;
 }
 
 const findRequest = db.prepare(`
@@ -491,5 +502,137 @@ router.post("/:id/cancel", authenticate, authorize("student", "admin"), async (r
     return next(error);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Admin: link a transaction to a failed request by hand
+// (see accept-late-payment and match-transaction in docs/stellar/payments-api.md)
+// ---------------------------------------------------------------------------
+
+const manualMatchSchema = z.object({
+  transactionHash: z.string().trim().regex(/^[0-9a-fA-F]{64}$/, "must be a 64-character Stellar transaction hash"),
+  note: z.string().trim().min(1).max(500),
+}).strict();
+
+const transactionAlreadyLinked = db.prepare("SELECT id FROM payment_requests WHERE tx_hash = ?");
+const memoInUse = db.prepare("SELECT 1 FROM payment_requests WHERE memo = ?");
+const invoiceHasCompleted = db.prepare(
+  "SELECT id FROM payment_requests WHERE invoice_id = ? AND status = 'completed' LIMIT 1"
+);
+const insertManualRecord = db.prepare(`
+  INSERT INTO payment_requests
+    (id, invoice_id, amount, asset, asset_issuer, memo, destination, status, tx_hash, amount_received, ledger,
+     source_account, related_payment_id, quoted_rate, rate_source, invoice_currency, invoice_amount,
+     note, accepted_by, created_at, expires_at, completed_at)
+  VALUES
+    (@id, @invoice_id, @amount, @asset, @asset_issuer, @memo, @destination, 'completed', @tx_hash, @amount_received, @ledger,
+     @source_account, @related_payment_id, @quoted_rate, @rate_source, @invoice_currency, @invoice_amount,
+     @note, @accepted_by, @created_at, @expires_at, @completed_at)
+`);
+
+// mode "late" = accept-late-payment, "no_memo" = match-transaction.
+async function linkTransactionByHand(req, res, mode) {
+  const parsed = manualMatchSchema.safeParse(req.body);
+  if (!parsed.success) return sendError(res, 400, "VALIDATION_ERROR", "Invalid request", parsed.error.flatten());
+  const hash = parsed.data.transactionHash.toLowerCase();
+
+  const original = findRequest.get(req.params.id);
+  if (!original) return sendError(res, 404, "PAYMENT_NOT_FOUND", "No payment request has that ID");
+  // The original request is never changed; it must already be failed.
+  if (mode === "late" && !(original.status === "failed" && original.reason === "expired")) {
+    return sendError(res, 409, "RELATED_PAYMENT_NOT_FAILED", "accept-late-payment needs a request that is failed with reason expired");
+  }
+  if (mode === "no_memo" && original.status !== "failed") {
+    return sendError(res, 409, "RELATED_PAYMENT_NOT_FAILED",
+      original.status === "pending"
+        ? "The request is still pending; cancel it first, so a later payment with its memo cannot complete it as well"
+        : "match-transaction needs a failed payment request");
+  }
+  // Never pay the same invoice twice.
+  const paid = original.invoice_id ? invoiceHasCompleted.get(original.invoice_id) : null;
+  if (paid) {
+    return sendError(res, 409, "INVOICE_NOTHING_DUE",
+      "This invoice already has a completed payment; refund this transaction instead", { paymentId: paid.id });
+  }
+  // A transaction can only ever be linked to one payment record.
+  const linked = transactionAlreadyLinked.get(hash);
+  if (linked) {
+    return sendError(res, 409, "TRANSACTION_ALREADY_LINKED", "This transaction is already linked to another payment record", { paymentId: linked.id });
+  }
+
+  let stellar;
+  try {
+    stellar = loadStellarConfig();
+  } catch (error) {
+    stellar = null;
+  }
+  if (!stellar || stellar.env !== "sandbox") {
+    return sendError(res, 503, "STELLAR_NOT_CONFIGURED", "Stellar sandbox settings are needed to check the transaction on Horizon");
+  }
+
+  let found;
+  try {
+    found = await getTransactionWithPayments({ horizonUrl: stellar.horizonUrl, hash });
+  } catch (error) {
+    if (error instanceof HorizonError) return sendError(res, 502, "HORIZON_UNAVAILABLE", "Horizon could not be reached. Try again later.");
+    throw error;
+  }
+  const check = checkManualMatch(original, found, { mode, memoBelongsToARequest: (memo) => Boolean(memoInUse.get(memo)) });
+  if (!check.ok) return sendError(res, 422, "TRANSACTION_MISMATCH", check.problem, { transactionHash: hash });
+
+  const createdAt = new Date().toISOString();
+  const from = check.payment.from;
+  const record = {
+    invoice_id: original.invoice_id,
+    amount: original.amount, // the original, locked quote
+    asset: original.asset,
+    asset_issuer: original.asset_issuer,
+    destination: original.destination,
+    tx_hash: hash,
+    amount_received: check.payment.amount,
+    ledger: check.transaction.ledger || null,
+    source_account: typeof from === "string" && /^G[A-Z2-7]{55}$/.test(from) ? from : null,
+    related_payment_id: original.id,
+    quoted_rate: original.quoted_rate,
+    rate_source: original.rate_source,
+    invoice_currency: original.invoice_currency,
+    invoice_amount: original.invoice_amount,
+    note: parsed.data.note,
+    accepted_by: req.user.id,
+    created_at: createdAt,
+    expires_at: new Date(Date.parse(createdAt) + PAYMENT_REQUEST_TTL_MINUTES * 60 * 1000).toISOString(),
+    completed_at: check.transaction.created_at || createdAt,
+  };
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    // The new record needs its own memo (memos are unique); payers never see it.
+    record.id = `pay_${randomCode(16)}`;
+    record.memo = `PL-${randomCode(8)}`;
+    try {
+      insertManualRecord.run(record);
+      const created = findRequest.get(record.id);
+      enqueuePaymentEvent("payment.completed", created, stellar.env);
+      return sendSuccess(res, toResponse(created, stellar.env), {}, 201);
+    } catch (error) {
+      const message = String(error.message);
+      if (message.includes("payment_requests.tx_hash")) {
+        return sendError(res, 409, "TRANSACTION_ALREADY_LINKED", "This transaction is already linked to another payment record");
+      }
+      if (!message.includes("UNIQUE constraint failed")) throw error;
+    }
+  }
+  return sendError(res, 500, "INTERNAL_ERROR", "Could not create a unique payment record");
+}
+
+const manualRoute = (mode) => async (req, res, next) => {
+  try {
+    return await linkTransactionByHand(req, res, mode);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// A correct payment that arrived after the request expired.
+router.post("/:id/accept-late-payment", authenticate, authorize("admin"), manualRoute("late"));
+// A payment that arrived without a memo (or with one that matches no request).
+router.post("/:id/match-transaction", authenticate, authorize("admin"), manualRoute("no_memo"));
 
 module.exports = router;

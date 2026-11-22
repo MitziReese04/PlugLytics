@@ -11,7 +11,7 @@ const schemaPath = path.resolve(__dirname, "../src/schema.sql");
 // finance tables from schema.sql.
 const requiredColumns = {
   invoices: ["final_amount", "currency", "scholarship_name"],
-  payment_requests: ["invoice_amount", "amount_received", "ledger", "rate_source", "source_account"],
+  payment_requests: ["invoice_amount", "amount_received", "ledger", "rate_source", "source_account", "note", "accepted_by"],
   webhook_endpoints: ["disabled_at"],
 };
 const isOutdated = (table, columns) => {

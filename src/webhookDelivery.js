@@ -59,6 +59,7 @@ function paymentEventData(type, row) {
     asset: row.asset,
     assetIssuer: row.asset_issuer || null,
     memo: row.memo,
+    relatedPaymentId: row.related_payment_id || null,
   };
   if (type === "payment.pending") {
     return { ...base, destination: row.destination, expiresAt: row.expires_at };

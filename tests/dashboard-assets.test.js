@@ -42,6 +42,10 @@ describe("dashboard assets", () => {
     expect(html.indexOf("pricingPreview.js")).toBeLessThan(html.indexOf("app.js"));
   });
 
+  test("the admin Stellar Payments view has the late-payment / match form", () => {
+    for (const id of ["paymentFixPanel", "paymentFixForm", "submitPaymentFix"]) expect(html).toContain(`id="${id}"`);
+  });
+
   test("the student payment panel has a Cancel button", () => {
     expect(html).toContain('id="cancelPaymentRequest"');
   });

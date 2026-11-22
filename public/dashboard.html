@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PlugLytics Dashboard</title>
-  <link rel="stylesheet" href="./styles.css?v=12">
+  <link rel="stylesheet" href="./styles.css?v=13">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js" integrity="sha384-Emf5ZVIUiarAdhkgtqK+5/Z5qIvM6QoVrS+qAVtfyZVuD5lIHrac0me485+Antp0" crossorigin="anonymous"></script>
 </head>
 <body class="dashboard-page">
@@ -246,10 +246,27 @@
           <span id="adminPaymentsCount" class="muted-cell" role="status" aria-live="polite"></span>
         </div>
         <p id="adminPaymentsMessage" class="payments-message"></p>
+        <section id="paymentFixPanel" class="payment-panel" aria-labelledby="paymentFixHeading" hidden>
+          <div class="payment-panel-heading">
+            <h3 id="paymentFixHeading">Accept late payment</h3>
+            <button id="cancelPaymentFix" class="outline-button" type="button">Cancel</button>
+          </div>
+          <p id="paymentFixIntro" class="memo-warning"></p>
+          <form id="paymentFixForm" novalidate>
+            <div class="invoice-form-grid">
+              <label class="webhook-url-field">Stellar transaction hash<input name="transactionHash" maxlength="64" placeholder="64 characters, from stellar.expert or the payer's wallet" autocomplete="off" spellcheck="false"></label>
+              <label class="payment-fix-note">Note <small>(saved for audits)</small><textarea name="note" rows="2" maxlength="500" placeholder="Why you are accepting or matching this payment"></textarea></label>
+            </div>
+            <ul id="paymentFixErrors" class="invoice-form-errors" role="alert"></ul>
+            <div class="invoice-form-actions">
+              <button id="submitPaymentFix" type="submit">Check on Horizon and create the payment</button>
+            </div>
+          </form>
+        </section>
         <div class="payments-table-wrap">
           <table class="invoice-table admin-payments-table">
             <thead>
-              <tr><th scope="col">Created</th><th scope="col">Status</th><th scope="col">Amount</th><th scope="col">Asset</th><th scope="col">Memo</th><th scope="col">Transaction</th></tr>
+              <tr><th scope="col">Created</th><th scope="col">Status</th><th scope="col">Amount</th><th scope="col">Asset</th><th scope="col">Memo</th><th scope="col">Transaction</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
             </thead>
             <tbody id="adminPaymentRows"></tbody>
           </table>
@@ -264,6 +281,6 @@
   </div>
   <script src="./financeChart.js?v=1"></script>
   <script src="./pricingPreview.js?v=1"></script>
-  <script src="./app.js?v=12"></script>
+  <script src="./app.js?v=13"></script>
 </body>
 </html>

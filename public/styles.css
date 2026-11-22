@@ -461,6 +461,9 @@ main { min-width: 0; }
 .webhook-events-cell { max-width: 240px; color: var(--muted); font-size: 12px; }
 .webhook-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .dashboard-page .webhook-actions button { padding: 7px 10px; font-size: 12px; }
+.payment-fix-note { grid-column: span 3; }
+.dashboard-page .payment-fix-note textarea { width: 100%; min-height: 60px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); font: inherit; resize: vertical; }
+.dashboard-page .admin-payments-table td small.muted-cell code { font-size: 11px; }
 
 /* Admin: Stellar payments */
 .admin-payments-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 12px; }
@@ -490,7 +493,7 @@ main { min-width: 0; }
 }
 @media (max-width: 520px) {
   .invoice-form-grid { grid-template-columns: 1fr; }
-  .invoice-form-fixed { grid-column: auto; }
+  .invoice-form-fixed, .payment-fix-note, .webhook-url-field { grid-column: auto; }
 }
 @media (max-width: 440px) {
   .dashboard-actions { display: grid; grid-template-columns: 1fr 100px; }
