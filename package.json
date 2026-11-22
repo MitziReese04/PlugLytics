@@ -10,6 +10,7 @@
     "seed": "node scripts/seed.js",
     "migrate": "node scripts/migrate.js",
     "backup": "node scripts/backup-db.js",
+    "reconcile": "node scripts/reconcile.js",
     "test": "jest --runInBand",
     "package:plugin": "cd pluglytics-vscode && npx @vscode/vsce package"
   },

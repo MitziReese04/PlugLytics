@@ -6,7 +6,7 @@ const { authenticate, authorize } = require("../middleware/auth");
 const { sendSuccess, sendError } = require("../utils/envelope");
 const { loadStellarConfig } = require("../stellarConfig");
 const { loadPaymentPolicy } = require("../paymentPolicy");
-const { HorizonError, toStroops, getAccount, canReceiveAsset, getTransactionWithPayments } = require("../stellarHorizon");
+const { HorizonError, toStroops, fromStroops, getAccount, canReceiveAsset, getTransactionWithPayments } = require("../stellarHorizon");
 const { enqueueRefundIssued } = require("../webhookDelivery");
 const signer = require("../stellarRefundSigner");
 
@@ -50,10 +50,7 @@ function randomCode(length) {
   for (let i = 0; i < length; i += 1) out += BASE32[bytes[i] % 32];
   return out;
 }
-function formatStroops(stroops) {
-  const digits = stroops.toString().padStart(8, "0");
-  return `${digits.slice(0, -7)}.${digits.slice(-7)}`;
-}
+const formatStroops = fromStroops;
 
 const findPayment = db.prepare("SELECT * FROM payment_requests WHERE id = ?");
 const findRefund = db.prepare("SELECT * FROM stellar_refunds WHERE id = ?");

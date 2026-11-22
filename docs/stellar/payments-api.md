@@ -320,6 +320,8 @@ To keep the examples below short, only the `data` part is shown for success resp
 | POST | `/api/v1/payments/:id/cancel` | Student (own invoice, **built**), Admin (**built**) | Cancel a pending request |
 | POST | `/api/v1/refunds` | Admin (**built**) | Request a refund for a payment (see [refunds-and-chargebacks.md](./refunds-and-chargebacks.md#what-is-built)) |
 | POST | `/api/v1/refunds/:id/approve`, `/reject`, `/issue` | Admin (**built**) | Approve, reject, or send a refund (issuing is testnet only) |
+| GET | `/api/v1/settlements`, `/api/v1/settlements/:id`, `/api/v1/settlements/:id/items.csv` | Admin (**built**) | Settlement reports and their items (see [settlement.md](./settlement.md#what-is-built)) |
+| POST | `/api/v1/settlements/run` | Admin (**built**) | Run a daily or weekly reconciliation now (testnet only) |
 | POST | `/api/v1/payments/:id/accept-late-payment` | Admin (**built**) | Record a payment that arrived after expiry as a new `completed` payment |
 | POST | `/api/v1/payments/:id/match-transaction` | Admin (**built**) | Record a payment that arrived without a memo as a new `completed` payment |
 | POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
@@ -1104,6 +1106,10 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 422 | `DESTINATION_NOT_FOUND`, `DESTINATION_NO_TRUSTLINE` | The refund destination cannot receive the payment |
 | 502 | `REFUND_SEND_FAILED`, `REFUND_SEND_UNCONFIRMED` | Horizon rejected the refund payment, or its result is not known yet |
 | 503 | `REFUNDS_TESTNET_ONLY` | Issuing refunds is refused unless `STELLAR_ENV=sandbox` |
+| 404 | `SETTLEMENT_NOT_FOUND` | No settlement report has that ID |
+| 409 | `PERIOD_NOT_OVER` | The day or week to reconcile has not ended yet |
+| 409 | `RECONCILIATION_RUNNING` | Another reconciliation is running |
+| 503 | `RECONCILIATION_TESTNET_ONLY` | Reconciliation is refused unless `STELLAR_ENV=sandbox` |
 | 409 | `INVOICE_HAS_COMPLETED_PAYMENT` | The invoice cannot be changed, because it already has a completed or recorded payment |
 | 409 | `PAYMENT_ALREADY_PENDING` | The invoice already has a `pending`, unexpired payment request |
 | 422 | `RATE_UNAVAILABLE` | No exchange-rate quote is available for this invoice currency and asset |

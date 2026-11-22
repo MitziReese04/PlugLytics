@@ -23,6 +23,13 @@ function toStroops(amount) {
   return BigInt(whole + fraction.padEnd(7, "0").slice(0, 7));
 }
 
+// 250000000n -> "25.0000000" (negative amounts keep their sign).
+function fromStroops(stroops) {
+  const negative = stroops < 0n;
+  const digits = (negative ? -stroops : stroops).toString().padStart(8, "0");
+  return `${negative ? "-" : ""}${digits.slice(0, -7)}.${digits.slice(-7)}`;
+}
+
 function sameAsset(record, request) {
   if (request.asset === "XLM") return record.asset_type === "native";
   return record.asset_type !== "native"
@@ -190,6 +197,6 @@ function canReceiveAsset(account, asset, assetIssuer) {
 }
 
 module.exports = {
-  HorizonError, toStroops, findPaymentsWithMemo, decideOutcome, getTransactionWithPayments, checkManualMatch,
+  HorizonError, toStroops, fromStroops, sameAsset, PAYMENT_TYPES, REQUEST_TIMEOUT_MS, findPaymentsWithMemo, decideOutcome, getTransactionWithPayments, checkManualMatch,
   getAccount, canReceiveAsset,
 };

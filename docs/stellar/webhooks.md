@@ -1,13 +1,13 @@
 # PlugLytics Payment Webhooks
 
-> **Status: partly built (sandbox/testnet only).** Registration, signing, the outbox and retries are built, and `payment.pending`, `payment.completed`, `payment.failed` and `refund.issued` are sent. `settlement.completed` and the `subscription.*` events are described here but not sent yet, because settlement reports and subscriptions are not built. See also [payments-api.md](./payments-api.md).
+> **Status: partly built (sandbox/testnet only).** Registration, signing, the outbox and retries are built, and `payment.pending`, `payment.completed`, `payment.failed`, `refund.issued` and `settlement.completed` are sent. The `subscription.*` events are described here but not sent yet, because subscriptions are not built. See also [payments-api.md](./payments-api.md).
 
 ### What is built
 
 - **Outbox:** each event is saved once (`webhook_events`) with its exact JSON body, plus one delivery per subscribed endpoint (`webhook_deliveries`). Only endpoints of the payment's school, in the same environment, that chose the event are sent it. If no endpoint is subscribed, nothing is stored.
 - **Sending:** the server sends due deliveries every 15 seconds, and right after a new event (`src/webhookDelivery.js`, started by `src/server.js`).
 - **Signing:** each attempt is signed with that endpoint's own secret, as described in [Verifying the signature](#verifying-the-signature).
-- **When events are sent:** `payment.pending` when a request is created; `payment.completed` or `payment.failed` when a check on Horizon settles it; `payment.failed` with reason `cancelled` when it is cancelled; and `refund.issued` when a refund payment is sent (its `data` also includes `destinationMemo`).
+- **When events are sent:** `payment.pending` when a request is created; `payment.completed` or `payment.failed` when a check on Horizon settles it; `payment.failed` with reason `cancelled` when it is cancelled; `refund.issued` when a refund payment is sent (its `data` also includes `destinationMemo`); and `settlement.completed` when a daily settlement report is created or changes on a re-run, with **that school's share** of the report (see [settlement.md](./settlement.md#what-is-built)).
 - **Payment event data** also includes `invoiceId`, and `type` is `invoice` for invoice payments. `reference` is not sent yet, because payment requests have no reference field.
 
 ## Contents
@@ -251,6 +251,7 @@ For a subscription payment, `data.type` is `subscription` and `data` also includ
 - `matchedCount` and `exceptionCount` count payments **and** refunds. If `exceptionCount` is more than 0, an admin must review the day (see [settlement.md](./settlement.md#when-amounts-dont-match)).
 - `paymentIds` lists every completed payment in the report. It is shortened to two here.
 - Use this event for accounting and reconciliation, not to unlock features. Use `payment.completed` for that.
+- **As built:** each school receives only its own payments and refunds from the report, and the counts and amounts are for those items. A re-run that changes the report sends the event again with the same `settlementId`: keep the latest one.
 
 ### `subscription.activated`
 

@@ -322,6 +322,7 @@ Database scripts:
 | `npm run seed` | Rebuilds the demo database. **Replaces all data**: never run it on real data |
 | `npm run migrate` | Creates missing tables, indexes, views and triggers. Never deletes data |
 | `npm run backup` | Writes a checked copy of the database and keeps the newest `BACKUP_KEEP` copies |
+| `npm run reconcile` | Reconciles the Stellar testnet merchant account and saves settlement reports (`-- daily YYYY-MM-DD` or `-- weekly [YYYY-MM-DD]`; default: yesterday). Read-only on Horizon; see [settlement.md](./docs/stellar/settlement.md#what-is-built) |
 
 ## Demo accounts
 
@@ -604,9 +605,11 @@ The following information is needed before the README and grant materials can be
 8. Stellar Payments sandbox and production merchant credentials: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#sandbox-vs-production))
    - Still missing: real sandbox keys in `.env`, and production merchant credentials (production is not enabled).
 9. Stellar Payments API, webhook, and settlement documentation: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md), [webhooks.md](./docs/stellar/webhooks.md), [settlement.md](./docs/stellar/settlement.md))
-   - Still missing: webhooks, refunds, daily reconciliation, and other planned endpoints are not built yet.
+   - Built (testnet only): payment requests, webhooks with retries, refunds, and daily and weekly reconciliation with settlement reports.
+   - Still missing: subscriptions, withdrawals as records, and production (mainnet) support.
 10. Approved payment methods and refund/chargeback procedures: **Documented, partly built** ([approved-payment-methods.md](./docs/stellar/approved-payment-methods.md), [refunds-and-chargebacks.md](./docs/stellar/refunds-and-chargebacks.md))
-    - Still missing: the refund endpoint is not built yet; amount limits, refund windows, and the approved anchor list are placeholders.
+    - Built (testnet only): refund requests, approval (two admins above the threshold), rejection and testnet refund payments.
+    - Still missing: dispute records; amount limits, refund windows, approval thresholds and the approved anchor list are placeholders (group decision).
 11. Scholarship, discount, fee, and instructor-cost fields: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#pricing-fields))
     - Still missing: admins can set these fields through the API (`POST /api/v1/invoices`, `PATCH /api/v1/invoices/:id`), but no dashboard screen sets them yet.
 12. Pilot budget, grant amount, milestones, and reporting dates: **Documented, partly built** ([pilot-budget-and-grant.md](./docs/stellar/pilot-budget-and-grant.md))

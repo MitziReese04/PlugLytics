@@ -1,9 +1,10 @@
 # PlugLytics Settlement and Reconciliation
 
-> **Status: planned.** Settlement and reconciliation are not implemented yet. This document describes how they will work. Details may change during implementation. See also [payments-api.md](./payments-api.md) and [webhooks.md](./webhooks.md).
+> **Status: partly built (sandbox/testnet only).** Daily and weekly reconciliation, settlement reports and `settlement.completed` are built (see [What is built](#what-is-built)). The rest of this document is the design they follow. See also [payments-api.md](./payments-api.md) and [webhooks.md](./webhooks.md).
 
 ## Contents
 
+- [What is built](#what-is-built)
 - [Key words](#key-words)
 - [How fast Stellar settles](#how-fast-stellar-settles)
 - [Which assets we accept](#which-assets-we-accept)
@@ -13,6 +14,60 @@
 - [When amounts don't match](#when-amounts-dont-match)
 - [Sandbox notes](#sandbox-notes)
 - [Checklist](#checklist)
+
+## What is built
+
+`src/stellarReconcile.js` reconciles the merchant account on Horizon testnet with our payment requests and refunds. It only **reads** from Horizon: it never sends money and never changes a payment request or refund. It is refused unless `STELLAR_ENV=sandbox` (`503 RECONCILIATION_TESTNET_ONLY`).
+
+**When it runs**
+
+- Automatically, while the server runs: every 15 minutes it checks whether yesterday's daily report and last week's weekly report exist, and creates them if not. So the daily run happens shortly after midnight UTC, and the weekly run on Monday.
+- By hand: `npm run reconcile` (yesterday), `npm run reconcile -- daily 2026-11-21`, `npm run reconcile -- weekly 2026-11-16` (the week that contains that day), or `npm run reconcile -- weekly` (last week). Or the **Run daily** and **Run weekly** buttons in the dashboard.
+- A period that is not over yet is refused (`409 PERIOD_NOT_OVER`). Two runs at the same time are refused (`409 RECONCILIATION_RUNNING`).
+- A re-run replaces the report's figures and items but keeps its `settlementId`.
+
+**Admin endpoints** (`src/routes/settlements.js`, admin only, because a report covers every school):
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| GET | `/api/v1/settlements` | List reports (`?kind=daily\|weekly`, `?asset=`, `?from=`, `?to=` as YYYY-MM-DD, `?limit=`) |
+| GET | `/api/v1/settlements/:id` | One report with its items (each with `open`, `ageDays` and `overdue` after 7 days) |
+| GET | `/api/v1/settlements/:id/items.csv` | The line-by-line list as CSV |
+| POST | `/api/v1/settlements/run` | Run now: `{ "kind": "daily" \| "weekly", "date"?: "YYYY-MM-DD" }` |
+
+The dashboard's **Settlement reports** section lists the reports, opens one to show its items and what to do about each exception, and downloads the CSV.
+
+**How the daily run works**
+
+1. Reads every payment to and from the merchant account (`/accounts/{merchant}/payments?join=transactions&order=asc`), starting after the saved `paging_token` (`reconciliation_cursors`). A re-run of an older day reads from the oldest record Horizon keeps (at most 10,000).
+2. Keeps successful transactions in the day. Payments, path payments and `create_account` count as money in or out. The network fee is counted once per transaction the merchant paid for.
+3. Sorts each item:
+   - **Incoming, linked by transaction hash** to a payment request (including records made by accept-late-payment or match-transaction): `matched`, `amount_mismatch` (underpaid or overpaid) or `asset_mismatch` (a different code **or** issuer). Amounts are compared in stroops.
+   - **Incoming, with the memo of a request that is already paid**: `duplicate`.
+   - **Incoming, with the memo of a request it is not linked to** (paid after expiry, or still pending), with no memo, with an unknown memo, or account funding: `unmatched_onchain`.
+   - **Outgoing, linked by hash to an issued refund**: `matched`, `amount_mismatch` or `asset_mismatch`. Other outgoing payments (withdrawals) are `unmatched_onchain`.
+   - **Our records completed (or refunds issued) that day** whose transaction was not in the day: looked up on Horizon. If it is there (it landed on another day), it belongs to that day's report. If it is not, or did not succeed, it is `unmatched_record`.
+4. **Resolution:** an exception counts as resolved (`resolution` is set) once the fix exists: a completed follow-up request (`relatedPaymentId`) or an issued refund with the matching reason (`underpaid`, `overpaid`, `wrong_asset`, `duplicate`, `late_payment`). Accepting a late payment or matching a transaction links the transaction, so the next run shows it as `matched`. `unmatched_record`, withdrawals and account funding have no automatic fix.
+5. Saves one report per asset (code **and** issuer): XLM every day, other assets when something arrived in them. An item belongs to the report of the asset that was expected (the request's or refund's), or else the asset that arrived.
+6. Sends `settlement.completed` when a daily report is new or its contents changed (see below).
+7. **Alerts:** when the automatic run finds open exceptions, it writes a warning to the server log, and the dashboard shows them on the report. There is no email alert yet.
+
+**Report figures**
+
+- `paymentCount` and `paymentIds`: completed payment requests whose transaction landed in the period (`matched` or overpaid). `grossAmount` is what arrived for them.
+- `refundCount` and `refundedAmount`: refunds sent in the period. `netAmount` = `grossAmount` − `refundedAmount`.
+- `feesPaid`: network fees the merchant paid (XLM report only; `0.0000000` in other assets).
+- `matchedCount` and `exceptionCount` count payments **and** refunds; `openExceptionCount` (not in the event) counts the exceptions not resolved yet.
+
+**Weekly run**
+
+- Re-runs the week's seven days (which re-checks open items), then adds up their reports per asset.
+- **Balance check**, per asset: the actual closing balance is the balance from `GET /accounts/{merchant}` minus what moved after the week (up to the ledger the balance was read at). The expected closing balance is the previous weekly report's actual closing balance plus the week's movements (received − sent − fees). `ok` or `mismatch`. The first weekly report has nothing to compare with, so it is the `baseline`. A mismatch means money moved in a way the payments list does not show, for example the fee of a trustline change.
+- Its items are the week's open exceptions, with their age; those open for more than 7 days are marked overdue.
+
+**`settlement.completed`:** each school receives its **own share** of the daily report: only its payments and refunds, with `settlementId` set to the report's ID. Items that belong to no school (unknown payments, withdrawals) are left out. A school with nothing in the report gets no event. The weekly report sends no event.
+
+**Not built yet:** saving each matched payment's full Horizon data separately from the payment request, withdrawals as records (so they can be matched), marking an exception resolved by hand with a note, reports for institutions, and email alerts.
 
 ## Key words
 
@@ -233,11 +288,11 @@ Every item that is not `matched` becomes an **exception**. An admin must review 
 
 ## Checklist
 
-- [ ] Daily reconciliation runs and saves its `paging_token`
-- [ ] Payments matched on memo, asset code **and** issuer, and amount
-- [ ] Amounts compared as stroops or exact strings, never floats
-- [ ] Weekly balance check passes for every asset
+- [x] Daily reconciliation runs and saves its `paging_token`
+- [x] Payments matched on memo, asset code **and** issuer, and amount
+- [x] Amounts compared as stroops or exact strings, never floats
+- [ ] Weekly balance check passes for every asset (built; passing it is checked each week)
 - [ ] Every exception reviewed and closed within 7 days
 - [ ] Every manual change logged with who, when and why
-- [ ] Sandbox and production data kept separate
+- [x] Sandbox and production data kept separate (every report has `environment`)
 - [ ] USDC issuer double-checked against Circle's official docs before going live
