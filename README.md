@@ -258,7 +258,7 @@ PlugLytics/
 
 ### Prerequisites
 
-- Node.js 20 or newer
+- Node.js 22.12 or newer (required by better-sqlite3 13 and @stellar/stellar-sdk 17)
 - npm
 - Windows PowerShell, macOS, or Linux
 - Optional: VS Code REST Client extension
