@@ -8,6 +8,11 @@
 </p>
 
 <p align="center">
+  <strong><a href="https://pluglytics.vercel.app/public">Live demo</a></strong><br />
+  Demo logins: <code>student@pluglytics.local</code>, <code>instructor@pluglytics.local</code>, or <code>admin@pluglytics.local</code> with password <code>Demo123!</code>
+</p>
+
+<p align="center">
   <a href="https://github.com/MitziReese04/PlugLytics/actions/workflows/ci.yml"><img src="https://github.com/MitziReese04/PlugLytics/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D22.12-339933?logo=node.js&logoColor=white" alt="Node.js 22.12 or newer">
   <img src="https://img.shields.io/badge/Stellar-Testnet-0b1f3a?logo=stellar&logoColor=white" alt="Stellar Testnet">
@@ -45,7 +50,7 @@ Built with Node.js, Express, SQLite, JWT, Zod, Chart.js, and Swagger/OpenAPI, pl
 | USDC, anchors, settlement reports | Planned |
 | LMS provider import (Canvas) | Documented, not implemented ([plan](./docs/pilot/lms-integration.md)) |
 | Continuous integration | GitHub Actions on every push and pull request to `main` |
-| Public deployment | Planned on Render, Singapore region ([plan](./docs/pilot/deployment.md)); not deployed |
+| Public deployment | Deployed on Vercel as a Testnet demo with seeded data |
 
 ## Quick start
 
@@ -58,15 +63,27 @@ npm run seed              # builds the demo SQLite database
 npm run dev               # starts the server on http://localhost:3000
 ```
 
-| Surface | URL |
-| --- | --- |
-| Public website | <http://localhost:3000/public> |
-| Analytics dashboard | <http://localhost:3000/public/dashboard.html> |
-| REST API | <http://localhost:3000/api/v1> |
-| Swagger UI | <http://localhost:3000/docs> |
-| Health check | <http://localhost:3000/api/v1/health> |
+| Surface | Localhost URL | Live URL |
+| --- | --- | --- |
+| Public website | <http://localhost:3000/public> | <https://pluglytics.vercel.app/public> |
+| Analytics dashboard | <http://localhost:3000/public/dashboard.html> | <https://pluglytics.vercel.app/public/dashboard.html> |
+| REST API | <http://localhost:3000/api/v1> | <https://pluglytics.vercel.app/api/v1> |
+| Swagger UI | <http://localhost:3000/docs> | <https://pluglytics.vercel.app/docs> |
+| Health check | <http://localhost:3000/api/v1/health> | <https://pluglytics.vercel.app/api/v1/health> |
 
 Open the dashboard through the running server, not from the file system: sign-in and analytics need the server's `/api/v1` routes. No external database, cloud account, or other infrastructure is required.
+
+## Live demo on Vercel
+
+- Website: <https://pluglytics.vercel.app/public>
+- Dashboard: <https://pluglytics.vercel.app/public/dashboard.html>
+- API: <https://pluglytics.vercel.app/api/v1>
+- Swagger docs: <https://pluglytics.vercel.app/docs>
+- Health check: <https://pluglytics.vercel.app/api/v1/health>
+
+The live demo runs on seeded synthetic data and Stellar Testnet only, with no real money.
+
+Saved changes, including dashboard layouts and Testnet payment requests, can reset because the SQLite database is copied into `/tmp` on each Vercel instance.
 
 ### Demo accounts
 
@@ -484,7 +501,7 @@ The suites in [`tests/`](./tests) cover authentication and role boundaries, filt
 - [x] Role-aware analytics API, dashboard, and public website
 - [x] Stellar Testnet payment adapter: payment requests, Horizon confirmation, late and memo-less matching, refunds, webhooks, customer API keys
 - [x] Automated CI with GitHub Actions
-- [ ] Live public deployment with HTTPS
+- [x] Live public deployment on Vercel with HTTPS
 - [ ] USDC payments and anchors on Testnet, then a production rollout after the pilot review
 - [ ] Daily and weekly reconciliation and settlement reports
 - [ ] Provider-specific LMS integration (Canvas) for enrollments, courses, grades, attendance, and events
@@ -500,8 +517,8 @@ The suites in [`tests/`](./tests) cover authentication and role boundaries, filt
 
 | # | Item | Status | Still missing |
 | --- | --- | --- | --- |
-| 1 | Hosting provider and domain ([deployment](./docs/pilot/deployment.md#1-hosting-provider-and-domain)) | Documented, partly built | Render service name, custom domain, account owner; nothing deployed |
-| 2 | Public API and Swagger URLs ([deployment](./docs/pilot/deployment.md#2-public-api-and-swagger-urls)) | Documented, not deployed | Real URLs after the first deploy |
+| 1 | Hosting provider and domain ([deployment](./docs/pilot/deployment.md#1-hosting-provider-and-domain)) | Documented, partly built | Vercel demo deployed; custom domain, account owner, and production hosting decisions remain |
+| 2 | Public API and Swagger URLs ([deployment](./docs/pilot/deployment.md#2-public-api-and-swagger-urls)) | Live on Vercel demo | Production/public API URL strategy remains |
 | 3 | Production database and backups ([deployment](./docs/pilot/deployment.md#3-production-database-strategy)) | Partly built (`migrate`, `backup`) | Scheduled and off-site backups, versioned migrations, PostgreSQL plan |
 | 4 | Pilot LMS provider ([LMS integration](./docs/pilot/lms-integration.md)) | Canvas chosen, not built | School's Canvas URL, quiz engine, attendance source; importer |
 | 5 | Pilot institution and contact ([template](./docs/pilot/pilot-institution.md)) | Template only | No school has agreed yet |
