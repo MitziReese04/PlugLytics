@@ -420,6 +420,27 @@ main { min-width: 0; }
 .memo-warning { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
 .payment-status-line { margin: 12px 0 0; font-size: 13px; }
 .payment-status-line small { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+/* Admin: invoices */
+.invoice-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.dashboard-page .invoice-form-grid label { font-size: 12px; }
+.dashboard-page .invoice-form-grid label small { color: var(--muted); font-weight: 400; }
+.dashboard-page .invoice-form-grid input, .dashboard-page .invoice-form-grid select { min-height: 40px; padding: 8px 10px; }
+.invoice-form-fixed { grid-column: span 2; align-self: end; margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); font-size: 13px; }
+.invoice-form-grid [hidden] { display: none; }
+.invoice-preview { display: grid; gap: 4px; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--primary-soft); color: var(--text); }
+.invoice-preview-label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.invoice-preview strong { font-size: 22px; letter-spacing: -.02em; }
+.invoice-preview small { color: var(--muted); font-size: 12px; }
+.invoice-preview-warning { border-color: #f0b429; background: #fff7e0; }
+.dashboard-page.dark .invoice-preview-warning { border-color: #b7791f; background: #3d2e10; }
+.invoice-preview-note { color: #a34a15 !important; font-weight: 700; }
+.dashboard-page.dark .invoice-preview-note { color: #ffc195 !important; }
+.invoice-form-errors { margin: 10px 0 0; padding-left: 18px; color: #b33a3a; font-size: 13px; }
+.dashboard-page.dark .invoice-form-errors { color: #ffb3b3; }
+.invoice-form-errors:empty { display: none; }
+.invoice-form-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+.dashboard-page .admin-payments-table small.muted-cell { display: block; font-size: 11px; }
+
 /* Admin: Stellar payments */
 .admin-payments-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 12px; }
 .dashboard-page .admin-payments-toolbar label { display: grid; gap: 4px; min-width: 170px; color: var(--muted); font-size: 12px; }
@@ -444,6 +465,11 @@ main { min-width: 0; }
   .widget-grid { grid-template-columns: 1fr; }
   .payments-section .widget-card-heading { flex-direction: column; }
   .payment-detail { grid-template-columns: 1fr; gap: 4px; }
+  .invoice-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .invoice-form-grid { grid-template-columns: 1fr; }
+  .invoice-form-fixed { grid-column: auto; }
 }
 @media (max-width: 440px) {
   .dashboard-actions { display: grid; grid-template-columns: 1fr 100px; }

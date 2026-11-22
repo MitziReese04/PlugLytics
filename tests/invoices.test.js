@@ -41,6 +41,74 @@ afterAll(() => {
   db.prepare(`DELETE FROM invoices WHERE id IN (${marks})`).run(...created);
 });
 
+const get = (path, token = adminToken) => request(app).get(`/api/v1/invoices${path}`).set("Authorization", `Bearer ${token}`);
+const studentNumber = db.prepare("SELECT student_number FROM students WHERE id = ?").get(student.id).student_number;
+
+describe("admin invoice screen endpoints", () => {
+  test("options list every term with its ID, and the scholarship types", async () => {
+    const response = await get("/options");
+    expect(response.status).toBe(200);
+    const terms = db.prepare("SELECT id, name FROM terms").all();
+    expect(response.body.data.terms).toHaveLength(terms.length);
+    expect(response.body.data.terms.filter((t) => t.isCurrent)).toHaveLength(1);
+    expect(response.body.data.terms[0]).toEqual(expect.objectContaining({ id: expect.any(Number), name: expect.any(String) }));
+    expect(response.body.data.scholarshipTypes).toEqual(["merit", "need_based", "sponsored", "other"]);
+  });
+
+  test("finds a student by student number, ignoring letter case", async () => {
+    const response = await get(`/students?number=${studentNumber.toLowerCase()}`);
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ id: student.id, studentNumber });
+    expect((await get("/students?number=STU-NOPE")).body.error.code).toBe("STUDENT_NOT_FOUND");
+    expect((await get("/students")).status).toBe(400);
+  });
+
+  test("lists invoices newest first, filtered by student number and term", async () => {
+    const invoice = await create({ basePrice: 4321 });
+    const response = await get(`?student=${studentNumber}&termId=${term.id}`);
+    expect(response.status).toBe(200);
+    expect(response.body.meta).toMatchObject({ page: 1, pageSize: 25, filtersApplied: { student: studentNumber, termId: term.id } });
+    const row = response.body.data.find((r) => r.id === invoice.id);
+    expect(row).toMatchObject({ studentNumber, basePrice: 4321, finalAmount: 4321, editable: true, lockReason: null });
+    expect(response.body.data.every((r) => r.studentNumber === studentNumber && r.termId === term.id)).toBe(true);
+    const ids = response.body.data.map((r) => r.id);
+    expect([...ids].sort((a, b) => b - a)).toEqual(ids);
+  });
+
+  test("marks invoices that can no longer be edited, and why", async () => {
+    const paid = await create();
+    db.prepare("INSERT INTO payments (invoice_id, amount, method, paid_at) VALUES (?, 1, 'cash', '2026-11-02T10:00:00Z')").run(paid.id);
+    const pending = await create();
+    db.prepare(`
+      INSERT INTO payment_requests (id, invoice_id, amount, asset, memo, destination, status, quoted_rate, rate_source,
+        invoice_currency, invoice_amount, created_at, expires_at)
+      VALUES (?, ?, '7500.0000000', 'XLM', ?, ?, 'pending', '2.5000000', 'manual', 'USD', '3000.00', ?, ?)
+    `).run(`pay_LISTPEND${pending.id}`, pending.id, `PL-LP${pending.id}`, MERCHANT,
+      new Date().toISOString(), new Date(Date.now() + 30 * 60 * 1000).toISOString());
+
+    expect((await get(`/${paid.id}`)).body.data).toMatchObject({ editable: false, lockReason: "completed_payment" });
+    expect((await get(`/${pending.id}`)).body.data).toMatchObject({ editable: false, lockReason: "pending_payment_request" });
+  });
+
+  test("returns one invoice with the student and term names", async () => {
+    const invoice = await create({ basePrice: 999 });
+    const response = await get(`/${invoice.id}`);
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ id: invoice.id, studentNumber, basePrice: 999, editable: true });
+    expect(typeof response.body.data.termName).toBe("string");
+    expect((await get("/99999999")).body.error.code).toBe("INVOICE_NOT_FOUND");
+  });
+
+  test("rejects invalid list filters and is admin-only", async () => {
+    expect((await get("?page=0")).status).toBe(400);
+    expect((await get("?status=paid")).status).toBe(400);
+    const studentToken = await login("student@pluglytics.local");
+    for (const path of ["", "/options", "/students?number=STU-0001", "/1"]) {
+      expect((await get(path, studentToken)).status).toBe(403);
+    }
+  });
+});
+
 describe("POST /api/v1/invoices", () => {
   test("creates an invoice with pricing fields and the computed final amount", async () => {
     const pricing = {

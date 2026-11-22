@@ -302,6 +302,10 @@ To keep the examples below short, only the `data` part is shown for success resp
 | Method | Path | Who can call it | What it does |
 | --- | --- | --- | --- |
 | GET | `/api/v1/payments/config` | Any signed-in user | Show the active network and merchant public key |
+| GET | `/api/v1/invoices` | Admin (**built**) | List invoices, filtered by student number and term, with whether each can still be edited |
+| GET | `/api/v1/invoices/:id` | Admin (**built**) | Get one invoice |
+| GET | `/api/v1/invoices/options` | Admin (**built**) | Terms (with IDs) and scholarship types, for the invoice form |
+| GET | `/api/v1/invoices/students?number=` | Admin (**built**) | Find a student by student number, for example `STU-0001` |
 | POST | `/api/v1/invoices` | Admin (**built**) | Create an invoice with pricing fields |
 | PATCH | `/api/v1/invoices/:id` | Admin (**built**) | Change an invoice's pricing fields or due date (blocked once a payment is completed) |
 | POST | `/api/v1/payments` | Student (own invoice, **built, sandbox only**); Admin (pay-per-use, planned) | Create a payment request |
@@ -410,6 +414,17 @@ Response `201` (`data`):
 ```
 
 Errors: `400 VALIDATION_ERROR` (for example a negative amount, a discount over 100, a scholarship without a type, or a final amount below 0), `404 STUDENT_NOT_FOUND`, `404 TERM_NOT_FOUND`.
+
+### Reading invoices (admin)
+
+**Built. Admin only.** Used by the admin dashboard's **Invoices** screen.
+
+- `GET /api/v1/invoices`: newest first, 25 per page. Optional filters: `student` (a student number, any letter case), `termId` and `page`. Each item has the same fields as `POST /api/v1/invoices` returns, plus `studentNumber`, `studentName`, `termName`, `editable` and `lockReason`.
+- `GET /api/v1/invoices/:id`: one invoice, in the same shape.
+- `editable` is `false` when `PATCH` would be refused. `lockReason` says why: `completed_payment` (a completed or recorded payment) or `pending_payment_request` (a pending request with a locked quote). Otherwise it is `null`.
+- `GET /api/v1/invoices/options`: every term (`id`, `name`, `code`, `isCurrent`) and the scholarship types.
+- `GET /api/v1/invoices/students?number=STU-0001`: finds a student (`id`, `studentNumber`, `name`), or `404 STUDENT_NOT_FOUND`.
+- The dashboard previews `finalAmount` while you type with `public/pricingPreview.js`, which uses the same formula as `src/pricing.js` (a test keeps the two in step). The server still checks and saves the real value.
 
 ### PATCH `/api/v1/invoices/:id`
 

@@ -159,6 +159,7 @@ async function startSession() {
   renderCatalog();
   await renderWidgets();
   if (state.role === "student") await loadInvoices();
+  if (state.role === "admin") await loadAdminInvoices();
   if (state.role === "admin") await loadAdminPayments();
 }
 
@@ -841,4 +842,302 @@ byId("adminPaymentsPrev").addEventListener("click", () => {
 byId("adminPaymentsNext").addEventListener("click", () => {
   adminPayments.page += 1;
   loadAdminPayments();
+});
+
+// ---------------------------------------------------------------------------
+// Admin: invoices with pricing fields
+// ---------------------------------------------------------------------------
+
+const adminInvoices = { page: 1, total: 0, pageSize: 25, options: null, editing: null };
+
+const INVOICE_FIELD_LABELS = {
+  studentNumber: "Student number", studentId: "Student", termId: "Term", dueAt: "Due date", issuedAt: "Issue date",
+  currency: "Currency", basePrice: "Base price", scholarshipAmount: "Scholarship amount",
+  scholarshipType: "Scholarship type", scholarshipName: "Scholarship name", discountPercent: "Discount (%)",
+  discountCode: "Discount code", platformFee: "Platform fee", transactionFee: "Transaction fee",
+  instructorCost: "Instructor cost", finalAmount: "Final amount",
+};
+const INVOICE_NUMBER_FIELDS = ["basePrice", "scholarshipAmount", "discountPercent", "platformFee", "transactionFee", "instructorCost"];
+const INVOICE_TEXT_FIELDS = ["scholarshipType", "scholarshipName", "discountCode"];
+const LOCK_LABELS = {
+  completed_payment: "Paid – locked",
+  pending_payment_request: "Payment pending – locked",
+};
+
+function invoiceForm() {
+  return byId("invoiceForm");
+}
+
+function setInvoicesMessage(text, isError = false) {
+  const message = byId("adminInvoicesMessage");
+  message.textContent = text;
+  message.classList.toggle("widget-error", isError);
+}
+
+function formatAmount(amount, currency) {
+  return /^[A-Z]{3}$/.test(currency || "") ? formatMoney(amount, currency) : Number(amount).toFixed(2);
+}
+
+async function loadAdminInvoices() {
+  byId("adminInvoicesSection").hidden = false;
+  try {
+    if (!adminInvoices.options) {
+      adminInvoices.options = (await api("/invoices/options")).data;
+      const termOptions = adminInvoices.options.terms
+        .map((term) => `<option value="${escapeHtml(term.id)}">${escapeHtml(term.name)}${term.isCurrent ? " (current)" : ""}</option>`)
+        .join("");
+      byId("invoiceTermFilter").innerHTML = `<option value="">All terms</option>${termOptions}`;
+      invoiceForm().elements.termId.innerHTML = termOptions;
+      invoiceForm().elements.scholarshipType.innerHTML = `<option value="">None</option>` +
+        adminInvoices.options.scholarshipTypes.map((type) => `<option value="${escapeHtml(type)}">${escapeHtml(type.replace("_", " "))}</option>`).join("");
+    }
+    await loadInvoiceList();
+  } catch (error) {
+    setInvoicesMessage(`Unable to load invoices: ${error.message}`, true);
+  }
+}
+
+async function loadInvoiceList() {
+  const params = new URLSearchParams({ page: String(adminInvoices.page) });
+  const student = byId("invoiceStudentFilter").value.trim();
+  const termId = byId("invoiceTermFilter").value;
+  if (student) params.set("student", student);
+  if (termId) params.set("termId", termId);
+  try {
+    const result = await api(`/invoices?${params.toString()}`);
+    adminInvoices.total = result.meta.total;
+    adminInvoices.pageSize = result.meta.pageSize || adminInvoices.pageSize;
+    renderInvoiceList(result.data);
+  } catch (error) {
+    byId("adminInvoiceRows").innerHTML = "";
+    setInvoicesMessage(`Unable to load invoices: ${error.message}`, true);
+  }
+}
+
+function renderInvoiceList(rows) {
+  const pages = Math.max(1, Math.ceil(adminInvoices.total / adminInvoices.pageSize));
+  byId("adminInvoicesCount").textContent = `${adminInvoices.total} invoice${adminInvoices.total === 1 ? "" : "s"}`;
+  byId("adminInvoicesPage").textContent = `Page ${adminInvoices.page} of ${pages}`;
+  byId("adminInvoicesPrev").disabled = adminInvoices.page <= 1;
+  byId("adminInvoicesNext").disabled = adminInvoices.page >= pages;
+  const body = byId("adminInvoiceRows");
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="7" class="muted-cell">No invoices match these filters.</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((row) => {
+    const status = row.editable
+      ? `<span class="payment-status payment-status-pending">Editable</span>`
+      : `<span class="invoice-status invoice-status-partial">${escapeHtml(LOCK_LABELS[row.lockReason] || "Locked")}</span>`;
+    const action = row.editable
+      ? `<button type="button" class="outline-button" data-edit-invoice="${escapeHtml(row.id)}">Edit</button>`
+      : `<span class="muted-cell">—</span>`;
+    return `<tr>
+      <td>${escapeHtml(row.id)}</td>
+      <td>${escapeHtml(row.studentNumber)} <small class="muted-cell">${escapeHtml(row.studentName)}</small></td>
+      <td>${escapeHtml(row.termName)}</td>
+      <td>${escapeHtml(formatAmount(row.basePrice, row.currency))}</td>
+      <td><strong>${escapeHtml(formatAmount(row.finalAmount, row.currency))}</strong></td>
+      <td>${status}</td>
+      <td class="action-cell">${action}</td>
+    </tr>`;
+  }).join("");
+}
+
+function showInvoiceErrors(messages) {
+  byId("invoiceFormErrors").innerHTML = messages.map((message) => `<li>${escapeHtml(message)}</li>`).join("");
+}
+
+function apiErrorMessages(error) {
+  const messages = [];
+  const fieldErrors = error.details?.fieldErrors || {};
+  for (const [field, list] of Object.entries(fieldErrors)) {
+    for (const text of list) messages.push(`${INVOICE_FIELD_LABELS[field] || field}: ${text}`);
+  }
+  for (const text of error.details?.formErrors || []) messages.push(text);
+  return messages.length ? messages : [error.message];
+}
+
+function updateInvoicePreview() {
+  const form = invoiceForm();
+  const fields = Object.fromEntries(INVOICE_NUMBER_FIELDS.map((name) => [name, form.elements[name].value]));
+  const preview = byId("invoicePreview");
+  const currency = form.elements.currency.value.trim().toUpperCase() || "USD";
+  if (form.elements.basePrice.value.trim() === "") {
+    preview.className = "invoice-preview";
+    preview.innerHTML = `<span>Enter a base price to see the final amount.</span>`;
+    return;
+  }
+  const result = PlugLyticsPricing.previewFinalAmount(fields);
+  if (!result) {
+    preview.className = "invoice-preview invoice-preview-warning";
+    preview.innerHTML = `<span>Enter numbers only to see the final amount.</span>`;
+    return;
+  }
+  const negative = result.finalAmount < 0;
+  preview.className = `invoice-preview${negative ? " invoice-preview-warning" : ""}`;
+  preview.innerHTML = `
+    <span class="invoice-preview-label">Final amount</span>
+    <strong>${escapeHtml(formatAmount(result.finalAmount, currency))}</strong>
+    <small>${escapeHtml(formatAmount(result.basePrice, currency))} base
+      − ${escapeHtml(formatAmount(result.scholarshipAmount, currency))} scholarship
+      − ${escapeHtml(formatAmount(result.discountAmount, currency))} discount
+      + ${escapeHtml(formatAmount(result.fees, currency))} fees</small>
+    ${negative ? `<small class="invoice-preview-note">The final amount cannot be below zero, so this cannot be saved.</small>` : ""}`;
+}
+
+function setInvoiceFormMode(editing) {
+  const form = invoiceForm();
+  form.querySelectorAll("[data-create-only]").forEach((element) => { element.hidden = Boolean(editing); });
+  form.querySelectorAll("[data-edit-only]").forEach((element) => { element.hidden = !editing; });
+  byId("invoiceFormHeading").textContent = editing ? `Edit invoice #${editing.id}` : "New invoice";
+  if (editing) {
+    form.querySelector(".invoice-form-fixed").textContent =
+      `${editing.studentNumber} · ${editing.studentName} · ${editing.termName}`;
+  }
+}
+
+function openInvoiceForm(invoice = null) {
+  const form = invoiceForm();
+  form.reset();
+  adminInvoices.editing = invoice;
+  setInvoiceFormMode(invoice);
+  showInvoiceErrors([]);
+  setInvoicesMessage("");
+  if (invoice) {
+    for (const name of INVOICE_NUMBER_FIELDS) form.elements[name].value = invoice[name] ?? 0;
+    for (const name of INVOICE_TEXT_FIELDS) form.elements[name].value = invoice[name] ?? "";
+    form.elements.currency.value = invoice.currency;
+    form.elements.dueAt.value = (invoice.dueAt || "").slice(0, 10);
+  } else {
+    for (const name of INVOICE_NUMBER_FIELDS) form.elements[name].value = name === "basePrice" ? "" : 0;
+    form.elements.currency.value = "USD";
+    const current = adminInvoices.options?.terms.find((term) => term.isCurrent);
+    if (current) form.elements.termId.value = String(current.id);
+    const due = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    form.elements.dueAt.value = due.toISOString().slice(0, 10);
+  }
+  byId("invoiceFormPanel").hidden = false;
+  updateInvoicePreview();
+  form.querySelector(invoice ? "[name=basePrice]" : "[name=studentNumber]").focus();
+}
+
+function closeInvoiceForm() {
+  adminInvoices.editing = null;
+  byId("invoiceFormPanel").hidden = true;
+}
+
+function readInvoiceFields() {
+  const form = invoiceForm();
+  const fields = {};
+  for (const name of INVOICE_NUMBER_FIELDS) {
+    const raw = form.elements[name].value.trim();
+    fields[name] = raw === "" && name !== "basePrice" ? 0 : Number(raw === "" ? NaN : raw);
+  }
+  for (const name of INVOICE_TEXT_FIELDS) {
+    const raw = form.elements[name].value.trim();
+    fields[name] = raw === "" ? null : raw;
+  }
+  fields.currency = form.elements.currency.value.trim().toUpperCase();
+  const due = form.elements.dueAt.value;
+  fields.dueAt = due ? `${due}T23:59:00Z` : "";
+  return fields;
+}
+
+async function saveInvoice(event) {
+  event.preventDefault();
+  const form = invoiceForm();
+  const fields = readInvoiceFields();
+  const problems = [];
+  if (!Number.isFinite(fields.basePrice)) problems.push("Base price: enter a number");
+  if (!fields.dueAt) problems.push("Due date: choose a date");
+  if (!/^[A-Z]{3}$/.test(fields.currency)) problems.push("Currency: use a 3-letter code such as USD or PHP");
+  for (const name of INVOICE_NUMBER_FIELDS) {
+    if (name !== "basePrice" && !Number.isFinite(fields[name])) problems.push(`${INVOICE_FIELD_LABELS[name]}: enter a number`);
+  }
+  if (problems.length) {
+    showInvoiceErrors(problems);
+    return;
+  }
+
+  const button = byId("saveInvoiceButton");
+  button.disabled = true;
+  showInvoiceErrors([]);
+  try {
+    let result;
+    if (adminInvoices.editing) {
+      // Send only the fields that changed.
+      const original = adminInvoices.editing;
+      const changes = {};
+      for (const name of [...INVOICE_NUMBER_FIELDS, ...INVOICE_TEXT_FIELDS, "currency"]) {
+        if ((fields[name] ?? null) !== (original[name] ?? null)) changes[name] = fields[name];
+      }
+      if (fields.dueAt.slice(0, 10) !== (original.dueAt || "").slice(0, 10)) changes.dueAt = fields.dueAt;
+      if (!Object.keys(changes).length) {
+        showInvoiceErrors(["Nothing has changed."]);
+        return;
+      }
+      result = await api(`/invoices/${encodeURIComponent(original.id)}`, { method: "PATCH", body: JSON.stringify(changes) });
+    } else {
+      const number = form.elements.studentNumber.value.trim();
+      if (!number) {
+        showInvoiceErrors(["Student number: enter one, for example STU-0001"]);
+        return;
+      }
+      const student = (await api(`/invoices/students?number=${encodeURIComponent(number)}`)).data;
+      result = await api("/invoices", {
+        method: "POST",
+        body: JSON.stringify({ studentId: student.id, termId: Number(form.elements.termId.value), ...fields }),
+      });
+      adminInvoices.page = 1;
+    }
+    const saved = result.data;
+    closeInvoiceForm();
+    setInvoicesMessage(`Invoice #${saved.id} saved. Final amount: ${formatAmount(saved.finalAmount, saved.currency)}.`);
+    await loadInvoiceList();
+  } catch (error) {
+    showInvoiceErrors(apiErrorMessages(error));
+    if (error.code === "INVOICE_HAS_COMPLETED_PAYMENT" || error.code === "PAYMENT_ALREADY_PENDING") await loadInvoiceList();
+  } finally {
+    button.disabled = false;
+  }
+}
+
+byId("newInvoiceButton").addEventListener("click", () => openInvoiceForm());
+byId("cancelInvoiceForm").addEventListener("click", closeInvoiceForm);
+byId("invoiceForm").addEventListener("input", updateInvoicePreview);
+byId("invoiceForm").addEventListener("submit", saveInvoice);
+byId("invoiceFilters").addEventListener("submit", (event) => {
+  event.preventDefault();
+  adminInvoices.page = 1;
+  loadInvoiceList();
+});
+byId("invoiceTermFilter").addEventListener("change", () => {
+  adminInvoices.page = 1;
+  loadInvoiceList();
+});
+byId("adminInvoiceRows").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-edit-invoice]");
+  if (!button) return;
+  try {
+    const invoice = (await api(`/invoices/${encodeURIComponent(button.dataset.editInvoice)}`)).data;
+    if (!invoice.editable) {
+      setInvoicesMessage(`Invoice #${invoice.id} can no longer be edited (${LOCK_LABELS[invoice.lockReason] || "locked"}).`, true);
+      await loadInvoiceList();
+      return;
+    }
+    openInvoiceForm(invoice);
+  } catch (error) {
+    setInvoicesMessage(`Unable to open the invoice: ${error.message}`, true);
+  }
+});
+byId("adminInvoicesPrev").addEventListener("click", () => {
+  if (adminInvoices.page > 1) {
+    adminInvoices.page -= 1;
+    loadInvoiceList();
+  }
+});
+byId("adminInvoicesNext").addEventListener("click", () => {
+  adminInvoices.page += 1;
+  loadInvoiceList();
 });

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PlugLytics Dashboard</title>
-  <link rel="stylesheet" href="./styles.css?v=9">
+  <link rel="stylesheet" href="./styles.css?v=10">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js" integrity="sha384-Emf5ZVIUiarAdhkgtqK+5/Z5qIvM6QoVrS+qAVtfyZVuD5lIHrac0me485+Antp0" crossorigin="anonymous"></script>
 </head>
 <body class="dashboard-page">
@@ -109,6 +109,66 @@
           <p class="payment-status-line">Status: <span id="paymentStatus" class="payment-status" role="status" aria-live="polite"></span> <small id="paymentExpiry"></small></p>
         </section>
       </section>
+      <section id="adminInvoicesSection" class="widget-card payments-section" aria-labelledby="adminInvoicesHeading" hidden>
+        <div class="widget-card-heading">
+          <div>
+            <h2 id="adminInvoicesHeading">Invoices</h2>
+            <p>Create and edit invoices with scholarships, discounts and fees. The final amount updates as you type.</p>
+          </div>
+          <button id="newInvoiceButton" type="button">New invoice</button>
+        </div>
+        <form id="invoiceFilters" class="admin-payments-toolbar">
+          <label>Student number<input id="invoiceStudentFilter" placeholder="e.g. STU-0001" autocomplete="off"></label>
+          <label>Term<select id="invoiceTermFilter"><option value="">All terms</option></select></label>
+          <button class="outline-button" type="submit">Search</button>
+          <span id="adminInvoicesCount" class="muted-cell" role="status" aria-live="polite"></span>
+        </form>
+        <p id="adminInvoicesMessage" class="payments-message"></p>
+
+        <section id="invoiceFormPanel" class="payment-panel" aria-labelledby="invoiceFormHeading" hidden>
+          <div class="payment-panel-heading">
+            <h3 id="invoiceFormHeading">New invoice</h3>
+            <button id="cancelInvoiceForm" class="outline-button" type="button">Cancel</button>
+          </div>
+          <form id="invoiceForm" novalidate>
+            <div class="invoice-form-grid">
+              <label data-create-only>Student number<input name="studentNumber" placeholder="e.g. STU-0001" autocomplete="off"></label>
+              <label data-create-only>Term<select name="termId"></select></label>
+              <p class="invoice-form-fixed" data-edit-only></p>
+              <label>Due date<input name="dueAt" type="date"></label>
+              <label>Currency<input name="currency" maxlength="3" placeholder="USD" autocomplete="off"></label>
+              <label>Base price<input name="basePrice" type="number" min="0" step="0.01" inputmode="decimal"></label>
+              <label>Scholarship amount<input name="scholarshipAmount" type="number" min="0" step="0.01" inputmode="decimal"></label>
+              <label>Scholarship type<select name="scholarshipType"><option value="">None</option></select></label>
+              <label>Scholarship name<input name="scholarshipName" maxlength="100" placeholder="e.g. Academic Merit Scholarship"></label>
+              <label>Discount (%)<input name="discountPercent" type="number" min="0" max="100" step="0.01" inputmode="decimal"></label>
+              <label>Discount code<input name="discountCode" maxlength="50" autocomplete="off"></label>
+              <label>Platform fee<input name="platformFee" type="number" min="0" step="0.01" inputmode="decimal"></label>
+              <label>Transaction fee<input name="transactionFee" type="number" min="0" step="0.01" inputmode="decimal"></label>
+              <label>Instructor cost <small>(not charged to the student)</small><input name="instructorCost" type="number" min="0" step="0.01" inputmode="decimal"></label>
+            </div>
+            <div id="invoicePreview" class="invoice-preview" role="status" aria-live="polite"></div>
+            <ul id="invoiceFormErrors" class="invoice-form-errors" role="alert"></ul>
+            <div class="invoice-form-actions">
+              <button id="saveInvoiceButton" type="submit">Save invoice</button>
+            </div>
+          </form>
+        </section>
+
+        <div class="payments-table-wrap">
+          <table class="invoice-table admin-payments-table">
+            <thead>
+              <tr><th scope="col">ID</th><th scope="col">Student</th><th scope="col">Term</th><th scope="col">Base price</th><th scope="col">Final amount</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Action</span></th></tr>
+            </thead>
+            <tbody id="adminInvoiceRows"></tbody>
+          </table>
+        </div>
+        <div class="admin-payments-pager">
+          <button id="adminInvoicesPrev" class="outline-button" type="button">Previous</button>
+          <span id="adminInvoicesPage" class="muted-cell"></span>
+          <button id="adminInvoicesNext" class="outline-button" type="button">Next</button>
+        </div>
+      </section>
       <section id="adminPaymentsSection" class="widget-card payments-section" aria-labelledby="adminPaymentsHeading" hidden>
         <div class="widget-card-heading">
           <div>
@@ -147,6 +207,7 @@
     </main>
   </div>
   <script src="./financeChart.js?v=1"></script>
-  <script src="./app.js?v=8"></script>
+  <script src="./pricingPreview.js?v=1"></script>
+  <script src="./app.js?v=9"></script>
 </body>
 </html>

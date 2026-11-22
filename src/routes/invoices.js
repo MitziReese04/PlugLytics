@@ -3,7 +3,7 @@ const { z } = require("zod");
 const db = require("../db");
 const { authenticate, authorize } = require("../middleware/auth");
 const { sendSuccess, sendError } = require("../utils/envelope");
-const { pricingSchema, computeFinalAmount } = require("../pricing");
+const { pricingSchema, computeFinalAmount, SCHOLARSHIP_TYPES } = require("../pricing");
 const { clearFinanceCache } = require("../utils/financeCache");
 
 // Admin-only endpoints to create and update invoices with pricing fields.
@@ -100,6 +100,84 @@ function checkDates(res, issuedAt, dueAt) {
   }
   return true;
 }
+
+// Why an invoice cannot be edited right now, or null when it can.
+function lockReason(invoiceId) {
+  if (hasCompletedRequest.get(invoiceId) || hasRecordedPayment.get(invoiceId)) return "completed_payment";
+  if (findPendingRequest.get(invoiceId, new Date().toISOString())) return "pending_payment_request";
+  return null;
+}
+
+function withEditable(row) {
+  const reason = lockReason(row.id);
+  return {
+    ...toResponse(row),
+    studentNumber: row.student_number,
+    studentName: row.student_name,
+    termName: row.term_name,
+    editable: reason === null,
+    lockReason: reason,
+  };
+}
+
+const INVOICE_LIST_SQL = `
+  SELECT i.*, s.student_number, u.name AS student_name, t.name AS term_name
+  FROM invoices i
+  JOIN students s ON s.id = i.student_id
+  JOIN users u ON u.id = s.user_id
+  JOIN terms t ON t.id = i.term_id
+`;
+const LIST_PAGE_SIZE = 25;
+const listSchema = z.object({
+  student: z.string().trim().min(1).max(40).optional(),
+  termId: z.coerce.number().int().positive().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+}).strict();
+
+// Terms (with IDs) and scholarship types for the dashboard's invoice form.
+router.get("/options", (req, res) => {
+  const terms = db.prepare("SELECT id, name, code, is_current AS isCurrent FROM terms ORDER BY start_date DESC").all()
+    .map((term) => ({ ...term, isCurrent: Boolean(term.isCurrent) }));
+  return sendSuccess(res, { terms, scholarshipTypes: SCHOLARSHIP_TYPES });
+});
+
+// Finds a student by student number (for example STU-0001), so the form can use it.
+router.get("/students", (req, res) => {
+  const number = typeof req.query.number === "string" ? req.query.number.trim() : "";
+  if (!number) return sendError(res, 400, "VALIDATION_ERROR", "Send a student number, for example ?number=STU-0001");
+  const student = db.prepare(`
+    SELECT s.id, s.student_number AS studentNumber, u.name
+    FROM students s JOIN users u ON u.id = s.user_id
+    WHERE s.student_number = ? COLLATE NOCASE
+  `).get(number);
+  if (!student) return sendError(res, 404, "STUDENT_NOT_FOUND", "No student has that student number");
+  return sendSuccess(res, student);
+});
+
+// Lists invoices, newest first, optionally for one student (number) and/or term.
+router.get("/", (req, res) => {
+  const parsed = listSchema.safeParse(req.query);
+  if (!parsed.success) return validationError(res, "Invalid filters", parsed.error);
+  const { student, termId, page } = parsed.data;
+  const where = [];
+  const params = { limit: LIST_PAGE_SIZE, offset: (page - 1) * LIST_PAGE_SIZE };
+  if (student) { where.push("s.student_number = @student COLLATE NOCASE"); params.student = student; }
+  if (termId) { where.push("i.term_id = @termId"); params.termId = termId; }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const total = db.prepare(`SELECT COUNT(*) AS n FROM (${INVOICE_LIST_SQL} ${whereSql})`).get(params).n;
+  const rows = db.prepare(`${INVOICE_LIST_SQL} ${whereSql} ORDER BY i.id DESC LIMIT @limit OFFSET @offset`).all(params);
+  const filtersApplied = {};
+  if (student) filtersApplied.student = student;
+  if (termId) filtersApplied.termId = termId;
+  return sendSuccess(res, rows.map(withEditable), { page, total, filtersApplied, pageSize: LIST_PAGE_SIZE });
+});
+
+router.get("/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const row = Number.isInteger(id) && id > 0 ? db.prepare(`${INVOICE_LIST_SQL} WHERE i.id = ?`).get(id) : undefined;
+  if (!row) return sendError(res, 404, "INVOICE_NOT_FOUND", "No invoice has that ID");
+  return sendSuccess(res, withEditable(row));
+});
 
 router.post("/", (req, res) => {
   const { pricing, other } = splitBody(req.body);

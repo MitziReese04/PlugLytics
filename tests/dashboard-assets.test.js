@@ -37,6 +37,17 @@ describe("dashboard assets", () => {
     expect(scriptSrc.split(/\s+/)).toContain(new URL(CHART_JS_URL).origin);
   });
 
+  test("the pricing preview loads before the dashboard script", () => {
+    expect(html.indexOf("pricingPreview.js")).toBeGreaterThan(-1);
+    expect(html.indexOf("pricingPreview.js")).toBeLessThan(html.indexOf("app.js"));
+  });
+
+  test("the admin invoice screen is on the page", () => {
+    for (const id of ["adminInvoicesSection", "invoiceForm", "invoicePreview", "newInvoiceButton"]) {
+      expect(html).toContain(`id="${id}"`);
+    }
+  });
+
   test("the chart helper loads before the dashboard script", () => {
     expect(html.indexOf("financeChart.js")).toBeGreaterThan(html.indexOf(CHART_JS_URL));
     expect(html.indexOf("financeChart.js")).toBeLessThan(html.indexOf("app.js"));
