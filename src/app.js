@@ -8,16 +8,24 @@ const instructorRoutes = require("./routes/instructor");
 const adminRoutes = require("./routes/admin");
 const widgetsRoutes = require("./routes/widgets");
 const dashboardRoutes = require("./routes/dashboard");
+const paymentRoutes = require("./routes/payments");
+const invoiceRoutes = require("./routes/invoices");
+const apiKeyRoutes = require("./routes/apiKeys");
+const { router: webhookRoutes } = require("./routes/webhooks");
+const { router: refundRoutes } = require("./routes/refunds");
+const { apiKeyGate } = require("./middleware/apiKey");
 const path = require("path");
 const { sendError } = require("./utils/envelope");
 const swaggerUi = require("swagger-ui-express");
 const openApi = require("./openapi");
+const config = require("./config");
 
 const app = express();
 const contentSecurityPolicy = helmet.contentSecurityPolicy.getDefaultDirectives();
 contentSecurityPolicy["script-src"] = ["'self'", "https://cdn.jsdelivr.net"];
 
 app.disable("x-powered-by");
+if (config.trustProxy > 0) app.set("trust proxy", config.trustProxy);
 app.use(helmet({ contentSecurityPolicy: { directives: contentSecurityPolicy } }));
 app.use(express.json({ limit: "1mb" }));
 app.use(
@@ -38,6 +46,8 @@ app.get("/", (req, res) => res.redirect("/public"));
 app.get("/dashboard", (req, res) => res.redirect("/public/dashboard.html"));
 app.get("/proposal", (req, res) => res.download(path.join(__dirname, "../PROPOSAL.md")));
 
+// Customer API keys: checked before any route, and only allowed on read-only endpoints.
+app.use("/api/v1", apiKeyGate);
 app.use("/api/v1/health", healthRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/student", studentRoutes);
@@ -45,6 +55,11 @@ app.use("/api/v1/instructor", instructorRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/widgets", widgetsRoutes);
 app.use("/api/v1/me", dashboardRoutes);
+app.use("/api/v1/payments", paymentRoutes);
+app.use("/api/v1/invoices", invoiceRoutes);
+app.use("/api/v1/api-keys", apiKeyRoutes);
+app.use("/api/v1/webhooks", webhookRoutes);
+app.use("/api/v1/refunds", refundRoutes);
 
 app.use((req, res) => {
   return sendError(res, 404, "NOT_FOUND", "The requested endpoint does not exist");

@@ -4,13 +4,56 @@ const bcrypt = require("bcryptjs");
 const db = require("../src/db");
 
 const schemaPath = path.resolve(__dirname, "../src/schema.sql");
+
+// Older databases have finance tables that CREATE TABLE IF NOT EXISTS will not
+// update: tables missing newer columns, or `payments` still allowing the
+// 'scholarship' method. The seed replaces all data anyway, so rebuild the
+// finance tables from schema.sql.
+const requiredColumns = {
+  invoices: ["final_amount", "currency", "scholarship_name"],
+  payment_requests: ["invoice_amount", "amount_received", "ledger", "rate_source", "source_account", "note", "accepted_by"],
+  webhook_endpoints: ["disabled_at"],
+};
+const isOutdated = (table, columns) => {
+  const existing = db.prepare(`PRAGMA table_xinfo(${table})`).all().map((c) => c.name);
+  return existing.length > 0 && !columns.every((c) => existing.includes(c));
+};
+const paymentsTable = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'payments'").get();
+const outdatedPayments = Boolean(paymentsTable && paymentsTable.sql.includes("'scholarship'"));
+if (outdatedPayments || Object.entries(requiredColumns).some(([table, columns]) => isOutdated(table, columns))) {
+  db.pragma("foreign_keys = OFF");
+  db.exec(`
+    DROP TABLE IF EXISTS stellar_refunds;
+    DROP TABLE IF EXISTS webhook_deliveries;
+    DROP TABLE IF EXISTS webhook_events;
+    DROP TABLE IF EXISTS webhook_endpoints;
+    DROP TRIGGER IF EXISTS payment_requests_quote_locked;
+    DROP TRIGGER IF EXISTS payment_requests_final_status;
+    DROP TRIGGER IF EXISTS payment_requests_related_must_be_failed;
+    DROP TABLE IF EXISTS payment_requests;
+    DROP TABLE IF EXISTS refunds;
+    DROP TABLE IF EXISTS payments;
+    DROP TABLE IF EXISTS invoices;
+  `);
+  db.pragma("foreign_keys = ON");
+}
+
+// Scholarships now live on each invoice; drop the old separate table.
+db.exec("DROP TABLE IF EXISTS scholarships;");
+
 db.exec(fs.readFileSync(schemaPath, "utf8"));
 
+// Older databases have a students table without school_id; add it in place.
+if (!db.prepare("PRAGMA table_info(students)").all().some((c) => c.name === "school_id")) {
+  db.exec("ALTER TABLE students ADD COLUMN school_id INTEGER REFERENCES schools(id)");
+}
+db.exec("CREATE INDEX IF NOT EXISTS idx_students_school ON students(school_id)");
+
 const deleteOrder = [
-  "dashboard_preferences", "instructor_ratings", "scholarships", "refunds", "payments",
+  "webhook_deliveries", "webhook_events", "webhook_endpoints", "stellar_refunds", "api_keys", "payment_requests", "dashboard_preferences", "instructor_ratings", "refunds", "payments",
   "invoices", "activity_logs", "attendance_logs", "quiz_responses", "quiz_questions",
   "submissions", "assignments", "enrollments", "sections", "courses", "terms",
-  "students", "instructors", "programs", "specializations", "users",
+  "students", "schools", "instructors", "programs", "specializations", "users",
 ];
 db.pragma("foreign_keys = OFF");
 for (const table of deleteOrder) {
@@ -55,9 +98,13 @@ const seed = db.transaction(() => {
   const addUser = db.prepare(
     "INSERT INTO users (email, password_hash, role, name) VALUES (?, ?, ?, ?)"
   );
-  const addStudent = db.prepare(
-    "INSERT INTO students (id, user_id, program_id, year_level, student_number) VALUES (?, ?, ?, ?, ?)"
+  // One placeholder school for the demo. TODO: group decision (real school name and code).
+  const demoSchoolId = db.prepare("INSERT INTO schools (name, code) VALUES (?, ?)")
+    .run("Demo School (placeholder)", "DEMO").lastInsertRowid;
+  const addStudentRow = db.prepare(
+    "INSERT INTO students (id, user_id, program_id, year_level, student_number, school_id) VALUES (?, ?, ?, ?, ?, ?)"
   );
+  const addStudent = { run: (...values) => addStudentRow.run(...values, demoSchoolId) };
   const addInstructor = db.prepare(
     "INSERT INTO instructors (id, user_id, department) VALUES (?, ?, ?)"
   );
@@ -232,29 +279,38 @@ const seed = db.transaction(() => {
   const addInvoice = db.prepare(
     "INSERT INTO invoices (student_id, term_id, amount, issued_at, due_at) VALUES (?, ?, ?, ?, ?)"
   );
+  const addScholarshipInvoice = db.prepare(`
+    INSERT INTO invoices (student_id, term_id, amount, scholarship_amount, scholarship_type, scholarship_name, issued_at, due_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const finalAmountOf = db.prepare("SELECT final_amount FROM invoices WHERE id = ?");
   const addPayment = db.prepare(
     "INSERT INTO payments (invoice_id, amount, method, paid_at) VALUES (?, ?, ?, ?)"
   );
   const addRefund = db.prepare(
     "INSERT INTO refunds (payment_id, amount, reason, refunded_at) VALUES (?, ?, ?, ?)"
   );
-  const addScholarship = db.prepare(
-    "INSERT INTO scholarships (student_id, term_id, amount, name) VALUES (?, ?, ?, ?)"
-  );
+  // Scholarships are stored on the invoice. Each name maps to a scholarship type.
+  const SCHOLARSHIP_NAME_TYPES = { "Academic Merit Scholarship": "merit" };
+  const DEMO_SCHOLARSHIP = { name: "Academic Merit Scholarship", amount: 500 };
 
   for (const term of termRows) {
     for (const student of studentRows.slice(0, 500)) {
       const amount = 2500 + ((student.id * 137) % 1500);
-      const invoiceId = addInvoice.run(
-        student.id,
-        term.id,
-        amount,
-        `${term.start_date}T09:00:00Z`,
-        `${term.start_date.slice(0, 8)}28T23:59:00Z`
-      ).lastInsertRowid;
+      const issuedAt = `${term.start_date}T09:00:00Z`;
+      const dueAt = `${term.start_date.slice(0, 8)}28T23:59:00Z`;
+      // Students whose ID is divisible by 13 have a 500 merit scholarship each term.
+      const invoiceId = student.id % 13 === 0
+        ? addScholarshipInvoice.run(
+          student.id, term.id, amount, DEMO_SCHOLARSHIP.amount,
+          SCHOLARSHIP_NAME_TYPES[DEMO_SCHOLARSHIP.name], DEMO_SCHOLARSHIP.name, issuedAt, dueAt
+        ).lastInsertRowid
+        : addInvoice.run(student.id, term.id, amount, issuedAt, dueAt).lastInsertRowid;
+      // Payments are based on the final amount (after any scholarship), so nobody is overpaid.
+      const finalAmount = finalAmountOf.get(invoiceId).final_amount;
 
       if (student.id % 8 !== 0) {
-        const paid = student.id % 10 === 0 ? amount * 0.5 : amount;
+        const paid = student.id % 10 === 0 ? finalAmount * 0.5 : finalAmount;
         const method = ["cash", "card", "bank"][student.id % 3];
         const paymentId = addPayment.run(
           invoiceId,
@@ -266,11 +322,24 @@ const seed = db.transaction(() => {
           addRefund.run(paymentId, 100, "Course withdrawal", `${term.end_date.slice(0, 10)}T10:00:00Z`);
         }
       }
-      if (student.id % 13 === 0) {
-        addScholarship.run(student.id, term.id, 500, "Academic Merit Scholarship");
-      }
     }
   }
+
+  // One small unpaid invoice for the demo student in the current term, so the
+  // dashboard shows "Pay with Stellar (Testnet)". At the sandbox rate
+  // (1 USD = 2.5 XLM) it asks for 125 XLM. Added after the loop above so every
+  // other invoice keeps the same ID.
+  const demoStudent = db.prepare(
+    "SELECT s.id FROM students s JOIN users u ON u.id = s.user_id WHERE u.email = 'student@pluglytics.local'"
+  ).get();
+  const currentTerm = termRows.find((term) => term.is_current);
+  addInvoice.run(
+    demoStudent.id,
+    currentTerm.id,
+    50,
+    `${currentTerm.start_date}T09:00:00Z`,
+    `${currentTerm.end_date}T23:59:00Z`
+  );
 
   const addRating = db.prepare(
     "INSERT INTO instructor_ratings (instructor_id, section_id, rating, rated_at) VALUES (?, ?, ?, ?)"

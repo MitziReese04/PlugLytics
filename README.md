@@ -21,7 +21,7 @@
 | Swagger UI | `http://localhost:3000/docs` | Available locally |
 | Health check | `http://localhost:3000/api/v1/health` | Available locally |
 | VS Code plugin | [pluglytics-vscode](./pluglytics-vscode) | VSIX source packaged locally |
-| Public deployment |  | **Not yet provided** |
+| Public deployment | Planned on Render, Singapore region: see [deployment plan](./docs/pilot/deployment.md#2-public-api-and-swagger-urls) | **Not yet deployed** |
 
 PlugLytics is a zero-setup Learning Management System analytics API and role-aware web dashboard. It uses Node.js, Express, SQLite, JWT authentication, Zod validation, Chart.js, Swagger/OpenAPI, and a VS Code extension.
 
@@ -56,6 +56,7 @@ The demo repository includes realistic synthetic data for:
 - [Tests](#tests)
 - [CI](#ci)
 - [Grant proposal](#grant-proposal)
+- [Try Stellar testnet payments](#try-stellar-testnet-payments)
 - [Roadmap](#roadmap)
 - [Information still needed](#information-still-needed)
 - [License](#license)
@@ -233,7 +234,10 @@ PlugLytics/
 |- public/                 # Public website and role-aware dashboard
 |- logo/                   # Original PlugLytics brand image assets
 |- pluglytics-vscode/      # VS Code extension source and VSIX
-|- scripts/                # Database seed script
+|- docs/
+|  |- pilot/               # Deployment, Canvas LMS, pilot school, definitions, accounting
+|  |- stellar/             # Stellar Payments documentation
+|- scripts/                # Seed, migrate, and backup scripts
 |- src/
 |  |- middleware/          # JWT, RBAC, and query validation
 |  |- routes/              # Auth and analytics endpoints
@@ -246,6 +250,7 @@ PlugLytics/
 |- .vscode/                # Debug, tasks, and extension launch setup
 |- api.http                # REST Client request examples
 |- PROPOSAL.md             # Grant proposal
+|- render.yaml             # Render deployment Blueprint (demo)
 |- README.md
 ```
 
@@ -297,8 +302,19 @@ code --install-extension pluglytics-vscode/pluglytics-0.1.0.vsix
 | `JWT_SECRET` | Signing JWTs | Development fallback | Production: yes |
 | `JWT_EXPIRES_IN` | JWT lifetime | `8h` | No |
 | `DATABASE_PATH` | SQLite database location | `./data/pluglytics.db` | No |
+| `TRUST_PROXY` | Number of reverse proxies in front of the app, so rate limiting sees each visitor's IP | `0` | On Render: `1` |
+| `BACKUP_DIR` | Where `npm run backup` writes database copies | `backups/` next to the database | No |
+| `BACKUP_KEEP` | How many backup copies to keep | `7` | No |
 
 Create a local `.env` from `.env.example`. Use a unique JWT secret outside development.
+
+Database scripts:
+
+| Command | What it does |
+| --- | --- |
+| `npm run seed` | Rebuilds the demo database. **Replaces all data**: never run it on real data |
+| `npm run migrate` | Creates missing tables, indexes, views and triggers. Never deletes data |
+| `npm run backup` | Writes a checked copy of the database and keeps the newest `BACKUP_KEEP` copies |
 
 ## Demo accounts
 
@@ -417,12 +433,15 @@ A disallowed filter returns HTTP `403` with a clear `FILTER_FORBIDDEN` response.
 | Course progress | Submitted or late items / total assigned items x 100 |
 | Submission rate | Submitted or late submissions / enrolled students x 100 |
 | Average score | Sum of `(submission score / maximum score x 100)` / score count |
-| Collection rate | Collected payments / tuition billed x 100 |
+| Gross billed | Sum of invoice base amounts |
+| Scholarships total | Sum of invoice scholarship amounts |
+| Net billed | Sum of invoice final amounts: gross billed - scholarships - discounts + fees |
+| Collection rate | Collected payments / net billed (after scholarships and discounts) x 100 |
 | Retention rate | Active enrollments / total enrollments x 100 |
 | Dropout rate | Dropped or withdrawn enrollments / total enrollments x 100 |
 | Pass rate | Enrollments with final grade >= 60 / graded enrollments x 100 |
 | Seat utilization | Enrolled students / section capacity x 100 |
-| Outstanding balance | Invoice amount - payments - approved adjustments |
+| Outstanding balance | Net billed per invoice (final amount, after scholarships, discounts and fees) - payments |
 | Aging bucket | Outstanding days since due date: 0-30, 31-60, or 60+ |
 | At-risk | 2+ missing submissions and/or attendance below 75%, plus plain-language reasons |
 
@@ -502,7 +521,47 @@ GitHub Actions workflows are not yet present in this repository.
 
 See [PROPOSAL.md](./PROPOSAL.md) for the PlugLytics grant proposal, Stellar Payments integration opportunity, planned roadmap, impact, budget categories, and evaluation metrics.
 
-The current project uses synthetic payment data. No live Stellar Payments or Stellar network integration is claimed.
+The current project uses synthetic payment data. Stellar **testnet** payments work (see [Try Stellar testnet payments](#try-stellar-testnet-payments)); production (real-money) payments are not enabled.
+
+See [docs/stellar/payments-api.md](./docs/stellar/payments-api.md) for the planned Stellar Payments API: the payment flow, endpoints, error codes, sandbox vs production setup, and testnet friendbot testing.
+
+## Stellar Payments
+
+Stellar **testnet** payments work: students can pay an invoice from the dashboard, and admins can see every payment request. **Production (real-money) payments are not enabled yet.** Some features in these documents are still planned:
+
+- [Payments API](./docs/stellar/payments-api.md): payment flow, endpoints, customer API keys, webhook registration, error codes, and sandbox vs production
+- [Webhooks](./docs/stellar/webhooks.md): event types, example payloads, signature verification, retries, and duplicate handling
+- [Settlement and reconciliation](./docs/stellar/settlement.md): accepted assets (XLM and USDC), daily and weekly reconciliation, settlement reports, and handling mismatches
+- [Approved payment methods](./docs/stellar/approved-payment-methods.md): which methods are accepted (USDC, XLM, anchors), who can use them, amount limits, and what is not accepted
+- [Refunds and chargebacks](./docs/stellar/refunds-and-chargebacks.md): who can request a refund, the refund procedure, partial refunds, anchor and card on-ramp disputes, and record-keeping
+- [Pilot budget and grant](./docs/stellar/pilot-budget-and-grant.md): pilot budget by category, grant amount, milestones, and reporting dates
+
+## Try Stellar testnet payments
+
+Testnet is Stellar's test network. Its XLM has **no real value**, so nothing here costs money. Production (real-money) payments are not enabled.
+
+1. **Copy the Stellar settings into `.env`.** Copy the Stellar lines (everything from `# --- Stellar merchant credentials ---` down) from `.env.example` into your `.env`, and keep `STELLAR_ENV=sandbox`. Never put real keys in `.env.example` or any committed file.
+2. **Create a testnet merchant account** (it receives the payments): open the [Stellar Laboratory](https://laboratory.stellar.org), switch to **Testnet**, and generate a keypair.
+3. **Fund it with Friendbot**, which gives a new testnet account 10,000 test XLM:
+
+   ```bash
+   curl "https://friendbot.stellar.org?addr=YOUR_MERCHANT_PUBLIC_KEY"
+   ```
+
+4. **Add the `SANDBOX_` keys** in `.env`, replacing the placeholders:
+
+   ```bash
+   SANDBOX_MERCHANT_PUBLIC_KEY=<merchant G... key>
+   SANDBOX_MERCHANT_SECRET_KEY=<merchant S... key>
+   SANDBOX_WEBHOOK_SIGNING_SECRET=<any long random string>
+   ```
+
+5. **Restart the server** so it reads the new settings: stop `npm run dev` and start it again. (Run `npm run seed` first if you have not seeded since pulling.)
+6. **Log in as the demo student** (`student@pluglytics.local` / `Demo123!`). In the **Payments** section, click **Pay with Stellar (Testnet)** on the unpaid 50 USD invoice. It asks for 125 XLM (sandbox rate: 1 USD = 2.5 XLM). Copy the **destination address**, **amount** and **memo**.
+7. **Pay with a second testnet account:** generate another keypair in the Stellar Laboratory (Testnet) or use a wallet that supports testnet, fund it with Friendbot, and send exactly that amount of XLM to the destination address with the memo as a **text memo**, within 30 minutes. Without the memo, the payment cannot be matched.
+8. The page checks every few seconds and shows **Completed** once the payment is found, or **Failed** with the reason. Log in as `admin@pluglytics.local` / `Demo123!` to see the request in **Stellar Payments**, linked to the transaction on [stellar.expert](https://stellar.expert/explorer/testnet).
+
+The testnet is reset from time to time. After a reset, fund new accounts with Friendbot again.
 
 ## Roadmap
 
@@ -523,18 +582,36 @@ The current project uses synthetic payment data. No live Stellar Payments or Ste
 
 The following information is needed before the README and grant materials can be fully finalized:
 
-1. Public production domain and hosting provider
-2. Public API and Swagger URLs
-3. Production database strategy and backup requirements
-4. LMS provider(s) used by the pilot institution
-5. Pilot institution name, program, and authorized contact
-6. Real enrollment, retention, and financial definitions
-7. Ledger and accounting system used for tuition reconciliation
-8. Stellar Payments sandbox and production merchant credentials
-9. Stellar Payments API, webhook, and settlement documentation
-10. Approved payment methods and refund/chargeback procedures
-11. Scholarship, discount, fee, and instructor-cost fields
-12. Pilot budget, grant amount, milestones, and reporting dates
+1. Public production domain and hosting provider: **Documented, partly built** ([deployment.md](./docs/pilot/deployment.md#1-hosting-provider-and-domain), [render.yaml](./render.yaml))
+   - Decided: Render, Singapore region; free instance for the demo, Starter instance with a persistent disk for the pilot.
+   - Still missing: the Render service name, a custom domain, and who owns the Render account. Nothing is deployed yet.
+2. Public API and Swagger URLs: **Documented, not deployed** ([deployment.md](./docs/pilot/deployment.md#2-public-api-and-swagger-urls))
+   - Planned: `https://<host>/api/v1` and `https://<host>/docs`, with `pluglytics.onrender.com` as the first host.
+   - Still missing: the real URLs, which exist only after the first deploy.
+3. Production database strategy and backup requirements: **Documented, partly built** ([deployment.md](./docs/pilot/deployment.md#3-production-database-strategy))
+   - Built: `npm run migrate` (schema only, never deletes data) and `npm run backup` (checked copies, keeps the newest 7).
+   - Still missing: scheduled nightly backups, off-site copies, versioned migrations, and the PostgreSQL plan for more than one school.
+4. LMS provider(s) used by the pilot institution: **Documented, not built** ([lms-integration.md](./docs/pilot/lms-integration.md))
+   - Decided: Canvas LMS, through the Canvas REST API first and LTI 1.3 later.
+   - Still missing: the pilot school's Canvas URL, quiz engine and attendance source; the importer is not built.
+5. Pilot institution name, program, and authorized contact: **Template only** ([pilot-institution.md](./docs/pilot/pilot-institution.md))
+   - Still missing: no school has agreed yet. Institution, program, contacts and approvals are TODO.
+6. Real enrollment, retention, and financial definitions: **Documented, not built** ([definitions.md](./docs/pilot/definitions.md))
+   - Found: the current retention rate shows 0% for finished terms, and collected amounts leave out Stellar payments and refunds.
+   - Still missing: the school's registrar and finance office must confirm the proposed definitions before the code is changed.
+7. Ledger and accounting system used for tuition reconciliation: **Documented, not decided** ([accounting-and-ledger.md](./docs/pilot/accounting-and-ledger.md))
+   - Planned: a daily journal-entry CSV that any accounting system can import.
+   - Still missing: the pilot school's accounting system, its account codes, and the journal-export endpoint.
+8. Stellar Payments sandbox and production merchant credentials: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#sandbox-vs-production))
+   - Still missing: real sandbox keys in `.env`, and production merchant credentials (production is not enabled).
+9. Stellar Payments API, webhook, and settlement documentation: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md), [webhooks.md](./docs/stellar/webhooks.md), [settlement.md](./docs/stellar/settlement.md))
+   - Still missing: webhooks, refunds, daily reconciliation, and other planned endpoints are not built yet.
+10. Approved payment methods and refund/chargeback procedures: **Documented, partly built** ([approved-payment-methods.md](./docs/stellar/approved-payment-methods.md), [refunds-and-chargebacks.md](./docs/stellar/refunds-and-chargebacks.md))
+    - Still missing: the refund endpoint is not built yet; amount limits, refund windows, and the approved anchor list are placeholders.
+11. Scholarship, discount, fee, and instructor-cost fields: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#pricing-fields))
+    - Still missing: admins can set these fields through the API (`POST /api/v1/invoices`, `PATCH /api/v1/invoices/:id`), but no dashboard screen sets them yet.
+12. Pilot budget, grant amount, milestones, and reporting dates: **Documented, partly built** ([pilot-budget-and-grant.md](./docs/stellar/pilot-budget-and-grant.md))
+    - Still missing: the grant amount, budget amounts, and milestone and report dates are TODO.
 13. User-testing population and target sample size
 14. Security, accessibility, and compliance requirements
 15. Confirmation that the supplied PlugLytics logo is approved for public and grant use

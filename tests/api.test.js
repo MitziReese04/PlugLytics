@@ -195,15 +195,15 @@ describe("PlugLytics API", () => {
     expect(response.status).toBe(403);
   });
 
-  test("admin finance collection rate is calculated from collected divided by billed", async () => {
+  test("admin finance collection rate is calculated from collected divided by net billed", async () => {
     const token = await login("admin@pluglytics.local");
     const response = await request(app)
       .get("/api/v1/admin/finance/overview")
       .set("Authorization", `Bearer ${token}`);
     expect(response.status).toBe(200);
     const finance = response.body.data[0];
-    const expected = finance.billed
-      ? Number(((finance.collected / finance.billed) * 100).toFixed(1))
+    const expected = finance.netBilled
+      ? Number(((finance.collected / finance.netBilled) * 100).toFixed(1))
       : 0;
     expect(finance.collectionRate).toBe(expected);
   });

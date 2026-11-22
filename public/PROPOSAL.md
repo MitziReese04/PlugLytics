@@ -50,7 +50,7 @@ The extension refreshes role-permitted terms and dates from the authenticated Pl
 Potential integration scope:
 
 1. Create a documented merchant-payment adapter for invoice and payment imports.
-2. Reconcile payment, refund, and chargeback records against student invoices.
+2. Reconcile payment, refund, and dispute records (Stellar payments have no chargebacks; disputes come through anchors or card on-ramps) against student invoices.
 3. Extend aging and collection reports without exposing individual student data in public views.
 4. Support payment-method and scholarship analysis.
 5. Produce auditable daily, weekly, and monthly financial summaries.
@@ -79,9 +79,9 @@ Students can access only their own records. Instructors can access identified ro
 | Phase | Deliverable | Target |
 | --- | --- | --- |
 | 1 | Grant-aligned repository, demo, and documentation | Complete |
-| 2 | Confirm LMS provider, map data, and implement a read-only ingestion adapter | 30 days after provider selection |
-| 3 | Stellar Payments sandbox/payment-adapter specification | 60 days |
-| 4 | Secure invoice reconciliation and webhook ingestion | 90 days |
+| 2 | Stellar Testnet payment adapter: payment requests, Horizon confirmation, late and memo-less matching, refunds, signed webhooks, scoped API keys | Implemented on Testnet |
+| 3 | Confirm LMS provider, map data, and implement a read-only ingestion adapter | 30 days after provider selection |
+| 4 | Pilot payment and aging dashboards; reconciliation review with the pilot school | 90 days |
 | 5 | Pilot with one school or training provider | 120 days |
 | 6 | Security, accessibility, and deployment hardening | 180 days |
 

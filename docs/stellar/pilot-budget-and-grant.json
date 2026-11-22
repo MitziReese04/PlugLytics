@@ -1,0 +1,181 @@
+{
+  "_readme": "Source of truth for docs/stellar/pilot-budget-and-grant.md. Every value marked TODO is a placeholder: replace it with the real value, then update the matching table in the .md file. Money values are numbers in `currency`. Dates use YYYY-MM-DD; placeholders use TODO-YYYY-MM-DD. Run `npm test` to check that totals and shares still add up.",
+  "currency": "USD",
+  "currencyTodo": "TODO: confirm the currency the grant is paid in",
+  "grant": {
+    "program": "Stellar Instaward",
+    "amount": 0,
+    "amountTodo": "TODO: replace 0 with the awarded grant amount",
+    "awardDate": "TODO-YYYY-MM-DD",
+    "grantStartDate": "TODO-YYYY-MM-DD",
+    "grantEndDate": "TODO-YYYY-MM-DD"
+  },
+  "otherFunding": {
+    "amount": 0,
+    "amountTodo": "TODO: any co-funding beyond the grant (leave 0 if none)",
+    "source": "TODO: name of the other funding source, or none"
+  },
+  "budgetCategories": [
+    {
+      "id": "integration",
+      "name": "API and data integration engineering",
+      "suggestedSharePercent": 25,
+      "amount": 0,
+      "todo": "TODO: amount"
+    },
+    {
+      "id": "reconciliation",
+      "name": "Payment reconciliation and data modeling",
+      "suggestedSharePercent": 20,
+      "amount": 0,
+      "todo": "TODO: amount"
+    },
+    {
+      "id": "privacy_security",
+      "name": "Privacy and security review",
+      "suggestedSharePercent": 15,
+      "amount": 0,
+      "todo": "TODO: amount"
+    },
+    {
+      "id": "frontend",
+      "name": "Frontend/dashboard implementation",
+      "suggestedSharePercent": 15,
+      "amount": 0,
+      "todo": "TODO: amount"
+    },
+    {
+      "id": "testing",
+      "name": "Test fixtures and automated tests",
+      "suggestedSharePercent": 10,
+      "amount": 0,
+      "todo": "TODO: amount"
+    },
+    {
+      "id": "pilot_onboarding",
+      "name": "Pilot onboarding and documentation",
+      "suggestedSharePercent": 10,
+      "amount": 0,
+      "todo": "TODO: amount"
+    },
+    {
+      "id": "accessibility_deployment",
+      "name": "Accessibility and deployment support",
+      "suggestedSharePercent": 5,
+      "amount": 0,
+      "todo": "TODO: amount"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "name": "Grant-aligned repository, demo, and documentation",
+      "deliverable": "Public repository with seeded demo, dashboard, VS Code plugin, and Stellar Payments documentation in docs/stellar/",
+      "targetDate": "TODO-YYYY-MM-DD",
+      "targetDateHint": "Already complete per PROPOSAL.md",
+      "budgetSharePercent": 0,
+      "status": "complete"
+    },
+    {
+      "id": "M2",
+      "name": "Stellar Payments sandbox and payment-adapter specification",
+      "deliverable": "Testnet merchant credentials configured, payment-request and Horizon-matching specification signed off",
+      "targetDate": "TODO-YYYY-MM-DD",
+      "targetDateHint": "About 30 days after grant start",
+      "budgetSharePercent": 15,
+      "status": "in_progress"
+    },
+    {
+      "id": "M3",
+      "name": "Secure invoice reconciliation and webhooks",
+      "deliverable": "Daily reconciliation, signed outgoing webhooks with per-customer secrets, refund procedure implemented in sandbox",
+      "targetDate": "TODO-YYYY-MM-DD",
+      "targetDateHint": "About 60 days after grant start",
+      "budgetSharePercent": 25,
+      "status": "not_started"
+    },
+    {
+      "id": "M4",
+      "name": "Pilot payment and aging dashboards",
+      "deliverable": "Dashboards for payment status, collection rate, aging, refunds, and settlement reports",
+      "targetDate": "TODO-YYYY-MM-DD",
+      "targetDateHint": "About 90 days after grant start",
+      "budgetSharePercent": 20,
+      "status": "not_started"
+    },
+    {
+      "id": "M5",
+      "name": "Pilot with one school or training provider",
+      "deliverable": "One institution onboarded, real (or pilot-limited) payments processed and reconciled, staff feedback collected",
+      "targetDate": "TODO-YYYY-MM-DD",
+      "targetDateHint": "About 120 days after grant start",
+      "budgetSharePercent": 25,
+      "status": "not_started"
+    },
+    {
+      "id": "M6",
+      "name": "Security, accessibility, and deployment hardening",
+      "deliverable": "Security and privacy review, accessibility audit, production deployment with backups and monitoring",
+      "targetDate": "TODO-YYYY-MM-DD",
+      "targetDateHint": "About 180 days after grant start",
+      "budgetSharePercent": 15,
+      "status": "not_started"
+    }
+  ],
+  "milestoneStatuses": ["not_started", "in_progress", "complete", "delayed"],
+  "reports": [
+    {
+      "id": "R1",
+      "name": "Kickoff report",
+      "dueDate": "TODO-YYYY-MM-DD",
+      "dueDateHint": "About 2 weeks after grant start",
+      "milestones": ["M1", "M2"],
+      "covers": [
+        "Confirmed scope, team, and timeline",
+        "Final budget by category",
+        "Sandbox setup progress (milestone M2)",
+        "Risks and how they will be handled"
+      ]
+    },
+    {
+      "id": "R2",
+      "name": "Progress report 1",
+      "dueDate": "TODO-YYYY-MM-DD",
+      "dueDateHint": "About 60 days after grant start",
+      "milestones": ["M2", "M3"],
+      "covers": [
+        "Milestone M2 result and M3 progress",
+        "Spend to date vs budget, by category",
+        "Automated test coverage of payment and authorization endpoints",
+        "Issues, delays, and changes to the plan"
+      ]
+    },
+    {
+      "id": "R3",
+      "name": "Progress report 2",
+      "dueDate": "TODO-YYYY-MM-DD",
+      "dueDateHint": "About 120 days after grant start",
+      "milestones": ["M4", "M5"],
+      "covers": [
+        "Milestone M4 result and pilot (M5) status",
+        "Spend to date vs budget, by category",
+        "Early pilot metrics: collection-rate accuracy, time to reconcile a term, staff task completion time",
+        "Pilot feedback and planned changes"
+      ]
+    },
+    {
+      "id": "R4",
+      "name": "Final report",
+      "dueDate": "TODO-YYYY-MM-DD",
+      "dueDateHint": "Within 30 days after grant end",
+      "milestones": ["M5", "M6"],
+      "covers": [
+        "Results for every milestone",
+        "Final spend vs budget, by category",
+        "All evaluation metrics from PROPOSAL.md, with pilot results",
+        "Security, privacy, and accessibility review outcomes",
+        "Lessons learned and next steps after the grant"
+      ]
+    }
+  ]
+}

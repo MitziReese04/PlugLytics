@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PlugLytics Dashboard</title>
-  <link rel="stylesheet" href="./styles.css?v=13">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="./styles.css?v=14">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js" integrity="sha384-Emf5ZVIUiarAdhkgtqK+5/Z5qIvM6QoVrS+qAVtfyZVuD5lIHrac0me485+Antp0" crossorigin="anonymous"></script>
 </head>
 <body class="dashboard-page">
   <div id="loginScreen" class="login-shell">
@@ -149,9 +149,265 @@
         <p id="calendarError" class="calendar-error" role="alert" hidden></p>
       </section>
       <section id="widgetGrid" class="widget-grid" aria-label="Dashboard features"></section>
+      <section id="paymentsSection" class="widget-card payments-section" aria-labelledby="paymentsHeading" hidden>
+        <div class="widget-card-heading">
+          <div>
+            <h2 id="paymentsHeading">Payments</h2>
+            <p>Your invoices and what is still due. Pay with Stellar on the test network.</p>
+          </div>
+          <span class="testnet-badge">TESTNET – no real money</span>
+        </div>
+        <p id="paymentsMessage" class="payments-message" role="status" aria-live="polite"></p>
+        <div class="payments-table-wrap">
+          <table class="invoice-table">
+            <thead>
+              <tr><th scope="col">Term</th><th scope="col">Amount</th><th scope="col">Still due</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Action</span></th></tr>
+            </thead>
+            <tbody id="invoiceRows"></tbody>
+          </table>
+        </div>
+        <section id="paymentPanel" class="payment-panel" aria-labelledby="paymentPanelHeading" hidden>
+          <div class="payment-panel-heading">
+            <h3 id="paymentPanelHeading">Pay with Stellar (Testnet)</h3>
+            <button id="closePaymentPanel" class="outline-button" type="button">Close</button>
+          </div>
+          <p class="testnet-banner"><strong>TESTNET – no real money.</strong> Send this payment from a Stellar <em>testnet</em> wallet only.</p>
+          <dl id="paymentDetails" class="payment-details"></dl>
+          <p class="memo-warning">Include the memo exactly as shown. Without it, the payment cannot be matched to your invoice.</p>
+          <p class="payment-status-line">Status: <span id="paymentStatus" class="payment-status" role="status" aria-live="polite"></span> <small id="paymentExpiry"></small></p>
+          <div class="payment-panel-actions">
+            <button id="cancelPaymentRequest" class="outline-button cancel-payment-button" type="button" hidden>Cancel payment request</button>
+          </div>
+        </section>
+      </section>
+      <section id="adminInvoicesSection" class="widget-card payments-section" aria-labelledby="adminInvoicesHeading" hidden>
+        <div class="widget-card-heading">
+          <div>
+            <h2 id="adminInvoicesHeading">Invoices</h2>
+            <p>Create and edit invoices with scholarships, discounts and fees. The final amount updates as you type.</p>
+          </div>
+          <button id="newInvoiceButton" type="button">New invoice</button>
+        </div>
+        <form id="invoiceFilters" class="admin-payments-toolbar">
+          <label>Student number<input id="invoiceStudentFilter" placeholder="e.g. STU-0001" autocomplete="off"></label>
+          <label>Term<select id="invoiceTermFilter"><option value="">All terms</option></select></label>
+          <button class="outline-button" type="submit">Search</button>
+          <span id="adminInvoicesCount" class="muted-cell" role="status" aria-live="polite"></span>
+        </form>
+        <p id="adminInvoicesMessage" class="payments-message"></p>
+
+        <section id="invoiceFormPanel" class="payment-panel" aria-labelledby="invoiceFormHeading" hidden>
+          <div class="payment-panel-heading">
+            <h3 id="invoiceFormHeading">New invoice</h3>
+            <button id="cancelInvoiceForm" class="outline-button" type="button">Cancel</button>
+          </div>
+          <form id="invoiceForm" novalidate>
+            <div class="invoice-form-grid">
+              <label data-create-only>Student number<input name="studentNumber" placeholder="e.g. STU-0001" autocomplete="off"></label>
+              <label data-create-only>Term<select name="termId"></select></label>
+              <p class="invoice-form-fixed" data-edit-only></p>
+              <label>Due date<input name="dueAt" type="date"></label>
+              <label>Currency<input name="currency" maxlength="3" placeholder="USD" autocomplete="off"></label>
+              <label>Base price<input name="basePrice" type="number" min="0" step="0.01" inputmode="decimal"></label>
+              <label>Scholarship amount<input name="scholarshipAmount" type="number" min="0" step="0.01" inputmode="decimal"></label>
+              <label>Scholarship type<select name="scholarshipType"><option value="">None</option></select></label>
+              <label>Scholarship name<input name="scholarshipName" maxlength="100" placeholder="e.g. Academic Merit Scholarship"></label>
+              <label>Discount (%)<input name="discountPercent" type="number" min="0" max="100" step="0.01" inputmode="decimal"></label>
+              <label>Discount code<input name="discountCode" maxlength="50" autocomplete="off"></label>
+              <label>Platform fee<input name="platformFee" type="number" min="0" step="0.01" inputmode="decimal"></label>
+              <label>Transaction fee<input name="transactionFee" type="number" min="0" step="0.01" inputmode="decimal"></label>
+              <label>Instructor cost <small>(not charged to the student)</small><input name="instructorCost" type="number" min="0" step="0.01" inputmode="decimal"></label>
+            </div>
+            <div id="invoicePreview" class="invoice-preview" role="status" aria-live="polite"></div>
+            <ul id="invoiceFormErrors" class="invoice-form-errors" role="alert"></ul>
+            <div class="invoice-form-actions">
+              <button id="saveInvoiceButton" type="submit">Save invoice</button>
+            </div>
+          </form>
+        </section>
+
+        <div class="payments-table-wrap">
+          <table class="invoice-table admin-payments-table">
+            <thead>
+              <tr><th scope="col">ID</th><th scope="col">Student</th><th scope="col">Term</th><th scope="col">Base price</th><th scope="col">Final amount</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Action</span></th></tr>
+            </thead>
+            <tbody id="adminInvoiceRows"></tbody>
+          </table>
+        </div>
+        <div class="admin-payments-pager">
+          <button id="adminInvoicesPrev" class="outline-button" type="button">Previous</button>
+          <span id="adminInvoicesPage" class="muted-cell"></span>
+          <button id="adminInvoicesNext" class="outline-button" type="button">Next</button>
+        </div>
+      </section>
+      <section id="adminWebhooksSection" class="widget-card payments-section" aria-labelledby="adminWebhooksHeading" hidden>
+        <div class="widget-card-heading">
+          <div>
+            <h2 id="adminWebhooksHeading">Webhooks</h2>
+            <p>Register a school's webhook URL. Each URL gets its own signing secret, shown only once.</p>
+          </div>
+          <span class="testnet-badge">TESTNET – no real money</span>
+        </div>
+        <form id="webhookForm" class="webhook-form" novalidate>
+          <div class="invoice-form-grid">
+            <label>School<select name="schoolId"></select></label>
+            <label class="webhook-url-field">URL<input name="url" type="url" placeholder="https://your-app.example.com/webhooks/pluglytics" autocomplete="off"></label>
+            <label>Description <small>(optional)</small><input name="description" maxlength="200" placeholder="e.g. Main LMS server"></label>
+          </div>
+          <fieldset class="webhook-events">
+            <legend>Events to send</legend>
+            <div id="webhookEventOptions" class="webhook-event-options"></div>
+          </fieldset>
+          <ul id="webhookFormErrors" class="invoice-form-errors" role="alert"></ul>
+          <div class="invoice-form-actions">
+            <button id="registerWebhookButton" type="submit">Register webhook</button>
+          </div>
+        </form>
+
+        <section id="webhookSecretPanel" class="payment-panel webhook-secret-panel" aria-labelledby="webhookSecretHeading" hidden>
+          <div class="payment-panel-heading">
+            <h3 id="webhookSecretHeading">Save this signing secret now</h3>
+          </div>
+          <p class="testnet-banner"><strong>It will not be shown again.</strong> Give it to the school to store in their app's <code>.env</code> (for example <code>PLUGLYTICS_WEBHOOK_SECRET</code>).</p>
+          <dl class="payment-details">
+            <div class="payment-detail">
+              <dt>Signing secret</dt>
+              <dd><code id="webhookSecretValue"></code>
+                <button id="copyWebhookSecret" type="button" class="outline-button copy-button" aria-label="Copy signing secret">Copy</button>
+              </dd>
+            </div>
+          </dl>
+          <p id="webhookSecretNote" class="memo-warning"></p>
+          <div class="payment-panel-actions">
+            <button id="dismissWebhookSecret" type="button">I have saved it</button>
+          </div>
+        </section>
+
+        <p id="adminWebhooksMessage" class="payments-message"></p>
+        <div class="payments-table-wrap">
+          <table class="invoice-table admin-payments-table webhook-table">
+            <thead>
+              <tr><th scope="col">URL</th><th scope="col">School</th><th scope="col">Events</th><th scope="col">Secret last rotated</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody id="adminWebhookRows"></tbody>
+          </table>
+        </div>
+      </section>
+      <section id="adminPaymentsSection" class="widget-card payments-section" aria-labelledby="adminPaymentsHeading" hidden>
+        <div class="widget-card-heading">
+          <div>
+            <h2 id="adminPaymentsHeading">Stellar Payments</h2>
+            <p>Payment requests created through Stellar, newest first. Statuses are shown as last checked.</p>
+          </div>
+          <span class="testnet-badge">TESTNET – no real money</span>
+        </div>
+        <div class="admin-payments-toolbar">
+          <label>Status
+            <select id="adminPaymentStatus">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+          </label>
+          <button id="adminPaymentsRefresh" class="outline-button" type="button">Refresh</button>
+          <span id="adminPaymentsCount" class="muted-cell" role="status" aria-live="polite"></span>
+        </div>
+        <p id="adminPaymentsMessage" class="payments-message"></p>
+        <section id="refundFormPanel" class="payment-panel" aria-labelledby="refundFormHeading" hidden>
+          <div class="payment-panel-heading">
+            <h3 id="refundFormHeading">Request a refund</h3>
+            <button id="cancelRefundForm" class="outline-button" type="button">Cancel</button>
+          </div>
+          <p id="refundFormIntro" class="memo-warning"></p>
+          <form id="refundForm" novalidate>
+            <div class="invoice-form-grid">
+              <label>Amount<input name="amount" inputmode="decimal" autocomplete="off"></label>
+              <label>Reason<select name="reason">
+                <option value="overpaid">Overpaid</option>
+                <option value="duplicate">Duplicate payment</option>
+                <option value="underpaid">Underpaid (not followed up)</option>
+                <option value="late_payment">Late payment not accepted</option>
+                <option value="customer_request">Customer request</option>
+                <option value="service_issue">Service issue</option>
+                <option value="dispute">Dispute (anchor or card on-ramp)</option>
+              </select></label>
+              <label>Destination <small>(leave empty for the original payer)</small><input name="destination" placeholder="G..." autocomplete="off" spellcheck="false"></label>
+              <label>Destination memo <small>(only with a destination given in writing)</small><input name="destinationMemo" maxlength="28" autocomplete="off"></label>
+              <label class="payment-fix-note">Note <small>(who asked, and why)</small><textarea name="note" rows="2" maxlength="500"></textarea></label>
+            </div>
+            <ul id="refundFormErrors" class="invoice-form-errors" role="alert"></ul>
+            <div class="invoice-form-actions">
+              <button id="submitRefundForm" type="submit">Request refund</button>
+            </div>
+          </form>
+        </section>
+        <section id="paymentFixPanel" class="payment-panel" aria-labelledby="paymentFixHeading" hidden>
+          <div class="payment-panel-heading">
+            <h3 id="paymentFixHeading">Accept late payment</h3>
+            <button id="cancelPaymentFix" class="outline-button" type="button">Cancel</button>
+          </div>
+          <p id="paymentFixIntro" class="memo-warning"></p>
+          <form id="paymentFixForm" novalidate>
+            <div class="invoice-form-grid">
+              <label class="webhook-url-field">Stellar transaction hash<input name="transactionHash" maxlength="64" placeholder="64 characters, from stellar.expert or the payer's wallet" autocomplete="off" spellcheck="false"></label>
+              <label class="payment-fix-note">Note <small>(saved for audits)</small><textarea name="note" rows="2" maxlength="500" placeholder="Why you are accepting or matching this payment"></textarea></label>
+            </div>
+            <ul id="paymentFixErrors" class="invoice-form-errors" role="alert"></ul>
+            <div class="invoice-form-actions">
+              <button id="submitPaymentFix" type="submit">Check on Horizon and create the payment</button>
+            </div>
+          </form>
+        </section>
+        <div class="payments-table-wrap">
+          <table class="invoice-table admin-payments-table">
+            <thead>
+              <tr><th scope="col">Created</th><th scope="col">Status</th><th scope="col">Amount</th><th scope="col">Asset</th><th scope="col">Memo</th><th scope="col">Transaction</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody id="adminPaymentRows"></tbody>
+          </table>
+        </div>
+        <div class="admin-payments-pager">
+          <button id="adminPaymentsPrev" class="outline-button" type="button">Previous</button>
+          <span id="adminPaymentsPage" class="muted-cell"></span>
+          <button id="adminPaymentsNext" class="outline-button" type="button">Next</button>
+        </div>
+      </section>
+      <section id="adminRefundsSection" class="widget-card payments-section" aria-labelledby="adminRefundsHeading" hidden>
+        <div class="widget-card-heading">
+          <div>
+            <h2 id="adminRefundsHeading">Refunds</h2>
+            <p>A refund is a new payment from the merchant account. Request it from a payment above, approve it, then send it.</p>
+          </div>
+          <span class="testnet-badge">TESTNET – no real money</span>
+        </div>
+        <div class="admin-payments-toolbar">
+          <label>Status
+            <select id="adminRefundStatus">
+              <option value="">All statuses</option>
+              <option value="requested">Requested</option>
+              <option value="approved">Approved</option>
+              <option value="issued">Issued</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
+          <button id="adminRefundsRefresh" class="outline-button" type="button">Refresh</button>
+        </div>
+        <p id="adminRefundsMessage" class="payments-message"></p>
+        <div class="payments-table-wrap">
+          <table class="invoice-table admin-payments-table webhook-table">
+            <thead>
+              <tr><th scope="col">Requested</th><th scope="col">Payment</th><th scope="col">Amount</th><th scope="col">Reason</th><th scope="col">Destination</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody id="adminRefundRows"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </div>
   <script src="./demo-preview-data.js?v=1"></script>
-  <script src="./app.js?v=12"></script>
+  <script src="./financeChart.js?v=1"></script>
+  <script src="./pricingPreview.js?v=1"></script>
+  <script src="./app.js?v=15"></script>
 </body>
 </html>
