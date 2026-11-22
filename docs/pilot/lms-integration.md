@@ -1,6 +1,6 @@
 # PlugLytics LMS Integration: Canvas
 
-> **Status: documented, not built.** This covers README item 4: the LMS used by the pilot institution. The pilot targets **Canvas LMS**. Today PlugLytics only reads its own seeded demo data. The Canvas importer and the LTI launch described here are planned work. Values marked **TODO** must be confirmed with the pilot school's Canvas administrator.
+> **Status: LTI launch built, importer not built.** This covers README item 4: the LMS used by the pilot institution. The pilot targets **Canvas LMS**. The LTI 1.3 launch (a PlugLytics tab inside Canvas) is built and tested against a simulated Canvas; see [canvas-lti-install.md](./canvas-lti-install.md). The Canvas data importer described here is still planned, so the dashboard shows PlugLytics' own data. Values marked **TODO** must be confirmed with the pilot school's Canvas administrator.
 
 ## Contents
 
@@ -34,7 +34,7 @@ Two connections, in this order:
 | Step | Connection | What it gives PlugLytics | Needed for the pilot? |
 | --- | --- | --- | --- |
 | 1 | **Canvas REST API** with an API developer key (OAuth 2) | Read-only import of terms, courses, sections, enrollments, assignments, submissions, scores and activity | Yes |
-| 2 | **LTI 1.3** with an LTI developer key | Opens the PlugLytics dashboard inside Canvas, with Canvas sign-in instead of a separate PlugLytics password | Nice to have; after the import works |
+| 2 | **LTI 1.3** with an LTI developer key | Opens the PlugLytics dashboard inside Canvas, with Canvas sign-in instead of a separate PlugLytics password | **Built** ([install guide](./canvas-lti-install.md)); needs a test in the school's Canvas |
 
 Canvas Data 2, Instructure's bulk data export for whole institutions, is an alternative to the REST API for large schools. It is out of scope for a one-program pilot.
 
@@ -122,7 +122,7 @@ These follow the privacy rules already in the [README](../../README.md#privacy-a
 3. Write mappers for each table above, with tests that use recorded Canvas responses (no live Canvas in tests).
 4. Add `npm run import:canvas` for the full and nightly imports.
 5. Run it against a Canvas **test or beta instance** before production data.
-6. Add the LTI 1.3 launch.
+6. ~~Add the LTI 1.3 launch.~~ Done: see [canvas-lti-install.md](./canvas-lti-install.md).
 
 ## Open decisions
 

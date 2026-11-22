@@ -12,8 +12,19 @@ function resolveJwtSecret(env = process.env) {
   return secret || DEVELOPMENT_JWT_SECRET;
 }
 
+// Sites allowed to show PlugLytics inside a frame, for example Canvas:
+// FRAME_ANCESTORS="https://*.instructure.com https://school.instructure.com".
+// Only https origins (optionally with a leading "*." wildcard) are accepted.
+function resolveFrameAncestors(env = process.env) {
+  return String(env.FRAME_ANCESTORS || "")
+    .split(/[\s,]+/)
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
+    .filter((origin) => /^https:\/\/(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?$/i.test(origin));
+}
+
 module.exports = {
   resolveJwtSecret,
+  resolveFrameAncestors,
   port: Number(process.env.PORT || 3000),
   jwtSecret: resolveJwtSecret(),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "8h",
@@ -21,4 +32,5 @@ module.exports = {
   // Number of reverse proxies in front of the app (Render uses 1). 0 = trust none.
   // Needed so rate limiting sees each visitor's IP instead of the proxy's.
   trustProxy: Number(process.env.TRUST_PROXY || 0),
+  frameAncestors: resolveFrameAncestors(),
 };

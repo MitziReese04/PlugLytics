@@ -13,6 +13,8 @@
     "seed": "node scripts/seed.js",
     "migrate": "node scripts/migrate.js",
     "backup": "node scripts/backup-db.js",
+    "lti:keygen": "node scripts/lti-keygen.js",
+    "lti:link": "node scripts/lti-link.js",
     "reconcile": "node scripts/reconcile.js",
     "test": "jest --runInBand",
     "package:plugin": "cd pluglytics-vscode && npx @vscode/vsce package"

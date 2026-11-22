@@ -48,6 +48,7 @@ Built with Node.js, Express, SQLite, JWT, Zod, Chart.js, and Swagger/OpenAPI, pl
 | Analytics API, dashboard, and public website | Working locally |
 | Stellar Testnet payments, refunds, webhooks, API keys, reconciliation and settlement reports | Working on Testnet, covered by automated tests |
 | USDC, anchors, subscriptions | Planned |
+| Canvas LTI 1.3 launch (PlugLytics tab inside Canvas) | Built and covered by automated tests; not yet tried in a real Canvas ([install guide](./docs/pilot/canvas-lti-install.md)) |
 | LMS provider import (Canvas) | Documented, not implemented ([plan](./docs/pilot/lms-integration.md)) |
 | Continuous integration | GitHub Actions on every push and pull request to `main` |
 | Public deployment | Deployed on Vercel as a Testnet demo with seeded data |
@@ -286,6 +287,8 @@ Create `.env` from `.env.example`. Stellar settings are described in [Stellar Te
 | `BACKUP_DIR` | Where `npm run backup` writes copies | `backups/` next to the database | No |
 | `BACKUP_KEEP` | Backup copies to keep | `7` | No |
 | `STELLAR_ENV` | `sandbox` selects the Stellar Testnet | - | For payments |
+| `LTI_PRIVATE_KEY`, `LTI_TOOL_URL`, `LTI_CLIENT_ID`, `LTI_DEPLOYMENT_IDS` | Canvas LTI 1.3 launch; see [canvas-lti-install.md](./docs/pilot/canvas-lti-install.md#settings) for all `LTI_` settings | - | For Canvas |
+| `FRAME_ANCESTORS` | Sites allowed to show PlugLytics in a frame, for example `https://*.instructure.com` for Canvas | Only PlugLytics itself | For Canvas |
 | `REFUND_ISSUING_ENABLED` | Whether this server may send testnet refund payments | `false` | Set `true` locally to send testnet refunds; keep `false` on the public demo |
 
 | Command | What it does |
@@ -296,6 +299,8 @@ Create `.env` from `.env.example`. Stellar settings are described in [Stellar Te
 | `npm run migrate` | Creates missing tables, indexes, views, and triggers; never deletes data |
 | `npm run backup` | Writes a checked copy of the database and keeps the newest `BACKUP_KEEP` copies |
 | `npm run reconcile` | Reconciles the Stellar Testnet merchant account and saves settlement reports (`-- daily YYYY-MM-DD` or `-- weekly [YYYY-MM-DD]`; default: yesterday). Read-only on Horizon; see [settlement.md](./docs/stellar/settlement.md#what-is-built) |
+| `npm run lti:keygen` | Prints a new `LTI_PRIVATE_KEY` for the Canvas LTI tool |
+| `npm run lti:link -- <email> <canvas-user-id>` | Links a Canvas user to a PlugLytics account by hand (needed for admins) |
 | `npm test` | Runs the Jest test suites |
 | `npm run package:plugin` | Packages the VS Code extension as a VSIX |
 
@@ -501,6 +506,7 @@ The suites in [`tests/`](./tests) cover authentication and role boundaries, filt
 | [Pilot budget and grant](./docs/stellar/pilot-budget-and-grant.md) | Budget categories, milestones, and reporting dates |
 | [Deployment](./docs/pilot/deployment.md) | Hosting, URLs, database, and backups |
 | [LMS integration](./docs/pilot/lms-integration.md) | Canvas LMS import and LTI plan |
+| [Canvas LTI install](./docs/pilot/canvas-lti-install.md) | Installing PlugLytics in Canvas as an LTI 1.3 tool |
 | [Definitions](./docs/pilot/definitions.md) | Enrollment, retention, and finance definitions |
 | [Accounting and ledger](./docs/pilot/accounting-and-ledger.md) | Journal export and accounting mapping |
 | [Pilot institution](./docs/pilot/pilot-institution.md) | Pilot school template |
@@ -513,6 +519,7 @@ The suites in [`tests/`](./tests) cover authentication and role boundaries, filt
 - [x] Automated CI with GitHub Actions
 - [x] Live public deployment on Vercel with HTTPS
 - [ ] USDC payments and anchors on Testnet, then a production rollout after the pilot review
+- [x] Canvas LTI 1.3 launch: a PlugLytics tab inside Canvas ([install guide](./docs/pilot/canvas-lti-install.md)); still to be tried in a real Canvas
 - [ ] Provider-specific LMS integration (Canvas) for enrollments, courses, grades, attendance, and events
 - [ ] Revenue forecast and course-margin reporting
 - [ ] Code-quality (lint) workflow
@@ -529,7 +536,7 @@ The suites in [`tests/`](./tests) cover authentication and role boundaries, filt
 | 1 | Hosting provider and domain ([deployment](./docs/pilot/deployment.md#1-hosting-provider-and-domain)) | Documented, partly built | Vercel demo deployed; custom domain, account owner, and production hosting decisions remain |
 | 2 | Public API and Swagger URLs ([deployment](./docs/pilot/deployment.md#2-public-api-and-swagger-urls)) | Live on Vercel demo | Production/public API URL strategy remains |
 | 3 | Production database and backups ([deployment](./docs/pilot/deployment.md#3-production-database-strategy)) | Partly built (`migrate`, `backup`) | Scheduled and off-site backups, versioned migrations, PostgreSQL plan |
-| 4 | Pilot LMS provider ([LMS integration](./docs/pilot/lms-integration.md)) | Canvas chosen, not built | School's Canvas URL, quiz engine, attendance source; importer |
+| 4 | Pilot LMS provider ([LMS integration](./docs/pilot/lms-integration.md)) | Canvas chosen; LTI 1.3 launch built ([install guide](./docs/pilot/canvas-lti-install.md)) | Test in the school's Canvas; school's Canvas URL, quiz engine, attendance source; importer |
 | 5 | Pilot institution and contact ([template](./docs/pilot/pilot-institution.md)) | Template only | No school has agreed yet |
 | 6 | Enrollment, retention, and finance definitions ([definitions](./docs/pilot/definitions.md)) | Documented | Confirmation by the school's registrar and finance office |
 | 7 | Ledger and accounting system ([accounting](./docs/pilot/accounting-and-ledger.md)) | Documented, not decided | School's accounting system, account codes, journal export |

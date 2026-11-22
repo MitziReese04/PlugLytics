@@ -88,4 +88,4 @@ No real student data is imported until every box is ticked:
 2. Ask a faculty member or program head who already knows the team to introduce PlugLytics.
 3. Demo the dashboard with synthetic data only.
 4. Agree on the scope table above, then send the agreement and data-sharing agreement drafts.
-5. Fill in this file and update item 5 in the [README](../../README.md#information-still-needed).
+5. Fill in this file and update item 5 in the [README](../../README.md#roadmap).

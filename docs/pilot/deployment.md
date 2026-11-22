@@ -74,7 +74,7 @@ Notes:
 - Render uses `/api/v1/health` as the health check ([render.yaml](../../render.yaml)), so a broken deploy is not put live.
 - Render sits behind one proxy, so the service sets `TRUST_PROXY=1`. Without it, the rate limiter would see every visitor as the same IP address and the 300-requests-per-minute limit would be shared by everyone.
 - The demo accounts (`Demo123!`) are public on the demo. They must be removed before any real data is loaded.
-- **TODO:** once deployed, update the Live project table in the [README](../../README.md#live-project) with the real URLs.
+- **TODO:** once deployed, update the Live project table in the [README](../../README.md#live-demo-on-vercel) with the real URLs.
 
 ## 3. Production database strategy
 
