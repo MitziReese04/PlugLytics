@@ -14,6 +14,14 @@ function getLmsDateOptionsUrl() {
     .trim();
 }
 
+function isLocalBaseUrl(baseUrl) {
+  try {
+    return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(new URL(baseUrl).hostname.toLowerCase());
+  } catch (error) {
+    return false;
+  }
+}
+
 async function readApiResponse(response, action) {
   let body;
   try {
@@ -27,6 +35,75 @@ async function readApiResponse(response, action) {
     throw new Error(body.error?.message || `${action} failed (HTTP ${response.status}).`);
   }
   return body;
+}
+
+async function probeApi(baseUrl, fetchImpl = fetch) {
+  let response;
+  try {
+    response = await fetchImpl(`${baseUrl}/api/v1/health`);
+  } catch (error) {
+    return { available: false, error };
+  }
+  return { available: true, body: await readApiResponse(response, "Health check") };
+}
+
+async function waitForApi(baseUrl, { fetchImpl = fetch, timeoutMs = 30_000, intervalMs = 500 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError;
+  do {
+    const result = await probeApi(baseUrl, fetchImpl);
+    if (result.available) return result.body;
+    lastError = result.error;
+    if (Date.now() >= deadline) break;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  } while (Date.now() <= deadline);
+
+  throw new Error(
+    `PlugLytics API did not start at ${baseUrl} within ${timeoutMs / 1000} seconds. ` +
+      `Run "npm run dev" from the repository root. Last connection error: ${lastError.message}`
+  );
+}
+
+function createApiTask(vscodeApi = vscode) {
+  return new vscodeApi.Task(
+    { type: "npm", script: "dev" },
+    vscodeApi.TaskScope.Workspace,
+    "PlugLytics API",
+    "PlugLytics",
+    new vscodeApi.ShellExecution("npm run dev"),
+    []
+  );
+}
+
+async function openDashboardPage({
+  baseUrl = getBaseUrl(),
+  queryParams = {},
+  vscodeApi = vscode,
+  fetchImpl = fetch,
+} = {}) {
+  const probe = await probeApi(baseUrl, fetchImpl);
+  if (!probe.available) {
+    if (!isLocalBaseUrl(baseUrl)) {
+      throw new Error(
+        `Unable to connect to the PlugLytics API at ${baseUrl}: ${probe.error.message}. ` +
+          "Check that the server is running and pluglytics.baseUrl is correct."
+      );
+    }
+
+    await vscodeApi.tasks.executeTask(createApiTask(vscodeApi));
+    await vscodeApi.window.withProgress(
+      {
+        location: vscodeApi.ProgressLocation.Notification,
+        title: "Starting PlugLytics API...",
+        cancellable: false,
+      },
+      () => waitForApi(baseUrl, { fetchImpl })
+    );
+  }
+
+  const url = new URL(`${baseUrl}/public/dashboard.html`);
+  Object.entries(queryParams).forEach(([key, value]) => url.searchParams.set(key, value));
+  await vscodeApi.env.openExternal(vscodeApi.Uri.parse(url.toString()));
 }
 
 function isDateValue(value, key) {
@@ -226,10 +303,7 @@ async function chooseDateRange(context) {
   });
   if (!selected) return;
 
-  const url = new URL(`${getBaseUrl()}/public/dashboard.html`);
-  url.searchParams.set("from", selected.from);
-  url.searchParams.set("to", selected.to);
-  await vscode.env.openExternal(vscode.Uri.parse(url.toString()));
+  await openDashboardPage({ queryParams: { from: selected.from, to: selected.to } });
 }
 
 function activate(context) {
@@ -238,22 +312,17 @@ function activate(context) {
 
   const openDashboard = vscode.commands.registerCommand(
     "pluglytics.openDashboard",
-    () => vscode.env.openExternal(vscode.Uri.parse(`${getBaseUrl()}/public/dashboard.html`))
+    () =>
+      openDashboardPage().catch((error) =>
+        vscode.window.showErrorMessage(`Unable to open PlugLytics dashboard: ${error.message}`)
+      )
   );
   const openDocs = vscode.commands.registerCommand(
     "pluglytics.openDocs",
     () => vscode.env.openExternal(vscode.Uri.parse(`${getBaseUrl()}/docs`))
   );
   const startApi = vscode.commands.registerCommand("pluglytics.startApi", async () => {
-    const task = new vscode.Task(
-      { type: "npm", script: "dev" },
-      vscode.TaskScope.Workspace,
-      "PlugLytics API",
-      "PlugLytics",
-      new vscode.ShellExecution("npm run dev"),
-      []
-    );
-    await vscode.tasks.executeTask(task);
+    await vscode.tasks.executeTask(createApiTask());
   });
   const healthCheck = vscode.commands.registerCommand("pluglytics.healthCheck", async () => {
     try {
@@ -286,7 +355,10 @@ function activate(context) {
   );
   const filterDates = vscode.commands.registerCommand(
     "pluglytics.chooseDateRange",
-    () => chooseDateRange(context)
+    () =>
+      chooseDateRange(context).catch((error) =>
+        vscode.window.showErrorMessage(`Unable to open filtered PlugLytics dashboard: ${error.message}`)
+      )
   );
   const configureLms = vscode.commands.registerCommand(
     "pluglytics.configureLms",
@@ -390,4 +462,12 @@ function activate(context) {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, extractDates, readApiResponse };
+module.exports = {
+  activate,
+  deactivate,
+  extractDates,
+  isLocalBaseUrl,
+  openDashboardPage,
+  readApiResponse,
+  waitForApi,
+};

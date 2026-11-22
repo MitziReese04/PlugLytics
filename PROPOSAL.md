@@ -32,7 +32,7 @@ The initial PlugLytics implementation provides:
 - Authenticated dashboards and interactive public Student, Instructor, and Admin previews.
 - A responsive product website with role and use-case sections, branded navigation, and a direct VSIX download button.
 - A PlugLytics-branded login screen using the navy-and-teal visual palette and supplied mark.
-- A VS Code extension that connects to PlugLytics and opens the dashboard with a selected term or date range.
+- A VS Code extension that connects to PlugLytics, starts and health-checks the local API when opening its dashboard, and supports a selected term or date range.
 - Realistic seeded demo data and a zero-setup SQLite database.
 - Stellar Testnet payments for invoices (XLM only), with Horizon confirmation, refunds, signed webhooks, and customer API keys. Testnet only; no real money.
 - Automated tests run in GitHub Actions on every push and pull request to `main`.

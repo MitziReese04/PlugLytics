@@ -445,6 +445,8 @@ Commands: **Open Dashboard**, **Open API Documentation**, **Start API**, **Check
 
 The API URL is set with `pluglytics.baseUrl`. After connecting, the extension refreshes role-scoped date choices and can open the dashboard filtered to a term or date range. An optional `pluglytics.lmsDateOptionsUrl` points to a JSON endpoint on the institution's LMS from which the extension reads ISO dates or Unix timestamps.
 
+**Open Dashboard** checks the API first and automatically starts `npm run dev` as a VS Code task when the default local server is stopped. It waits for the health check before opening the page; keep that task running while you use the dashboard. If `pluglytics.baseUrl` points to a custom or remote server, start that server separately.
+
 > [!NOTE]
 > The LMS connector reads dates only. It does not scrape LMS pages, implement provider-specific OAuth or pagination, or import enrollments, grades, courses, curriculum, attendance, or events. The sample curriculum and demo events on the website are static files under `public/` and never enter the API or database.
 
