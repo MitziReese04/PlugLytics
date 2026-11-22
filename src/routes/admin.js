@@ -9,7 +9,7 @@ const { cachedFinance } = require("../utils/financeCache");
 const router = express.Router();
 router.use(authenticate, authorize("admin"), readQueryFilters("admin"));
 
-function termParams(req) {
+function termParams(req, options = {}) {
   const params = {};
   let sql = "";
   if (req.filters.term) {
@@ -32,17 +32,38 @@ function termParams(req) {
     sql += " AND t.start_date <= date(@to)";
     params.to = req.filters.to;
   }
+  if (options.yearLevel && req.filters.yearLevel) {
+    sql += " AND st.year_level = @yearLevel";
+    params.yearLevel = req.filters.yearLevel;
+  }
+  if (options.status && req.filters.status) {
+    sql += " AND e.status = @status";
+    params.status = req.filters.status;
+  }
+  if (options.course && req.filters.course) {
+    sql += " AND c.code = @course";
+    params.course = req.filters.course;
+  }
+  if (options.section && req.filters.section) {
+    sql += " AND sec.name = @section";
+    params.section = req.filters.section;
+  }
+  if (options.instructor && req.filters.instructor) {
+    sql += " AND i.id = @instructor";
+    params.instructor = req.filters.instructor;
+  }
   return { sql, params };
 }
 
 const enrollment = express.Router();
 enrollment.get("/summary", (req, res) => {
-  const filter = termParams(req);
+  const filter = termParams(req, { yearLevel: true, status: true, course: true, section: true });
   const row = db.prepare(`
     SELECT COUNT(DISTINCT e.student_id) AS enrolledStudents,
            SUM(CASE WHEN e.status = 'waitlisted' THEN 1 ELSE 0 END) AS waitlisted
     FROM enrollments e
     JOIN sections sec ON sec.id = e.section_id
+    JOIN courses c ON c.id = sec.course_id
     JOIN terms t ON t.id = sec.term_id
     JOIN students st ON st.id = e.student_id
     JOIN programs p ON p.id = st.program_id
@@ -53,11 +74,12 @@ enrollment.get("/summary", (req, res) => {
 });
 
 enrollment.get("/by-specialization", (req, res) => {
-  const filter = termParams(req);
+  const filter = termParams(req, { yearLevel: true, status: true, course: true, section: true });
   const rows = db.prepare(`
     SELECT sp.name AS specialization, COUNT(DISTINCT e.student_id) AS enrolledStudents
     FROM enrollments e
     JOIN sections sec ON sec.id = e.section_id
+    JOIN courses c ON c.id = sec.course_id
     JOIN terms t ON t.id = sec.term_id
     JOIN students st ON st.id = e.student_id
     JOIN programs p ON p.id = st.program_id
@@ -69,11 +91,12 @@ enrollment.get("/by-specialization", (req, res) => {
 });
 
 enrollment.get("/year-level", (req, res) => {
-  const filter = termParams(req);
+  const filter = termParams(req, { yearLevel: true, status: true, course: true, section: true });
   const rows = db.prepare(`
     SELECT st.year_level AS yearLevel, COUNT(DISTINCT e.student_id) AS enrolledStudents
     FROM enrollments e
     JOIN sections sec ON sec.id = e.section_id
+    JOIN courses c ON c.id = sec.course_id
     JOIN terms t ON t.id = sec.term_id
     JOIN students st ON st.id = e.student_id
     JOIN programs p ON p.id = st.program_id
@@ -85,7 +108,7 @@ enrollment.get("/year-level", (req, res) => {
 });
 
 enrollment.get("/retention", (req, res) => {
-  const filter = termParams(req);
+  const filter = termParams(req, { yearLevel: true, status: true, course: true, section: true });
   const rows = db.prepare(`
     SELECT t.name AS term,
            ROUND(SUM(CASE WHEN e.status = 'active' THEN 1 ELSE 0 END) * 100.0 /
@@ -94,6 +117,7 @@ enrollment.get("/retention", (req, res) => {
              NULLIF(COUNT(e.id), 0), 1) AS dropoutPercent
     FROM enrollments e
     JOIN sections sec ON sec.id = e.section_id
+    JOIN courses c ON c.id = sec.course_id
     JOIN terms t ON t.id = sec.term_id
     JOIN students st ON st.id = e.student_id
     JOIN programs p ON p.id = st.program_id
@@ -105,7 +129,7 @@ enrollment.get("/retention", (req, res) => {
 });
 
 enrollment.get("/seat-utilization", (req, res) => {
-  const filter = termParams(req);
+  const filter = termParams(req, { yearLevel: true, status: true, course: true, section: true });
   const rows = db.prepare(`
     SELECT c.code AS courseCode, c.title, sec.name AS section,
            sec.capacity,
@@ -236,7 +260,7 @@ academics.get("/gpa-by-specialization", (req, res) => {
 });
 
 academics.get("/pass-rates", (req, res) => {
-  const filter = termParams(req);
+  const filter = termParams(req, { course: true, section: true });
   const rows = db.prepare(`
     SELECT c.code AS courseCode, c.title,
            ROUND(SUM(CASE WHEN e.final_grade >= 60 THEN 1 ELSE 0 END) * 100.0 /
@@ -255,7 +279,7 @@ academics.get("/pass-rates", (req, res) => {
 });
 
 academics.get("/ratings", (req, res) => {
-  const filter = termParams(req);
+  const filter = termParams(req, { course: true, section: true, instructor: true });
   const rows = db.prepare(`
     SELECT u.name AS instructor, ROUND(AVG(ir.rating), 2) AS averageRating
     FROM instructor_ratings ir
@@ -277,7 +301,7 @@ router.use("/academics", academics);
 
 const operations = express.Router();
 operations.get("/course-popularity", (req, res) => {
-  const filter = termParams(req);
+  const filter = termParams(req, { course: true, section: true });
   const rows = db.prepare(`
     SELECT c.code AS courseCode, c.title, COUNT(DISTINCT e.student_id) AS enrolledStudents
     FROM courses c

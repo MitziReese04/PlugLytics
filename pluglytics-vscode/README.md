@@ -19,6 +19,8 @@ Open the Command Palette with `Ctrl+Shift+P`:
 Set `pluglytics.baseUrl` to the PlugLytics server URL. The default is `http://localhost:3000`.
 After sign-in, the extension automatically fetches the terms and activity dates permitted for your role. Choose a term or date range from the Command Palette to open the dashboard with `from` and `to` filters.
 
+**PlugLytics: Open Dashboard** checks that the API is responding first. If the default local API is stopped, the extension starts `npm run dev` as a VS Code task, waits for it to become healthy, and then opens the dashboard. Keep the task running while using the dashboard. For a custom or remote `pluglytics.baseUrl`, start that server separately; the extension reports a connection error rather than starting a local server.
+
 The access token is kept in VS Code SecretStorage. The password is only used for sign-in and is not saved.
 
 On first activation, the extension offers to connect an account. You can also run **PlugLytics: Connect Account** at any time. To refresh after the initial fetch, run **PlugLytics: Refresh Available LMS Dates**. Choose a date filter with **PlugLytics: Filter Dashboard by Date**.

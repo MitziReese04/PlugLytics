@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PlugLytics Dashboard</title>
-  <link rel="stylesheet" href="./styles.css?v=13">
+  <link rel="stylesheet" href="./styles.css?v=14">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js" integrity="sha384-Emf5ZVIUiarAdhkgtqK+5/Z5qIvM6QoVrS+qAVtfyZVuD5lIHrac0me485+Antp0" crossorigin="anonymous"></script>
 </head>
 <body class="dashboard-page">
@@ -19,6 +19,12 @@
         <button type="submit">Sign in</button>
         <p id="loginError" class="error" role="alert"></p>
       </form>
+      <div class="demo-role-switch" aria-label="Select demo dashboard role">
+        <span>Try a demo role</span>
+        <button type="button" data-demo-email="student@pluglytics.local">Student</button>
+        <button type="button" data-demo-email="instructor@pluglytics.local">Instructor</button>
+        <button type="button" data-demo-email="admin@pluglytics.local">Admin</button>
+      </div>
       <section id="fileProtocolHelp" class="server-help" hidden>
         <h2>Start the PlugLytics server first</h2>
         <p>This page was opened directly from your files. Sign-in and analytics need the local PlugLytics server.</p>
@@ -40,8 +46,9 @@
       </a>
       <div class="dashboard-actions">
         <button id="customizeButton" class="outline-button customize-button" type="button" aria-expanded="false" aria-controls="customizePanel">
-          Customize dashboard <span aria-hidden="true">⌄</span>
+          Customize Dashboard <span aria-hidden="true">⌄</span>
         </button>
+        <a id="courseOutlineLink" class="outline-button course-outline-link" href="./curriculum.html">Course outline</a>
         <label class="theme-toggle">Theme
           <select id="themeSelect" aria-label="Dashboard color theme">
             <option value="light">Light</option>
@@ -59,27 +66,88 @@
           <p class="dashboard-intro">A clear view of your learning, progress, and what’s next.</p>
         </div>
       </header>
-      <section id="customizePanel" class="widget-panel" hidden>
+      <dialog id="customizePanel" class="widget-panel customize-dialog" aria-labelledby="customizeTitle">
         <div class="panel-heading">
-          <div><h2>Choose what to see</h2><p>Turn dashboard features on or off. Your selection is saved with your layout.</p></div>
-          <button id="saveLayout" type="button">Save dashboard</button>
+          <div><h2 id="customizeTitle">Choose what to see</h2><p>Turn dashboard features on or off. Your selection is saved with your layout.</p></div>
+          <div class="panel-actions">
+            <button id="closeCustomizeButton" class="outline-button" type="button">Close</button>
+            <button id="saveLayout" type="button">Save dashboard</button>
+          </div>
         </div>
         <div id="widgetCatalog" class="widget-catalog"></div>
         <p id="saveStatus" class="save-status" role="status" aria-live="polite"></p>
-      </section>
+      </dialog>
       <details class="filter-panel">
         <summary>Filters <span>Refine your dashboard by term, dates, course, or section</span></summary>
         <section class="filter-bar">
-        <label>Term<select id="termFilter"><option value="">All terms</option><option value="2023-1">Fall 2023</option><option value="2024-1">Spring 2024</option><option value="2024-2">Fall 2024</option><option value="2025-1">Spring 2025</option></select></label>
+        <label>Term<select id="termFilter"><option value="">All available terms</option></select></label>
         <label>From<input id="fromFilter" type="date"></label>
         <label>To<input id="toFilter" type="date"></label>
-        <label>Course<input id="courseFilter" placeholder="e.g. COURSE-001"></label>
-        <label>Section<input id="sectionFilter" placeholder="e.g. Section A"></label>
-        <label>Group<select id="groupFilter"><option value="">None</option><option value="term">Term</option><option value="course">Course</option><option value="section">Section</option></select></label>
+        <label>Specialization<select id="specializationFilter"></select></label>
+        <label>Program<select id="programFilter"></select></label>
+        <label>Course<select id="courseFilter"></select></label>
+        <label>Section<select id="sectionFilter"></select></label>
+        <label>Instructor<select id="instructorFilter"></select></label>
+        <label>Year level<select id="yearLevelFilter"></select></label>
+        <label>Status<select id="statusFilter"></select></label>
+        <label>Group<select id="groupFilter"><option value="">None</option><option value="term">Term</option><option value="course">Course</option><option value="section">Section</option><option value="specialization">Specialization</option><option value="program">Program</option></select></label>
         <button id="applyFilters" type="button">Apply filters</button>
         </section>
       </details>
       <section id="summaryGrid" class="summary-grid" aria-label="Dashboard highlights"></section>
+      <section id="curriculumDashboard" class="curriculum-dashboard" aria-labelledby="curriculumDashboardHeading" hidden>
+        <header class="curriculum-dashboard-heading">
+          <div>
+            <p class="eyebrow">Program course map</p>
+            <h2 id="curriculumDashboardHeading">Curriculum progress</h2>
+            <p id="curriculumDashboardSubheading">Your completed, current, and remaining program courses.</p>
+          </div>
+          <a class="outline-button course-outline-link" href="./curriculum.html">Full course outline</a>
+        </header>
+        <p id="curriculumDashboardSource" class="curriculum-source"></p>
+        <div class="curriculum-dashboard-progress">
+          <div class="completion-heading">
+            <div><p>Program completion</p><strong id="dashboardCompletionPercent">0%</strong></div>
+            <span><strong id="dashboardCompletedUnits">0</strong> of <strong id="dashboardTotalUnits">0</strong> units completed</span>
+          </div>
+          <div class="completion-progress" role="progressbar" aria-label="Program completion" aria-valuemin="0" aria-valuemax="100">
+            <span id="dashboardCompletionFill"></span>
+          </div>
+          <p><strong id="dashboardRemainingUnits">0</strong> units remaining ·
+            <strong id="dashboardCompletedCourses">0</strong> courses finished ·
+            <strong id="dashboardRemainingCourses">0</strong> courses still ahead</p>
+        </div>
+        <div id="curriculumDashboardTerms" class="curriculum-dashboard-terms"></div>
+        <p id="curriculumDashboardError" class="curriculum-error" role="alert" hidden></p>
+      </section>
+      <section id="demoEventsSection" class="demo-events-section" aria-labelledby="demoEventsHeading" hidden>
+        <header><div><p class="eyebrow">Preview data only</p><h2 id="demoEventsHeading">Upcoming demo events</h2></div>
+          <span>Not synced from an LMS</span></header>
+        <ul id="demoEventsList" class="schedule-list"></ul>
+      </section>
+      <section id="calendarSection" class="calendar-section" aria-labelledby="calendarHeading">
+        <div class="calendar-section-heading">
+          <div>
+            <p class="eyebrow">Plan your month</p>
+            <h2 id="calendarHeading">Calendar</h2>
+            <p id="calendarDescription">Assignment deadlines from your enrolled courses.</p>
+          </div>
+          <div class="calendar-toolbar">
+            <button id="previousMonth" class="outline-button calendar-nav-button" type="button" aria-label="Previous month">‹</button>
+            <h3 id="calendarMonthLabel" aria-live="polite"></h3>
+            <button id="nextMonth" class="outline-button calendar-nav-button" type="button" aria-label="Next month">›</button>
+          </div>
+        </div>
+        <div class="calendar-meta">
+          <div class="calendar-legend"><span><i class="calendar-event-dot"></i> Assignment deadline</span>
+            <span id="calendarDemoLegend" hidden><i class="calendar-event-dot calendar-event-dot-demo"></i> Illustrative demo event</span>
+            <span class="calendar-unavailable">School events, meetings, and class times are not synced yet</span></div>
+          <p id="calendarDataNote" class="calendar-data-note">This calendar currently displays deadlines only.</p>
+        </div>
+        <div id="calendarGrid" class="calendar-grid" role="grid" aria-labelledby="calendarMonthLabel"></div>
+        <p id="calendarEmpty" class="calendar-empty" hidden></p>
+        <p id="calendarError" class="calendar-error" role="alert" hidden></p>
+      </section>
       <section id="widgetGrid" class="widget-grid" aria-label="Dashboard features"></section>
       <section id="paymentsSection" class="widget-card payments-section" aria-labelledby="paymentsHeading" hidden>
         <div class="widget-card-heading">
@@ -388,6 +456,7 @@
       </section>
     </main>
   </div>
+  <script src="./demo-preview-data.js?v=1"></script>
   <script src="./financeChart.js?v=1"></script>
   <script src="./pricingPreview.js?v=1"></script>
   <script src="./app.js?v=16"></script>

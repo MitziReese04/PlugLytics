@@ -1,0 +1,71 @@
+{
+  "programName": "Bachelor of Science in Information Technology",
+  "specialization": "Software Development",
+  "curriculumVersion": "February 2025",
+  "totalUnits": 155,
+  "courses": [
+    { "year": 1, "term": 1, "code": "MO-ENG039", "title": "Language and Communication", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 1, "code": "MO-MATH034", "title": "College Logic and Math", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 1, "code": "MO-SS033", "title": "The Contemporary World", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 1, "code": "MO-SS031", "title": "Understanding the Self", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 1, "code": "MO-PE011", "title": "PE1", "type": "LFD", "units": 2, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 1, "code": "MO-HUM080", "title": "Philippine Popular Culture", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+
+    { "year": 1, "term": 2, "code": "MO-MATH035", "title": "Math in the Modern World", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 2, "code": "MO-ENG040", "title": "Purposive Communication", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 2, "code": "MO-IT100", "title": "Introduction to Computing", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 2, "code": "MO-IT101", "title": "Computer Programming 1", "type": "Lecture/Lab", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 2, "code": "MO-PE012", "title": "PE2", "type": "LFD", "units": 2, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 2, "code": "MO-NSTP021", "title": "NSTP1", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+
+    { "year": 1, "term": 3, "code": "MO-HUM034", "title": "Art Appreciation", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 3, "code": "MO-HUM039", "title": "Ethics", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 3, "code": "MO-IT103", "title": "Computer Programming 2", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT101"], "corequisites": ["MO-IT103L"] },
+    { "year": 1, "term": 3, "code": "MO-PE013", "title": "PE3", "type": "LFD", "units": 2, "prerequisites": [], "corequisites": [] },
+    { "year": 1, "term": 3, "code": "MO-NSTP022", "title": "NSTP2", "type": "Lecture", "units": 3, "prerequisites": ["MO-NSTP021"], "corequisites": [] },
+    { "year": 1, "term": 3, "code": "MO-IT108", "title": "Discrete Structures", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+
+    { "year": 2, "term": 1, "code": "MO-SS036", "title": "Science, Technology, and Society", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 2, "term": 1, "code": "MO-IT104", "title": "Computer Networks", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT100"], "corequisites": ["MO-IT104L"] },
+    { "year": 2, "term": 1, "code": "MO-IT105", "title": "Human-Computer Interaction", "type": "Lecture/Lab", "units": 3, "prerequisites": [], "corequisites": ["MO-IT105L"] },
+    { "year": 2, "term": 1, "code": "MO-IT106", "title": "Data Analytics Fundamentals", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT103"], "corequisites": ["MO-IT106L"] },
+    { "year": 2, "term": 1, "code": "MO-ENV076", "title": "People and Earth's Ecosystems", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 2, "term": 1, "code": "MO-PE014", "title": "PE4", "type": "LFD", "units": 2, "prerequisites": [], "corequisites": [] },
+
+    { "year": 2, "term": 2, "code": "MO-IT102", "title": "Data Structures and Algorithms", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT103"], "corequisites": ["MO-IT102L"] },
+    { "year": 2, "term": 2, "code": "MO-SS032", "title": "Readings in Philippine History", "type": "Lecture", "units": 2, "prerequisites": [], "corequisites": [] },
+    { "year": 2, "term": 2, "code": "MO-IT107", "title": "Information Management", "type": "Lecture/Lab", "units": 1, "prerequisites": ["MO-IT103"], "corequisites": ["MO-IT107L", "MO-IT110"] },
+    { "year": 2, "term": 2, "code": "MO-IT109", "title": "Cybersecurity Fundamentals", "type": "Lecture/Lab", "units": 2, "prerequisites": ["MO-IT104"], "corequisites": ["MO-IT109L"] },
+    { "year": 2, "term": 2, "code": "MO-IT110", "title": "Object-oriented Programming", "type": "Lecture/Lab", "units": 1, "prerequisites": ["MO-IT103"], "corequisites": ["MO-IT110L", "MO-IT107"] },
+
+    { "year": 2, "term": 3, "code": "MO-SS041", "title": "The Life and Works of Rizal", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 2, "term": 3, "code": "MO-IT111", "title": "Database Principles and Applications", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT107"], "corequisites": ["MO-IT111L", "MO-IT113"] },
+    { "year": 2, "term": 3, "code": "MO-IT112", "title": "Technical Support", "type": "Lecture", "units": 3, "prerequisites": ["MO-IT104"], "corequisites": [] },
+    { "year": 2, "term": 3, "code": "MO-IT113", "title": "Advanced Object-oriented Programming", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT110"], "corequisites": ["MO-IT113L", "MO-IT111"] },
+    { "year": 2, "term": 3, "code": "MO-SS086", "title": "Gender and Society", "type": "Lecture", "units": 3, "prerequisites": [], "corequisites": [] },
+
+    { "year": 3, "term": 1, "code": "MO-IT115", "title": "Object-oriented System Analysis and Design", "type": "Lecture", "units": 3, "prerequisites": ["MO-IT110"], "corequisites": [] },
+    { "year": 3, "term": 1, "code": "MO-IT114", "title": "Mobile Development Fundamentals", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT113"], "corequisites": ["MO-IT114L"] },
+    { "year": 3, "term": 1, "code": "MO-IT117", "title": "Data Visualization Techniques", "type": "Lecture", "units": 3, "prerequisites": ["MO-IT106"], "corequisites": [] },
+    { "year": 3, "term": 1, "code": "MO-IT161", "title": "Web Systems and Technology", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT103"], "corequisites": ["MO-IT161L"] },
+    { "year": 3, "term": 1, "code": "MO-IT150", "title": "Social and Professional Issues", "type": "Lecture", "units": 3, "prerequisites": ["MO-IT105"], "corequisites": [] },
+
+    { "year": 3, "term": 2, "code": "MO-IT149", "title": "Web Technology Application", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT161"], "corequisites": ["MO-IT149L"] },
+    { "year": 3, "term": 2, "code": "MO-IT118", "title": "Cloud Computing", "type": "Lecture", "units": 3, "prerequisites": ["MO-IT104"], "corequisites": [] },
+    { "year": 3, "term": 2, "code": "MO-IT119", "title": "Mobile Development Application", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT114"], "corequisites": ["MO-IT119L"] },
+    { "year": 3, "term": 2, "code": "MO-IT124", "title": "System Integration and Architecture", "type": "Lecture", "units": 3, "prerequisites": ["MO-IT104"], "corequisites": [] },
+    { "year": 3, "term": 2, "code": "MO-IT152", "title": "Integrative Programming and Technologies", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT113"], "corequisites": ["MO-IT152L"] },
+
+    { "year": 3, "term": 3, "code": "MO-IT122", "title": "DevOps", "type": "Lecture", "units": 3, "prerequisites": ["MO-IT152"], "corequisites": ["MO-IT122L"] },
+    { "year": 3, "term": 3, "code": "MO-IT200D1", "title": "Capstone 1", "type": "Paired", "units": 3, "prerequisites": [], "corequisites": [] },
+    { "year": 3, "term": 3, "code": "MO-IT148", "title": "Applications Development and Emerging Technologies", "type": "Lecture", "units": 3, "prerequisites": ["MO-IT152"], "corequisites": [] },
+    { "year": 3, "term": 3, "code": "MO-IT147", "title": "Information Assurance and Security 1", "type": "Lecture", "units": 3, "prerequisites": ["MO-IT109"], "corequisites": [] },
+    { "year": 3, "term": 3, "code": "MO-IT151", "title": "Platform Technologies", "type": "Lecture", "units": 3, "prerequisites": ["MO-IT124"], "corequisites": [] },
+
+    { "year": 4, "term": 1, "code": "MO-IT123", "title": "System Administration and Maintenance", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT124"], "corequisites": ["MO-IT123L"] },
+    { "year": 4, "term": 1, "code": "MO-IT200D2", "title": "Capstone 2", "type": "Paired", "units": 3, "prerequisites": ["MO-IT200D1"], "corequisites": [] },
+    { "year": 4, "term": 1, "code": "MO-IT153", "title": "Information Assurance and Security 2", "type": "Lecture/Lab", "units": 3, "prerequisites": ["MO-IT147"], "corequisites": ["MO-IT153L"] },
+
+    { "year": 4, "term": 2, "code": "MO-IT199", "title": "IT Practicum/PEP", "type": "LFD", "units": 9, "prerequisites": [], "corequisites": [] }
+  ]
+}

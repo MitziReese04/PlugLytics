@@ -1,6 +1,6 @@
 # PlugLytics Approved Payment Methods
 
-> **Status: policy, partly built (testnet only).** This is the payment-method policy for Stellar Payments in PlugLytics. Built on testnet: XLM payment requests for invoices, the XLM and USDC amount limits, and `wrong_asset` detection for other assets and issuers. Not built yet: USDC payment requests, anchor payments, and refunds of wrong-asset payments. The statuses, users and amount limits below are **defaults to be confirmed** by the school and PlugLytics before going live. Amount limits are placeholders (**TODO: group decision**, in `.env.example`).
+> **Status: policy, partly built (Stellar Testnet only).** This is the payment-method policy for Stellar Payments in PlugLytics. Built on testnet: XLM payment requests for invoices (today only **XLM on testnet** can be used to pay: `ENABLED_ASSETS` in `src/routes/payments.js`), the XLM and USDC amount limits (already settings), and `wrong_asset` detection for other assets and issuers. Not built yet: USDC payment requests, anchor payments, and refunds of wrong-asset payments. The statuses, users and amount limits below are **defaults to be confirmed** by the school and PlugLytics before going live. Amount limits are placeholders (**TODO: group decision**, in `.env.example`).
 
 ## Contents
 

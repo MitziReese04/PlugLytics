@@ -1,6 +1,6 @@
 # PlugLytics Settlement and Reconciliation
 
-> **Status: partly built (sandbox/testnet only).** Daily and weekly reconciliation, settlement reports and `settlement.completed` are built (see [What is built](#what-is-built)). The rest of this document is the design they follow. See also [payments-api.md](./payments-api.md) and [webhooks.md](./webhooks.md).
+> **Status: partly built (Stellar Testnet only).** Checking a single payment request against Horizon, accepting late payments, matching payments sent without a memo, daily and weekly reconciliation, settlement reports and `settlement.completed` are built (see [What is built](#what-is-built) and the parts marked **built** below). The rest of this document is the design they follow. See also [payments-api.md](./payments-api.md) and [webhooks.md](./webhooks.md).
 
 ## Contents
 

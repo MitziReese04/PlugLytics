@@ -201,3 +201,35 @@ describe("access", () => {
     db.prepare("DELETE FROM api_keys WHERE id = ?").run(key.id);
   });
 });
+
+describe("webhook URL safety", () => {
+  const { isAllowedUrl } = require("../src/routes/webhooks");
+
+  test.each([
+    "https://169.254.169.254/latest/meta-data",
+    "https://10.0.0.5/hooks",
+    "https://172.16.4.2/hooks",
+    "https://192.168.1.1/hooks",
+    "https://100.64.0.1/hooks",
+    "https://0.0.0.0/hooks",
+    "https://[fd00::1]/hooks",
+    "https://[fe80::1]/hooks",
+    "https://[::ffff:10.0.0.1]/hooks",
+  ])("refuses internal address %s", (url) => {
+    expect(isAllowedUrl(url, "sandbox")).toBe(false);
+    expect(isAllowedUrl(url, "production")).toBe(false);
+  });
+
+  test("loopback is allowed in sandbox only", () => {
+    expect(isAllowedUrl("https://localhost/hooks", "sandbox")).toBe(true);
+    expect(isAllowedUrl("http://127.0.0.1:4000/hooks", "sandbox")).toBe(true);
+    expect(isAllowedUrl("https://localhost/hooks", "production")).toBe(false);
+    expect(isAllowedUrl("https://127.0.0.1/hooks", "production")).toBe(false);
+  });
+
+  test("public addresses and host names are allowed", () => {
+    expect(isAllowedUrl("https://lms.example.edu/webhooks/pluglytics", "production")).toBe(true);
+    expect(isAllowedUrl("https://93.184.216.34/hooks", "production")).toBe(true);
+    expect(isAllowedUrl("https://172.32.0.1/hooks", "production")).toBe(true);
+  });
+});

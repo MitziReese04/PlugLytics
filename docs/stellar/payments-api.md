@@ -1,6 +1,6 @@
 # PlugLytics Stellar Payments API
 
-> **Status: partly built (sandbox/testnet only).** Built: student invoice payments with a locked quote, cancelling, the admin payment list and invoice endpoints (and the dashboard's **Invoices** screen), customer API keys, webhook registration and signed webhooks with retries, accepting late payments and matching payments without a memo, refunds (with the `REFUND_ISSUING_ENABLED` switch), and daily and weekly reconciliation. Each section says **Built** or **Not built yet**. Not built yet: `GET /api/v1/payments/config`, `POST /api/v1/payments/:id/confirm`, admin pay-per-use requests, subscriptions, USDC payment requests, watching Horizon by streaming or polling, and production (mainnet) payments. Settings marked **TODO: group decision** are placeholders in `.env.example`.
+> **Status: partly built (Stellar Testnet only).** Endpoints marked **built** in the [Endpoints](#endpoints) table are implemented and covered by the Jest tests in `tests/`. Built: student invoice payments with a locked quote, cancelling, the admin payment list and invoice endpoints (and the dashboard's **Invoices** screen), customer API keys, webhook registration and signed webhooks with retries, accepting late payments and matching payments without a memo, refunds (with the `REFUND_ISSUING_ENABLED` switch), and daily and weekly reconciliation with settlement reports. Each section says **Built** or **Not built yet**. Not built yet: `GET /api/v1/payments/config`, `POST /api/v1/payments/:id/confirm`, admin pay-per-use requests, subscriptions, USDC payment requests, anchors, and watching Horizon by streaming or polling. Production (Mainnet) payments are not enabled: payment, refund and reconciliation endpoints refuse to run unless `STELLAR_ENV=sandbox`. Settings marked **TODO: group decision** are placeholders in `.env.example`. Field names and error codes may still change.
 
 ## Contents
 
@@ -231,7 +231,7 @@ Setup:
 1. Copy `.env.example` to `.env`.
 2. Set `STELLAR_ENV=sandbox` while developing.
 3. Fill in the `SANDBOX_` values (see [Testing with the testnet friendbot](#testing-with-the-testnet-friendbot)).
-4. Switch to `STELLAR_ENV=production` and the `PRODUCTION_` values only when you deploy for real customers.
+4. `STELLAR_ENV=production` and the `PRODUCTION_` values are read by `loadStellarConfig()`, but production (Mainnet) payments are **not enabled yet**: creating and confirming payments return `503 STELLAR_NOT_CONFIGURED`, and issuing refunds returns `503 REFUNDS_TESTNET_ONLY`, unless `STELLAR_ENV=sandbox`.
 
 In code:
 
@@ -974,7 +974,7 @@ Request:
 ```
 
 - `schoolId`: required, the school (customer) the URL belongs to (see `GET /api/v1/api-keys/schools`)
-- `url`: required, must start with `https://` (plain `http://` is only allowed for `localhost` in sandbox). A URL with a username or password in it is rejected.
+- `url`: required, must start with `https://` (plain `http://` is only allowed for `localhost` in sandbox). A URL with a username or password in it is rejected, and so is one that points to a private or internal IP address (for example `10.0.0.5`, `192.168.1.1`, or the cloud metadata address `169.254.169.254`). Host names are not resolved when checking this.
 - `events`: optional, the events to send (see `GET /api/v1/webhooks/events`). Leave it out to receive every event.
 - `description`: optional, up to 200 characters
 

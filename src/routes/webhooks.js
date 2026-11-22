@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const net = require("net");
 const express = require("express");
 const { z } = require("zod");
 const db = require("../db");
@@ -20,6 +21,31 @@ const WEBHOOK_EVENTS = [
   "subscription.activated", "subscription.past_due", "subscription.cancelled",
 ];
 
+// Webhooks are sent from the server, so a URL that points at the server's own
+// network (cloud metadata at 169.254.169.254, private ranges) must be refused.
+// Loopback stays allowed in sandbox for local test receivers. Host names are not
+// resolved here, so this blocks IP literals and "localhost" only.
+function isInternalIPv4(address) {
+  const [a, b] = address.split(".").map(Number);
+  return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127)
+    || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
+
+function isInternalHost(hostname, environment) {
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  const loopback = host === "localhost" || host.endsWith(".localhost") || host === "::1"
+    || (net.isIPv4(host) && host.startsWith("127."));
+  if (loopback) return environment !== "sandbox";
+  if (net.isIPv4(host)) return isInternalIPv4(host);
+  if (net.isIPv6(host)) {
+    const mapped = host.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    if (mapped) return isInternalIPv4(mapped[1]);
+    if (/^::ffff:/.test(host)) return true;
+    return host === "::" || /^f[cd]/.test(host) || /^fe[89ab]/.test(host);
+  }
+  return false;
+}
+
 function isAllowedUrl(value, environment) {
   let url;
   try {
@@ -28,7 +54,7 @@ function isAllowedUrl(value, environment) {
     return false;
   }
   if (url.username || url.password) return false;
-  if (url.protocol === "https:") return true;
+  if (url.protocol === "https:") return !isInternalHost(url.hostname, environment);
   // Plain http is only for a local test server in sandbox.
   return environment === "sandbox" && url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
 }
@@ -113,8 +139,8 @@ router.post("/", (req, res) => {
   if (!stellar) return undefined;
   const { schoolId, url, description } = parsed.data;
   if (!isAllowedUrl(url, stellar.env)) {
-    return sendError(res, 400, "VALIDATION_ERROR", "url must start with https:// (plain http:// only for localhost in sandbox)", {
-      fieldErrors: { url: ["must start with https:// (plain http:// only for localhost in sandbox)"] },
+    return sendError(res, 400, "VALIDATION_ERROR", "url must start with https:// and must not point to a private or internal address (plain http:// only for localhost in sandbox)", {
+      fieldErrors: { url: ["must start with https:// and must not point to a private or internal address (plain http:// only for localhost in sandbox)"] },
     });
   }
   if (!db.prepare("SELECT 1 FROM schools WHERE id = ?").get(schoolId)) {
@@ -181,4 +207,4 @@ router.post("/:id/rotate-secret", (req, res) => {
   });
 });
 
-module.exports = { router, WEBHOOK_EVENTS };
+module.exports = { router, WEBHOOK_EVENTS, isAllowedUrl };
