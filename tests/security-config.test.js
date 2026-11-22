@@ -21,3 +21,16 @@ describe("JWT secret", () => {
     expect(response.status).toBe(401);
   });
 });
+
+describe("login rate limit", () => {
+  test("blocks an IP after 10 failed sign-ins, and successful sign-ins do not count", async () => {
+    const login = (password) =>
+      request(app).post("/api/v1/auth/login").send({ email: "student@pluglytics.local", password });
+
+    expect((await login("Demo123!")).status).toBe(200);
+    for (let i = 0; i < 10; i += 1) expect((await login("wrong-password")).status).toBe(401);
+    const blocked = await login("Demo123!");
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error.code).toBe("TOO_MANY_LOGIN_ATTEMPTS");
+  });
+});
