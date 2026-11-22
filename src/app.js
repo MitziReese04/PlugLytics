@@ -14,6 +14,7 @@ const apiKeyRoutes = require("./routes/apiKeys");
 const { router: webhookRoutes } = require("./routes/webhooks");
 const { router: refundRoutes } = require("./routes/refunds");
 const { router: settlementRoutes } = require("./routes/settlements");
+const { router: ltiRoutes } = require("./routes/lti");
 const { apiKeyGate } = require("./middleware/apiKey");
 const path = require("path");
 const { sendError } = require("./utils/envelope");
@@ -24,10 +25,17 @@ const config = require("./config");
 const app = express();
 const contentSecurityPolicy = helmet.contentSecurityPolicy.getDefaultDirectives();
 contentSecurityPolicy["script-src"] = ["'self'", "https://cdn.jsdelivr.net"];
+// By default only PlugLytics itself may frame its pages. FRAME_ANCESTORS adds sites
+// such as Canvas, so the dashboard can open inside a Canvas course (LTI launch).
+contentSecurityPolicy["frame-ancestors"] = ["'self'", ...config.frameAncestors];
 
 app.disable("x-powered-by");
 if (config.trustProxy > 0) app.set("trust proxy", config.trustProxy);
-app.use(helmet({ contentSecurityPolicy: { directives: contentSecurityPolicy } }));
+app.use(helmet({
+  contentSecurityPolicy: { directives: contentSecurityPolicy },
+  // X-Frame-Options cannot list other sites, so it is dropped when frame-ancestors allows them.
+  frameguard: config.frameAncestors.length > 0 ? false : { action: "sameorigin" },
+}));
 app.use(express.json({ limit: "1mb" }));
 app.use(
   rateLimit({
@@ -46,6 +54,8 @@ app.use("/public", (req, res, next) => {
 app.get("/", (req, res) => res.redirect("/public"));
 app.get("/dashboard", (req, res) => res.redirect("/public/dashboard.html"));
 app.get("/proposal", (req, res) => res.download(path.join(__dirname, "../PROPOSAL.md")));
+// Canvas LTI 1.3 launch (see docs/pilot/canvas-lti-install.md).
+app.use("/lti", ltiRoutes);
 
 // Customer API keys: checked before any route, and only allowed on read-only endpoints.
 app.use("/api/v1", apiKeyGate);
