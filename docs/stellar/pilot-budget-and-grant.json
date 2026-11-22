@@ -92,7 +92,8 @@
       "targetDate": "TODO-YYYY-MM-DD",
       "targetDateHint": "About 60 days after grant start",
       "budgetSharePercent": 25,
-      "status": "not_started"
+      "status": "in_progress",
+      "statusNote": "Sandbox reconciliation, webhooks and refunds are built on the StellarPayPhase2 branch and waiting for review."
     },
     {
       "id": "M4",

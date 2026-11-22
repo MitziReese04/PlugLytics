@@ -56,7 +56,7 @@ Based on the roadmap in [PROPOSAL.md](../../PROPOSAL.md#proposed-roadmap).
 | --- | --- | --- | --- | --- | --- |
 | M1 | Grant-aligned repository, demo, and documentation | Public repository with seeded demo, dashboard, VS Code plugin, and Stellar Payments docs in `docs/stellar/` | TODO-YYYY-MM-DD (already done) | 0% | `complete` |
 | M2 | Stellar Payments sandbox and payment-adapter specification | Testnet merchant credentials configured; payment-request and Horizon-matching spec signed off | TODO-YYYY-MM-DD (~30 days after start) | 15% | `in_progress` |
-| M3 | Secure invoice reconciliation and webhooks | Daily reconciliation, signed webhooks with per-customer secrets, refund procedure in sandbox | TODO-YYYY-MM-DD (~60 days after start) | 25% | `not_started` |
+| M3 | Secure invoice reconciliation and webhooks | Daily reconciliation, signed webhooks with per-customer secrets, refund procedure in sandbox | TODO-YYYY-MM-DD (~60 days after start) | 25% | `in_progress` |
 | M4 | Pilot payment and aging dashboards | Dashboards for payment status, collection rate, aging, refunds and settlement reports | TODO-YYYY-MM-DD (~90 days after start) | 20% | `not_started` |
 | M5 | Pilot with one school or training provider | One institution onboarded; pilot payments processed and reconciled; staff feedback collected | TODO-YYYY-MM-DD (~120 days after start) | 25% | `not_started` |
 | M6 | Security, accessibility, and deployment hardening | Security and privacy review, accessibility audit, production deployment with backups and monitoring | TODO-YYYY-MM-DD (~180 days after start) | 15% | `not_started` |
@@ -64,6 +64,7 @@ Based on the roadmap in [PROPOSAL.md](../../PROPOSAL.md#proposed-roadmap).
 - **Budget share** is the part of the total pilot budget planned for each milestone (TODO: confirm). The shares add up to 100%. M1 is 0% because it was finished before the grant.
 - **Status** is one of `not_started`, `in_progress`, `complete` or `delayed`.
 - M2 is marked `in_progress` because the sandbox credential configuration and the Stellar docs already exist on the `StellarPay` branch.
+- M3 is marked `in_progress` because sandbox reconciliation, webhooks and refunds are built on the `StellarPayPhase2` branch and waiting for review.
 
 ## Reporting dates
 
