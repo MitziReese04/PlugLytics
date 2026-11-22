@@ -5,3 +5,4 @@ npm-debug.log*
 coverage/
 data/*.db-shm
 data/*.db-wal
+data/backups/

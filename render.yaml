@@ -1,0 +1,54 @@
+# Render Blueprint for PlugLytics. See docs/pilot/deployment.md.
+#
+# This file sets up the PUBLIC DEMO: a Free instance in Singapore that rebuilds the
+# demo database with `npm run seed` on every deploy. Free instances have no
+# persistent disk, so anything saved while the demo runs (dashboard layouts,
+# testnet payment requests) is lost when the service restarts or spins down.
+#
+# For the PILOT (real school data), change the service as described in the
+# "Pilot setup" block at the bottom of this file. Never run `npm run seed`
+# against pilot data: it replaces all data.
+services:
+  - type: web
+    name: pluglytics
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm ci && npm run seed
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    autoDeploy: false
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: STELLAR_ENV
+        value: sandbox
+      # Set these in the Render Dashboard, never in this file.
+      - key: SANDBOX_MERCHANT_PUBLIC_KEY
+        sync: false
+      - key: SANDBOX_MERCHANT_SECRET_KEY
+        sync: false
+      - key: SANDBOX_WEBHOOK_SIGNING_SECRET
+        sync: false
+
+# Pilot setup (TODO: apply when a pilot institution signs on):
+#   plan: starter                     # paid instance: no spin-down, can attach a disk
+#   buildCommand: npm ci
+#   startCommand: npm run migrate && npm start
+#   disk:
+#     name: pluglytics-data
+#     mountPath: /var/data
+#     sizeGB: 1
+#   envVars:
+#     - key: DATABASE_PATH
+#       value: /var/data/pluglytics.db
+#     - key: BACKUP_DIR
+#       value: /var/data/backups

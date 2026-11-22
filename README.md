@@ -29,7 +29,7 @@
 | Swagger UI | `http://localhost:3000/docs` | Available locally |
 | Health check | `http://localhost:3000/api/v1/health` | Available locally |
 | VS Code plugin | [pluglytics-vscode](./pluglytics-vscode) | VSIX source packaged locally |
-| Public deployment |  | **Not yet provided** |
+| Public deployment | Planned on Render, Singapore region: see [deployment plan](./docs/pilot/deployment.md#2-public-api-and-swagger-urls) | **Not yet deployed** |
 
 PlugLytics is a zero-setup Learning Management System analytics API and role-aware web dashboard. It uses Node.js, Express, SQLite, JWT authentication, Zod validation, Chart.js, Swagger/OpenAPI, and a VS Code extension.
 
@@ -241,7 +241,10 @@ PlugLytics/
 |- public/                 # Public website and role-aware dashboard
 |- logo/                   # Original PlugLytics brand image assets
 |- pluglytics-vscode/      # VS Code extension source and VSIX
-|- scripts/                # Database seed script
+|- docs/
+|  |- pilot/               # Deployment, Canvas LMS, pilot school, definitions, accounting
+|  |- stellar/             # Stellar Payments documentation
+|- scripts/                # Seed, migrate, and backup scripts
 |- src/
 |  |- middleware/          # JWT, RBAC, and query validation
 |  |- routes/              # Auth and analytics endpoints
@@ -254,6 +257,7 @@ PlugLytics/
 |- .vscode/                # Debug, tasks, and extension launch setup
 |- api.http                # REST Client request examples
 |- PROPOSAL.md             # Grant proposal
+|- render.yaml             # Render deployment Blueprint (demo)
 |- README.md
 ```
 
@@ -305,8 +309,19 @@ code --install-extension pluglytics-vscode/pluglytics-0.1.0.vsix
 | `JWT_SECRET` | Signing JWTs | Development fallback | Production: yes |
 | `JWT_EXPIRES_IN` | JWT lifetime | `8h` | No |
 | `DATABASE_PATH` | SQLite database location | `./data/pluglytics.db` | No |
+| `TRUST_PROXY` | Number of reverse proxies in front of the app, so rate limiting sees each visitor's IP | `0` | On Render: `1` |
+| `BACKUP_DIR` | Where `npm run backup` writes database copies | `backups/` next to the database | No |
+| `BACKUP_KEEP` | How many backup copies to keep | `7` | No |
 
 Create a local `.env` from `.env.example`. Use a unique JWT secret outside development.
+
+Database scripts:
+
+| Command | What it does |
+| --- | --- |
+| `npm run seed` | Rebuilds the demo database. **Replaces all data**: never run it on real data |
+| `npm run migrate` | Creates missing tables, indexes, views and triggers. Never deletes data |
+| `npm run backup` | Writes a checked copy of the database and keeps the newest `BACKUP_KEEP` copies |
 
 ## Demo accounts
 
@@ -566,13 +581,26 @@ The testnet is reset from time to time. After a reset, fund new accounts with Fr
 
 The following information is needed before the README and grant materials can be fully finalized:
 
-1. Public production domain and hosting provider
-2. Public API and Swagger URLs
-3. Production database strategy and backup requirements
-4. LMS provider(s) used by the pilot institution
-5. Pilot institution name, program, and authorized contact
-6. Real enrollment, retention, and financial definitions
-7. Ledger and accounting system used for tuition reconciliation
+1. Public production domain and hosting provider: **Documented, partly built** ([deployment.md](./docs/pilot/deployment.md#1-hosting-provider-and-domain), [render.yaml](./render.yaml))
+   - Decided: Render, Singapore region; free instance for the demo, Starter instance with a persistent disk for the pilot.
+   - Still missing: the Render service name, a custom domain, and who owns the Render account. Nothing is deployed yet.
+2. Public API and Swagger URLs: **Documented, not deployed** ([deployment.md](./docs/pilot/deployment.md#2-public-api-and-swagger-urls))
+   - Planned: `https://<host>/api/v1` and `https://<host>/docs`, with `pluglytics.onrender.com` as the first host.
+   - Still missing: the real URLs, which exist only after the first deploy.
+3. Production database strategy and backup requirements: **Documented, partly built** ([deployment.md](./docs/pilot/deployment.md#3-production-database-strategy))
+   - Built: `npm run migrate` (schema only, never deletes data) and `npm run backup` (checked copies, keeps the newest 7).
+   - Still missing: scheduled nightly backups, off-site copies, versioned migrations, and the PostgreSQL plan for more than one school.
+4. LMS provider(s) used by the pilot institution: **Documented, not built** ([lms-integration.md](./docs/pilot/lms-integration.md))
+   - Decided: Canvas LMS, through the Canvas REST API first and LTI 1.3 later.
+   - Still missing: the pilot school's Canvas URL, quiz engine and attendance source; the importer is not built.
+5. Pilot institution name, program, and authorized contact: **Template only** ([pilot-institution.md](./docs/pilot/pilot-institution.md))
+   - Still missing: no school has agreed yet. Institution, program, contacts and approvals are TODO.
+6. Real enrollment, retention, and financial definitions: **Documented, not built** ([definitions.md](./docs/pilot/definitions.md))
+   - Found: the current retention rate shows 0% for finished terms, and collected amounts leave out Stellar payments and refunds.
+   - Still missing: the school's registrar and finance office must confirm the proposed definitions before the code is changed.
+7. Ledger and accounting system used for tuition reconciliation: **Documented, not decided** ([accounting-and-ledger.md](./docs/pilot/accounting-and-ledger.md))
+   - Planned: a daily journal-entry CSV that any accounting system can import.
+   - Still missing: the pilot school's accounting system, its account codes, and the journal-export endpoint.
 8. Stellar Payments sandbox and production merchant credentials: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#sandbox-vs-production))
    - Still missing: real sandbox keys in `.env`, and production merchant credentials (production is not enabled).
 9. Stellar Payments API, webhook, and settlement documentation: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md), [webhooks.md](./docs/stellar/webhooks.md), [settlement.md](./docs/stellar/settlement.md))
