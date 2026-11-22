@@ -570,11 +570,16 @@ The following information is needed before the README and grant materials can be
 5. Pilot institution name, program, and authorized contact
 6. Real enrollment, retention, and financial definitions
 7. Ledger and accounting system used for tuition reconciliation
-8. Stellar Payments sandbox and production merchant credentials
-9. Stellar Payments API, webhook, and settlement documentation
-10. Approved payment methods and refund/chargeback procedures
-11. Scholarship, discount, fee, and instructor-cost fields
-12. Pilot budget, grant amount, milestones, and reporting dates
+8. Stellar Payments sandbox and production merchant credentials: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#sandbox-vs-production))
+   - Still missing: real sandbox keys in `.env`, and production merchant credentials (production is not enabled).
+9. Stellar Payments API, webhook, and settlement documentation: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md), [webhooks.md](./docs/stellar/webhooks.md), [settlement.md](./docs/stellar/settlement.md))
+   - Still missing: webhooks, refunds, daily reconciliation, and other planned endpoints are not built yet.
+10. Approved payment methods and refund/chargeback procedures: **Documented, partly built** ([approved-payment-methods.md](./docs/stellar/approved-payment-methods.md), [refunds-and-chargebacks.md](./docs/stellar/refunds-and-chargebacks.md))
+    - Still missing: the refund endpoint is not built yet; amount limits, refund windows, and the approved anchor list are placeholders.
+11. Scholarship, discount, fee, and instructor-cost fields: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#pricing-fields))
+    - Still missing: no invoice endpoint or screen sets these fields yet.
+12. Pilot budget, grant amount, milestones, and reporting dates: **Documented, partly built** ([pilot-budget-and-grant.md](./docs/stellar/pilot-budget-and-grant.md))
+    - Still missing: the grant amount, budget amounts, and milestone and report dates are TODO.
 13. User-testing population and target sample size
 14. Security, accessibility, and compliance requirements
 15. Confirmation that the supplied PlugLytics logo is approved for public and grant use
