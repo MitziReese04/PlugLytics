@@ -1,6 +1,6 @@
 # PlugLytics Approved Payment Methods
 
-> **Status: planned.** This is the proposed payment-method policy for Stellar Payments in PlugLytics. Nothing here is implemented yet. The statuses, users and amount limits below are **defaults to be confirmed** by the school and PlugLytics before going live. Amount limits are placeholders.
+> **Status: partly built (Stellar Testnet only).** This is the proposed payment-method policy for Stellar Payments in PlugLytics. Today only **XLM on testnet** can be used to pay (`ENABLED_ASSETS` in `src/routes/payments.js`); the XLM and USDC amount limits are already settings. USDC payments and anchors are not implemented yet. The statuses, users and amount limits below are **defaults to be confirmed** by the school and PlugLytics before going live. Amount limits are placeholders.
 
 ## Contents
 

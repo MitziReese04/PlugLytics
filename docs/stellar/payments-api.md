@@ -1,6 +1,6 @@
 # PlugLytics Stellar Payments API
 
-> **Status: planned.** This document describes the payment API PlugLytics will expose. The endpoints below are **not implemented yet**. Today only the credential configuration exists (`src/stellarConfig.js` and `.env.example`). Field names and error codes may change during implementation.
+> **Status: partly built (Stellar Testnet only).** Endpoints marked **built** in the [Endpoints](#endpoints) table are implemented and covered by the Jest tests in `tests/`. Everything else (pay-per-use requests, subscriptions, USDC payments, anchors, settlement reports) is still planned. Production (Mainnet) payments are not enabled: payment, confirmation and refund endpoints refuse to run unless `STELLAR_ENV=sandbox`. Field names and error codes may still change.
 
 ## Contents
 
@@ -231,7 +231,7 @@ Setup:
 1. Copy `.env.example` to `.env`.
 2. Set `STELLAR_ENV=sandbox` while developing.
 3. Fill in the `SANDBOX_` values (see [Testing with the testnet friendbot](#testing-with-the-testnet-friendbot)).
-4. Switch to `STELLAR_ENV=production` and the `PRODUCTION_` values only when you deploy for real customers.
+4. `STELLAR_ENV=production` and the `PRODUCTION_` values are read by `loadStellarConfig()`, but production (Mainnet) payments are **not enabled yet**: creating and confirming payments return `503 STELLAR_NOT_CONFIGURED`, and issuing refunds returns `503 REFUNDS_TESTNET_ONLY`, unless `STELLAR_ENV=sandbox`.
 
 In code:
 
@@ -313,9 +313,9 @@ To keep the examples below short, only the `data` part is shown for success resp
 | POST | `/api/v1/invoices` | Admin (**built**) | Create an invoice with pricing fields |
 | PATCH | `/api/v1/invoices/:id` | Admin (**built**) | Change an invoice's pricing fields or due date (blocked once a payment is completed) |
 | POST | `/api/v1/payments` | Student (own invoice, **built, sandbox only**); Admin (pay-per-use, planned) | Create a payment request |
-| GET | `/api/v1/payments` | Admin (**built**), or customer API key (own school, read-only, planned) | List payment requests |
+| GET | `/api/v1/payments` | Admin (**built**), or customer API key (own school, read-only, **built**) | List payment requests |
 | GET | `/api/v1/payments/invoices` | Student (**built**) | List your own invoices with what is still due and the latest Stellar payment request |
-| GET | `/api/v1/payments/:id` | Student (own invoice, **built**), Admin (**built**), or customer API key (own school, read-only, planned) | Get one payment request, checking Horizon first while it is pending |
+| GET | `/api/v1/payments/:id` | Student (own invoice, **built**), Admin (**built**), or customer API key (own school, read-only, **built**) | Get one payment request, checking Horizon first while it is pending |
 | POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
 | POST | `/api/v1/payments/:id/cancel` | Student (own invoice, **built**), Admin (**built**) | Cancel a pending request |
 | POST | `/api/v1/refunds` | Admin (**built**) | Request a refund for a payment (see [refunds-and-chargebacks.md](./refunds-and-chargebacks.md#what-is-built)) |

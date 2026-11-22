@@ -1,6 +1,6 @@
 # PlugLytics Settlement and Reconciliation
 
-> **Status: planned.** Settlement and reconciliation are not implemented yet. This document describes how they will work. Details may change during implementation. See also [payments-api.md](./payments-api.md) and [webhooks.md](./webhooks.md).
+> **Status: partly built (Stellar Testnet only).** Checking a single payment request against Horizon, accepting late payments and matching payments sent without a memo are built (marked **built** below). Daily and weekly reconciliation runs and settlement reports are not implemented yet; this document describes how they will work. Details may change during implementation. See also [payments-api.md](./payments-api.md) and [webhooks.md](./webhooks.md).
 
 ## Contents
 
