@@ -47,7 +47,7 @@
 | `X-PlugLytics-Event` | `payment.completed` | The event type (also in the body) |
 | `X-PlugLytics-Event-Id` | `evt_01JD9A4R7T` | Unique ID of this event. The same on every retry. |
 | `X-PlugLytics-Timestamp` | `1795262671` | When this delivery was signed (Unix time, in seconds) |
-| `X-PlugLytics-Webhook-Id` | `wh_01JDA2K7PQ` | The registered endpoint this delivery is for |
+| `X-PlugLytics-Webhook-Id` | `wh_7K2M9QX4R8T1VW3N` | The registered endpoint this delivery is for |
 | `X-PlugLytics-Signature` | `v1=5d41402abc4b2a76...` | The signature, made with your endpoint's secret, used to prove the request came from PlugLytics |
 
 - **Your server must reply** with any `2xx` status (for example `200 OK`) within **10 seconds**.

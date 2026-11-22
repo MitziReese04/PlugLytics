@@ -46,6 +46,12 @@ describe("dashboard assets", () => {
     expect(html).toContain('id="cancelPaymentRequest"');
   });
 
+  test("the admin webhook screen is on the page, with a one-time secret panel", () => {
+    for (const id of ["adminWebhooksSection", "webhookForm", "webhookSecretPanel", "adminWebhookRows"]) {
+      expect(html).toContain(`id="${id}"`);
+    }
+  });
+
   test("the admin invoice screen is on the page", () => {
     for (const id of ["adminInvoicesSection", "invoiceForm", "invoicePreview", "newInvoiceButton"]) {
       expect(html).toContain(`id="${id}"`);

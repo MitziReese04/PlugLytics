@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PlugLytics Dashboard</title>
-  <link rel="stylesheet" href="./styles.css?v=11">
+  <link rel="stylesheet" href="./styles.css?v=12">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js" integrity="sha384-Emf5ZVIUiarAdhkgtqK+5/Z5qIvM6QoVrS+qAVtfyZVuD5lIHrac0me485+Antp0" crossorigin="anonymous"></script>
 </head>
 <body class="dashboard-page">
@@ -172,6 +172,59 @@
           <button id="adminInvoicesNext" class="outline-button" type="button">Next</button>
         </div>
       </section>
+      <section id="adminWebhooksSection" class="widget-card payments-section" aria-labelledby="adminWebhooksHeading" hidden>
+        <div class="widget-card-heading">
+          <div>
+            <h2 id="adminWebhooksHeading">Webhooks</h2>
+            <p>Register a school's webhook URL. Each URL gets its own signing secret, shown only once.</p>
+          </div>
+          <span class="testnet-badge">TESTNET – no real money</span>
+        </div>
+        <form id="webhookForm" class="webhook-form" novalidate>
+          <div class="invoice-form-grid">
+            <label>School<select name="schoolId"></select></label>
+            <label class="webhook-url-field">URL<input name="url" type="url" placeholder="https://your-app.example.com/webhooks/pluglytics" autocomplete="off"></label>
+            <label>Description <small>(optional)</small><input name="description" maxlength="200" placeholder="e.g. Main LMS server"></label>
+          </div>
+          <fieldset class="webhook-events">
+            <legend>Events to send</legend>
+            <div id="webhookEventOptions" class="webhook-event-options"></div>
+          </fieldset>
+          <ul id="webhookFormErrors" class="invoice-form-errors" role="alert"></ul>
+          <div class="invoice-form-actions">
+            <button id="registerWebhookButton" type="submit">Register webhook</button>
+          </div>
+        </form>
+
+        <section id="webhookSecretPanel" class="payment-panel webhook-secret-panel" aria-labelledby="webhookSecretHeading" hidden>
+          <div class="payment-panel-heading">
+            <h3 id="webhookSecretHeading">Save this signing secret now</h3>
+          </div>
+          <p class="testnet-banner"><strong>It will not be shown again.</strong> Give it to the school to store in their app's <code>.env</code> (for example <code>PLUGLYTICS_WEBHOOK_SECRET</code>).</p>
+          <dl class="payment-details">
+            <div class="payment-detail">
+              <dt>Signing secret</dt>
+              <dd><code id="webhookSecretValue"></code>
+                <button id="copyWebhookSecret" type="button" class="outline-button copy-button" aria-label="Copy signing secret">Copy</button>
+              </dd>
+            </div>
+          </dl>
+          <p id="webhookSecretNote" class="memo-warning"></p>
+          <div class="payment-panel-actions">
+            <button id="dismissWebhookSecret" type="button">I have saved it</button>
+          </div>
+        </section>
+
+        <p id="adminWebhooksMessage" class="payments-message"></p>
+        <div class="payments-table-wrap">
+          <table class="invoice-table admin-payments-table webhook-table">
+            <thead>
+              <tr><th scope="col">URL</th><th scope="col">School</th><th scope="col">Events</th><th scope="col">Secret last rotated</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody id="adminWebhookRows"></tbody>
+          </table>
+        </div>
+      </section>
       <section id="adminPaymentsSection" class="widget-card payments-section" aria-labelledby="adminPaymentsHeading" hidden>
         <div class="widget-card-heading">
           <div>
@@ -211,6 +264,6 @@
   </div>
   <script src="./financeChart.js?v=1"></script>
   <script src="./pricingPreview.js?v=1"></script>
-  <script src="./app.js?v=10"></script>
+  <script src="./app.js?v=11"></script>
 </body>
 </html>

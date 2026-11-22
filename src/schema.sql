@@ -323,6 +323,28 @@ CREATE TABLE IF NOT EXISTS api_keys (
   FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
+-- Registered webhook URLs, one per customer endpoint (see "Webhook endpoints" in
+-- docs/stellar/payments-api.md). Each has its own signing secret, stored encrypted
+-- (AES-256-GCM, see src/webhookSecrets.js). The previous secret stays valid for
+-- 24 hours after a rotation.
+CREATE TABLE IF NOT EXISTS webhook_endpoints (
+  id TEXT PRIMARY KEY CHECK(id GLOB 'wh_?*'),
+  school_id INTEGER NOT NULL,
+  url TEXT NOT NULL CHECK(length(url) BETWEEN 8 AND 2048),
+  events TEXT NOT NULL CHECK(json_valid(events) AND json_type(events) = 'array'),
+  description TEXT CHECK(description IS NULL OR length(description) <= 200),
+  environment TEXT NOT NULL CHECK(environment IN ('sandbox','production')),
+  secret_enc TEXT NOT NULL CHECK(secret_enc GLOB 'v1:?*'),
+  previous_secret_enc TEXT CHECK(previous_secret_enc IS NULL OR previous_secret_enc GLOB 'v1:?*'),
+  previous_secret_expires_at TEXT,
+  secret_last_rotated_at TEXT NOT NULL,
+  created_by INTEGER,
+  created_at TEXT NOT NULL,
+  CHECK((previous_secret_enc IS NULL) = (previous_secret_expires_at IS NULL)),
+  FOREIGN KEY (school_id) REFERENCES schools(id),
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
 -- The index on students(school_id) is created by scripts/seed.js, after it makes
 -- sure older databases have that column.
 

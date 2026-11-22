@@ -161,6 +161,7 @@ async function startSession() {
   if (state.role === "student") await loadInvoices();
   if (state.role === "admin") await loadAdminInvoices();
   if (state.role === "admin") await loadAdminPayments();
+  if (state.role === "admin") await loadAdminWebhooks();
 }
 
 function populateTerms(terms) {
@@ -1174,4 +1175,144 @@ byId("adminInvoicesPrev").addEventListener("click", () => {
 byId("adminInvoicesNext").addEventListener("click", () => {
   adminInvoices.page += 1;
   loadInvoiceList();
+});
+
+// ---------------------------------------------------------------------------
+// Admin: webhook endpoints (one signing secret per endpoint)
+// ---------------------------------------------------------------------------
+
+const adminWebhooks = { schools: [], events: [], loaded: false };
+
+function setWebhooksMessage(text, isError = false) {
+  const message = byId("adminWebhooksMessage");
+  message.textContent = text;
+  message.classList.toggle("widget-error", isError);
+}
+
+// Shows a secret once. It is not kept anywhere after the panel is closed.
+function showWebhookSecret(secret, note) {
+  byId("webhookSecretValue").textContent = secret;
+  byId("webhookSecretNote").textContent = note;
+  byId("webhookSecretPanel").hidden = false;
+  byId("dismissWebhookSecret").focus();
+}
+
+function hideWebhookSecret() {
+  byId("webhookSecretValue").textContent = "";
+  byId("webhookSecretNote").textContent = "";
+  byId("webhookSecretPanel").hidden = true;
+}
+
+async function loadAdminWebhooks() {
+  byId("adminWebhooksSection").hidden = false;
+  try {
+    if (!adminWebhooks.loaded) {
+      const [schools, events] = await Promise.all([api("/api-keys/schools"), api("/webhooks/events")]);
+      adminWebhooks.schools = schools.data;
+      adminWebhooks.events = events.data;
+      byId("webhookForm").elements.schoolId.innerHTML = adminWebhooks.schools
+        .map((school) => `<option value="${escapeHtml(school.id)}">${escapeHtml(school.name)}</option>`).join("");
+      byId("webhookEventOptions").innerHTML = adminWebhooks.events.map((event) => `
+        <label class="webhook-event"><input type="checkbox" name="events" value="${escapeHtml(event)}" checked> <code>${escapeHtml(event)}</code></label>`).join("");
+      adminWebhooks.loaded = true;
+    }
+    await loadWebhookList();
+  } catch (error) {
+    setWebhooksMessage(`Unable to load webhooks: ${error.message}`, true);
+  }
+}
+
+async function loadWebhookList() {
+  try {
+    const result = await api("/webhooks");
+    renderWebhookList(result.data);
+  } catch (error) {
+    byId("adminWebhookRows").innerHTML = "";
+    setWebhooksMessage(`Unable to load webhooks: ${error.message}`, true);
+  }
+}
+
+function renderWebhookList(rows) {
+  const body = byId("adminWebhookRows");
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="5" class="muted-cell">No webhook URLs registered yet.</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((row) => {
+    const allEvents = adminWebhooks.events.length && row.events.length === adminWebhooks.events.length;
+    const events = allEvents ? "All events" : row.events.join(", ");
+    const previous = row.previousSecretExpiresAt
+      ? `<small class="muted-cell">Previous secret valid until ${escapeHtml(new Date(row.previousSecretExpiresAt).toLocaleString())}</small>`
+      : "";
+    return `<tr>
+      <td class="webhook-url-cell"><code>${escapeHtml(row.url)}</code>${row.description ? `<small class="muted-cell">${escapeHtml(row.description)}</small>` : ""}</td>
+      <td>${escapeHtml(row.schoolName)}</td>
+      <td class="webhook-events-cell">${escapeHtml(events)}</td>
+      <td>${escapeHtml(new Date(row.secretLastRotatedAt).toLocaleString())}${previous}</td>
+      <td class="action-cell webhook-actions">
+        <button type="button" class="outline-button" data-rotate-webhook="${escapeHtml(row.id)}">Rotate secret</button>
+        <button type="button" class="outline-button cancel-payment-button" data-delete-webhook="${escapeHtml(row.id)}" data-url="${escapeHtml(row.url)}">Delete</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+async function registerWebhook(event) {
+  event.preventDefault();
+  const form = byId("webhookForm");
+  const url = form.elements.url.value.trim();
+  const description = form.elements.description.value.trim();
+  const events = [...form.querySelectorAll("input[name=events]:checked")].map((input) => input.value);
+  const problems = [];
+  if (!url) problems.push("URL: enter the school's webhook URL");
+  if (!events.length) problems.push("Events: choose at least one event");
+  const showErrors = (list) => {
+    byId("webhookFormErrors").innerHTML = list.map((text) => `<li>${escapeHtml(text)}</li>`).join("");
+  };
+  showErrors(problems);
+  if (problems.length) return;
+
+  const button = byId("registerWebhookButton");
+  button.disabled = true;
+  try {
+    const body = { schoolId: Number(form.elements.schoolId.value), url, events };
+    if (description) body.description = description;
+    const result = await api("/webhooks", { method: "POST", body: JSON.stringify(body) });
+    form.elements.url.value = "";
+    form.elements.description.value = "";
+    showWebhookSecret(result.data.secret, `For ${result.data.url}`);
+    setWebhooksMessage(`Webhook registered for ${result.data.schoolName}.`);
+    await loadWebhookList();
+  } catch (error) {
+    const fieldErrors = error.details?.fieldErrors || {};
+    const list = Object.entries(fieldErrors).flatMap(([field, texts]) => texts.map((text) => `${field}: ${text}`));
+    showErrors(list.length ? list : [error.message]);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+byId("webhookForm").addEventListener("submit", registerWebhook);
+byId("dismissWebhookSecret").addEventListener("click", hideWebhookSecret);
+byId("copyWebhookSecret").addEventListener("click", (event) => copyText(byId("webhookSecretValue").textContent, event.currentTarget));
+byId("adminWebhookRows").addEventListener("click", async (event) => {
+  const rotate = event.target.closest("[data-rotate-webhook]");
+  const remove = event.target.closest("[data-delete-webhook]");
+  try {
+    if (rotate) {
+      if (!window.confirm("Create a new signing secret? The old one keeps working for 24 hours, so the school has time to update their app.")) return;
+      const result = await api(`/webhooks/${encodeURIComponent(rotate.dataset.rotateWebhook)}/rotate-secret`, { method: "POST" });
+      showWebhookSecret(result.data.secret,
+        `The previous secret keeps working until ${new Date(result.data.previousSecretExpiresAt).toLocaleString()}.`);
+      setWebhooksMessage("Signing secret rotated.");
+      await loadWebhookList();
+    } else if (remove) {
+      if (!window.confirm(`Delete the webhook for ${remove.dataset.url}? PlugLytics stops sending events to it, and its secret is deleted.`)) return;
+      await api(`/webhooks/${encodeURIComponent(remove.dataset.deleteWebhook)}`, { method: "DELETE" });
+      setWebhooksMessage("Webhook deleted.");
+      await loadWebhookList();
+    }
+  } catch (error) {
+    setWebhooksMessage(`Unable to update the webhook: ${error.message}`, true);
+  }
 });

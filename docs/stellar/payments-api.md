@@ -322,10 +322,11 @@ To keep the examples below short, only the `data` part is shown for success resp
 | POST | `/api/v1/payments/:id/match-transaction` | Admin | Record a payment that arrived without a memo as a new `completed` payment |
 | POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
 | GET | `/api/v1/subscriptions/:id` | Admin, or customer API key (own school, read-only) | Get a subscription and its current period |
-| POST | `/api/v1/webhooks` | Admin | Register a webhook URL and get its signing secret (shown once) |
-| GET | `/api/v1/webhooks` | Admin | List your registered webhook URLs |
-| DELETE | `/api/v1/webhooks/:id` | Admin | Remove a webhook URL |
-| POST | `/api/v1/webhooks/:id/rotate-secret` | Admin | Replace the signing secret (new secret shown once) |
+| POST | `/api/v1/webhooks` | Admin (**built**) | Register a school's webhook URL and get its signing secret (shown once) |
+| GET | `/api/v1/webhooks` | Admin (**built**) | List registered webhook URLs |
+| DELETE | `/api/v1/webhooks/:id` | Admin (**built**) | Remove a webhook URL |
+| POST | `/api/v1/webhooks/:id/rotate-secret` | Admin (**built**) | Replace the signing secret (new secret shown once) |
+| GET | `/api/v1/webhooks/events` | Admin (**built**) | List the events an endpoint can subscribe to |
 
 ### Customer API keys
 
@@ -919,64 +920,77 @@ Returns the subscription, its current period and its latest payment request, in 
 
 ### Webhook endpoints
 
-Each customer registers their own webhook URL, and **every registered URL gets its own signing secret**. No secret is ever shared between customers.
+**Built (registration only).** An admin registers each customer's (school's) webhook URL, and **every registered URL gets its own signing secret**. No secret is ever shared between customers. The admin dashboard has a **Webhooks** section for this. Sending the events themselves (deliveries, retries) is **not built yet**.
 
 How PlugLytics handles the secrets:
 
 - A new random secret (`whsec_` + 32 random bytes) is created for each endpoint.
 - It is returned **only once**: in the response to `POST /api/v1/webhooks` or `POST /api/v1/webhooks/:id/rotate-secret`. It is never shown again by any endpoint.
 - PlugLytics stores it **encrypted** (AES-256-GCM, using the server-only `WEBHOOK_SIGNING_SECRET` key). It cannot be stored as a one-way hash, because PlugLytics needs the original secret to sign each delivery.
+- The encryption key is derived from `WEBHOOK_SIGNING_SECRET` with HKDF-SHA256 (`src/webhookSecrets.js`), which must be at least 16 characters. **If `WEBHOOK_SIGNING_SECRET` changes, stored secrets can no longer be read**, and every endpoint must rotate its secret.
+- After a rotation, the previous secret is kept (also encrypted) for 24 hours, so deliveries can carry both signatures.
+- Only sandbox (testnet) webhooks are enabled so far. Without the sandbox settings, these endpoints return `503 STELLAR_NOT_CONFIGURED`.
 - Each delivery is signed with the secret of the endpoint it is sent to. See [webhooks.md](./webhooks.md#verifying-the-signature).
 
 ### POST `/api/v1/webhooks`
 
-Registers a webhook URL.
+Registers a webhook URL for a school.
 
 Request:
 
 ```json
 {
+  "schoolId": 1,
   "url": "https://your-app.example.com/webhooks/pluglytics",
   "events": ["payment.completed", "payment.failed", "subscription.activated"],
   "description": "Main LMS server"
 }
 ```
 
-- `url`: required, must start with `https://` (plain `http://` is only allowed for `localhost` in sandbox)
-- `events`: optional, the events to send. Leave it out to receive every event.
+- `schoolId`: required, the school (customer) the URL belongs to (see `GET /api/v1/api-keys/schools`)
+- `url`: required, must start with `https://` (plain `http://` is only allowed for `localhost` in sandbox). A URL with a username or password in it is rejected.
+- `events`: optional, the events to send (see `GET /api/v1/webhooks/events`). Leave it out to receive every event.
 - `description`: optional, up to 200 characters
 
 Response `201` (`data`):
 
 ```json
 {
-  "id": "wh_01JDA2K7PQ",
+  "id": "wh_7K2M9QX4R8T1VW3N",
+  "schoolId": 1,
+  "schoolName": "Demo School (placeholder)",
   "url": "https://your-app.example.com/webhooks/pluglytics",
   "events": ["payment.completed", "payment.failed", "subscription.activated"],
   "description": "Main LMS server",
   "environment": "sandbox",
-  "secret": "whsec_EXAMPLE...",
-  "createdAt": "2026-11-22T09:00:00.000Z"
+  "secretLastRotatedAt": "2026-11-22T09:00:00.000Z",
+  "previousSecretExpiresAt": null,
+  "createdAt": "2026-11-22T09:00:00.000Z",
+  "secret": "whsec_EXAMPLE..."
 }
 ```
 
 - **Save `secret` now.** It will not be shown again. Store it in your own app's `.env` (for example `PLUGLYTICS_WEBHOOK_SECRET`).
+- Errors: `400 VALIDATION_ERROR`, `404 SCHOOL_NOT_FOUND`, `503 STELLAR_NOT_CONFIGURED`.
 
 ### GET `/api/v1/webhooks`
 
-Lists your registered webhook URLs. Secrets are **never** included.
+Lists registered webhook URLs, newest first, optionally `?schoolId=1`. Secrets are **never** included, encrypted or not.
 
 Response `200` (`data`):
 
 ```json
 [
   {
-    "id": "wh_01JDA2K7PQ",
+    "id": "wh_7K2M9QX4R8T1VW3N",
+    "schoolId": 1,
+    "schoolName": "Demo School (placeholder)",
     "url": "https://your-app.example.com/webhooks/pluglytics",
     "events": ["payment.completed", "payment.failed", "subscription.activated"],
     "description": "Main LMS server",
     "environment": "sandbox",
     "secretLastRotatedAt": "2026-11-22T09:00:00.000Z",
+    "previousSecretExpiresAt": null,
     "createdAt": "2026-11-22T09:00:00.000Z"
   }
 ]
@@ -989,7 +1003,7 @@ Removes a webhook URL. PlugLytics stops sending events to it right away (includi
 Response `200` (`data`):
 
 ```json
-{ "id": "wh_01JDA2K7PQ", "deleted": true }
+{ "id": "wh_7K2M9QX4R8T1VW3N", "deleted": true }
 ```
 
 ### POST `/api/v1/webhooks/:id/rotate-secret`
@@ -1002,7 +1016,7 @@ Response `200` (`data`):
 
 ```json
 {
-  "id": "wh_01JDA2K7PQ",
+  "id": "wh_7K2M9QX4R8T1VW3N",
   "secret": "whsec_EXAMPLE...",
   "previousSecretExpiresAt": "2026-11-23T09:30:00.000Z",
   "secretLastRotatedAt": "2026-11-22T09:30:00.000Z"
@@ -1010,6 +1024,7 @@ Response `200` (`data`):
 ```
 
 - The new `secret` is shown **only once**.
+- Errors: `404 WEBHOOK_NOT_FOUND`, `503 STELLAR_NOT_CONFIGURED`.
 - Until `previousSecretExpiresAt` (24 hours), deliveries carry both signatures, so you can update your app without missing events. See [webhooks.md](./webhooks.md#rotating-your-secret).
 
 ## How payments are detected and webhooks are sent

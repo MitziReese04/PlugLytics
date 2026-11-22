@@ -446,6 +446,22 @@ main { min-width: 0; }
 .invoice-form-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 .dashboard-page .admin-payments-table small.muted-cell { display: block; font-size: 11px; }
 
+/* Admin: webhooks */
+.webhook-form { margin-top: 4px; }
+.webhook-url-field { grid-column: span 2; }
+.webhook-events { margin: 14px 0 0; padding: 10px 12px 12px; border: 1px solid var(--border); border-radius: 9px; }
+.webhook-events legend { padding: 0 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.webhook-event-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 12px; }
+.dashboard-page .webhook-event { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 12px; font-weight: 400; }
+.dashboard-page .webhook-event input { width: 16px; height: 16px; accent-color: var(--primary); }
+.webhook-secret-panel code { overflow-wrap: anywhere; }
+.dashboard-page .webhook-table td { white-space: normal; }
+.webhook-url-cell code { overflow-wrap: anywhere; }
+.webhook-url-cell small, .webhook-table td small { display: block; margin-top: 3px; }
+.webhook-events-cell { max-width: 240px; color: var(--muted); font-size: 12px; }
+.webhook-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.dashboard-page .webhook-actions button { padding: 7px 10px; font-size: 12px; }
+
 /* Admin: Stellar payments */
 .admin-payments-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 12px; }
 .dashboard-page .admin-payments-toolbar label { display: grid; gap: 4px; min-width: 170px; color: var(--muted); font-size: 12px; }
