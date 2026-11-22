@@ -4,19 +4,10 @@ const { authenticate, authorize } = require("../middleware/auth");
 const { readQueryFilters } = require("../middleware/queryFilters");
 const { sendSuccess } = require("../utils/envelope");
 const { sendTableOrCsv } = require("../utils/export");
+const { cachedFinance } = require("../utils/financeCache");
 
 const router = express.Router();
 router.use(authenticate, authorize("admin"), readQueryFilters("admin"));
-
-const financeCache = new Map();
-function cachedFinance(key, build) {
-  const now = Date.now();
-  const cached = financeCache.get(key);
-  if (cached && now - cached.time < 60_000) return cached.value;
-  const value = build();
-  financeCache.set(key, { time: now, value });
-  return value;
-}
 
 function termParams(req) {
   const params = {};

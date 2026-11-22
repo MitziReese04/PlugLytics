@@ -88,6 +88,7 @@ Example: base price 3000, merit scholarship 500, 10% discount (300), platform fe
   - **Anchor fees**: charged by an anchor or on-ramp when the payer converts local currency. The **payer** pays them to the anchor. They are never added to `finalAmount`, and the amount that reaches the merchant account must still match the payment request.
 - A scholarship and discount that together are bigger than the base price plus fees are rejected (`VALIDATION_ERROR`), because `finalAmount` would be negative.
 - The same rules are enforced in two places: the API (`src/pricing.js`) and the database (`CHECK` constraints on the `invoices` table in `src/schema.sql`).
+- Admins set these fields with [`POST /api/v1/invoices` and `PATCH /api/v1/invoices/:id`](#post-apiv1invoices).
 
 ### Scholarships
 
@@ -301,6 +302,8 @@ To keep the examples below short, only the `data` part is shown for success resp
 | Method | Path | Who can call it | What it does |
 | --- | --- | --- | --- |
 | GET | `/api/v1/payments/config` | Any signed-in user | Show the active network and merchant public key |
+| POST | `/api/v1/invoices` | Admin (**built**) | Create an invoice with pricing fields |
+| PATCH | `/api/v1/invoices/:id` | Admin (**built**) | Change an invoice's pricing fields or due date (blocked once a payment is completed) |
 | POST | `/api/v1/payments` | Student (own invoice, **built, sandbox only**); Admin (pay-per-use, planned) | Create a payment request |
 | GET | `/api/v1/payments` | Admin (**built**), or customer API key (own school, read-only, planned) | List payment requests |
 | GET | `/api/v1/payments/invoices` | Student (**built**) | List your own invoices with what is still due and the latest Stellar payment request |
@@ -354,6 +357,78 @@ Response `200` (`data`):
 - Each asset is a code **plus** its issuer. `assetIssuer` is `null` for XLM, which is Stellar's native asset and has no issuer.
 - USDC uses Circle's issuer for the current network: the testnet issuer above in sandbox, and `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN` in production (see [settlement.md](./settlement.md#which-assets-we-accept)).
 - XLM is approved and the default asset for sandbox and the pilot. USDC is approved and the planned default for production, because of its stable dollar value. USDC appears in this list only once it is enabled on the server.
+
+### POST `/api/v1/invoices`
+
+**Built. Admin only.** Creates an invoice with the [pricing fields](#pricing-fields). PlugLytics works out `finalAmount` with `computeFinalAmount()` in `src/pricing.js` (the database computes the same value).
+
+Request:
+
+```json
+{
+  "studentId": 42,
+  "termId": 4,
+  "basePrice": 3000,
+  "currency": "PHP",
+  "scholarshipAmount": 500,
+  "scholarshipType": "merit",
+  "scholarshipName": "Academic Merit Scholarship",
+  "discountPercent": 10,
+  "discountCode": "EARLY10",
+  "platformFee": 25,
+  "transactionFee": 1.5,
+  "instructorCost": 800,
+  "dueAt": "2026-12-15T23:59:00Z"
+}
+```
+
+- `studentId`, `termId`, `basePrice` and `dueAt` are required. `issuedAt` is optional and defaults to now. `dueAt` cannot be before `issuedAt`.
+- Every pricing field follows the rules in [Pricing fields](#pricing-fields), and the same defaults apply (`USD`, and `0` or `null` for everything else).
+- `finalAmount` is never sent: it is always computed. Unknown fields are rejected.
+
+Response `201` (`data`):
+
+```json
+{
+  "id": 2002,
+  "studentId": 42,
+  "termId": 4,
+  "currency": "PHP",
+  "basePrice": 3000,
+  "scholarshipAmount": 500,
+  "scholarshipType": "merit",
+  "scholarshipName": "Academic Merit Scholarship",
+  "discountPercent": 10,
+  "discountCode": "EARLY10",
+  "platformFee": 25,
+  "transactionFee": 1.5,
+  "instructorCost": 800,
+  "finalAmount": 2226.5,
+  "issuedAt": "2026-11-22T09:00:00.000Z",
+  "dueAt": "2026-12-15T23:59:00Z"
+}
+```
+
+Errors: `400 VALIDATION_ERROR` (for example a negative amount, a discount over 100, a scholarship without a type, or a final amount below 0), `404 STUDENT_NOT_FOUND`, `404 TERM_NOT_FOUND`.
+
+### PATCH `/api/v1/invoices/:id`
+
+**Built. Admin only.** Changes an invoice's pricing fields (`basePrice`, `currency`, `scholarshipAmount`, `scholarshipType`, `scholarshipName`, `discountPercent`, `discountCode`, `platformFee`, `transactionFee`, `instructorCost`) or its `dueAt`. Send only the fields to change.
+
+Request:
+
+```json
+{ "platformFee": 50, "dueAt": "2026-12-31T23:59:00Z" }
+```
+
+- The changed fields are combined with the invoice's current ones, and **the result** must pass the pricing rules. For example, a new discount that would push `finalAmount` below 0 is rejected.
+- `finalAmount` is recomputed. The response has the same shape as `POST /api/v1/invoices`.
+- Setting `scholarshipAmount` to `0` also clears `scholarshipType` and `scholarshipName`, unless they are sent in the same request.
+- `studentId`, `termId`, `issuedAt` and `finalAmount` cannot be changed (`400 VALIDATION_ERROR`).
+- **Blocked once money has been received:** if the invoice has a `completed` Stellar payment request, or any payment already recorded for it, the change is refused with `409 INVOICE_HAS_COMPLETED_PAYMENT`. Fix a wrong price with a refund or a follow-up request instead.
+- **Blocked while a payment request is pending:** its quote is locked for the current price (see [From invoice to payment request](#from-invoice-to-payment-request)), so the change is refused with `409 PAYMENT_ALREADY_PENDING` (`details.paymentId` is the pending request). Change the invoice after that request expires or fails.
+
+Errors: `400 VALIDATION_ERROR`, `404 INVOICE_NOT_FOUND`, `409 INVOICE_HAS_COMPLETED_PAYMENT`, `409 PAYMENT_ALREADY_PENDING`.
 
 ### POST `/api/v1/payments`
 
@@ -900,11 +975,14 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 404 | `PAYMENT_NOT_FOUND` | No payment request has that ID |
 | 404 | `SUBSCRIPTION_NOT_FOUND` | No subscription has that ID |
 | 404 | `WEBHOOK_NOT_FOUND` | No registered webhook URL has that ID |
-| 404 | `INVOICE_NOT_FOUND` | No invoice with that ID was found for this student |
+| 404 | `INVOICE_NOT_FOUND` | No invoice with that ID was found (for a student: none of their own) |
+| 404 | `STUDENT_NOT_FOUND` | No student has that ID |
+| 404 | `TERM_NOT_FOUND` | No term has that ID |
 | 409 | `PAYMENT_ALREADY_COMPLETED` | You tried to cancel a request that is already completed |
 | 409 | `PAYMENT_NOT_PENDING` | The request is expired or cancelled |
 | 409 | `DUPLICATE_REFERENCE` | A request with the same `reference` already exists |
 | 409 | `INVOICE_NOTHING_DUE` | The invoice is fully paid, or already has a `completed` Stellar payment |
+| 409 | `INVOICE_HAS_COMPLETED_PAYMENT` | The invoice cannot be changed, because it already has a completed or recorded payment |
 | 409 | `PAYMENT_ALREADY_PENDING` | The invoice already has a `pending`, unexpired payment request |
 | 422 | `RATE_UNAVAILABLE` | No exchange-rate quote is available for this invoice currency and asset |
 | 409 | `RELATED_PAYMENT_NOT_FAILED` | `relatedPaymentId`, or the `:id` in `accept-late-payment` or `match-transaction`, is not a `failed` payment request |

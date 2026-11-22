@@ -580,7 +580,7 @@ The following information is needed before the README and grant materials can be
 10. Approved payment methods and refund/chargeback procedures: **Documented, partly built** ([approved-payment-methods.md](./docs/stellar/approved-payment-methods.md), [refunds-and-chargebacks.md](./docs/stellar/refunds-and-chargebacks.md))
     - Still missing: the refund endpoint is not built yet; amount limits, refund windows, and the approved anchor list are placeholders.
 11. Scholarship, discount, fee, and instructor-cost fields: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#pricing-fields))
-    - Still missing: no invoice endpoint or screen sets these fields yet.
+    - Still missing: admins can set these fields through the API (`POST /api/v1/invoices`, `PATCH /api/v1/invoices/:id`), but no dashboard screen sets them yet.
 12. Pilot budget, grant amount, milestones, and reporting dates: **Documented, partly built** ([pilot-budget-and-grant.md](./docs/stellar/pilot-budget-and-grant.md))
     - Still missing: the grant amount, budget amounts, and milestone and report dates are TODO.
 13. User-testing population and target sample size

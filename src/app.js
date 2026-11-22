@@ -9,6 +9,7 @@ const adminRoutes = require("./routes/admin");
 const widgetsRoutes = require("./routes/widgets");
 const dashboardRoutes = require("./routes/dashboard");
 const paymentRoutes = require("./routes/payments");
+const invoiceRoutes = require("./routes/invoices");
 const path = require("path");
 const { sendError } = require("./utils/envelope");
 const swaggerUi = require("swagger-ui-express");
@@ -47,6 +48,7 @@ app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/widgets", widgetsRoutes);
 app.use("/api/v1/me", dashboardRoutes);
 app.use("/api/v1/payments", paymentRoutes);
+app.use("/api/v1/invoices", invoiceRoutes);
 
 app.use((req, res) => {
   return sendError(res, 404, "NOT_FOUND", "The requested endpoint does not exist");
