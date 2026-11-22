@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PlugLytics Dashboard</title>
-  <link rel="stylesheet" href="./styles.css?v=10">
+  <link rel="stylesheet" href="./styles.css?v=11">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js" integrity="sha384-Emf5ZVIUiarAdhkgtqK+5/Z5qIvM6QoVrS+qAVtfyZVuD5lIHrac0me485+Antp0" crossorigin="anonymous"></script>
 </head>
 <body class="dashboard-page">
@@ -107,6 +107,9 @@
           <dl id="paymentDetails" class="payment-details"></dl>
           <p class="memo-warning">Include the memo exactly as shown. Without it, the payment cannot be matched to your invoice.</p>
           <p class="payment-status-line">Status: <span id="paymentStatus" class="payment-status" role="status" aria-live="polite"></span> <small id="paymentExpiry"></small></p>
+          <div class="payment-panel-actions">
+            <button id="cancelPaymentRequest" class="outline-button cancel-payment-button" type="button" hidden>Cancel payment request</button>
+          </div>
         </section>
       </section>
       <section id="adminInvoicesSection" class="widget-card payments-section" aria-labelledby="adminInvoicesHeading" hidden>
@@ -208,6 +211,6 @@
   </div>
   <script src="./financeChart.js?v=1"></script>
   <script src="./pricingPreview.js?v=1"></script>
-  <script src="./app.js?v=9"></script>
+  <script src="./app.js?v=10"></script>
 </body>
 </html>

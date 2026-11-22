@@ -289,6 +289,118 @@ describe("quote locking when creating payment requests", () => {
   });
 });
 
+const cancel = (id, token = studentToken) =>
+  request(app).post(`/api/v1/payments/${id}/cancel`).set("Authorization", `Bearer ${token}`);
+
+describe("POST /api/v1/payments/:id/cancel", () => {
+  test("cancels a pending request: it becomes failed with reason cancelled", async () => {
+    const created = await createPending();
+    fetchSpy.mockResolvedValue(horizonPage([]));
+    const response = await cancel(created.id);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ id: created.id, status: "failed", reason: "cancelled", paidAt: null, transactionHash: null });
+    expect(db.prepare("SELECT status, reason FROM payment_requests WHERE id = ?").get(created.id))
+      .toEqual({ status: "failed", reason: "cancelled" });
+    // Horizon was checked first, in case a payment had already arrived.
+    expect(fetchSpy.mock.calls[0][0]).toContain(`/accounts/${MERCHANT}/payments`);
+  });
+
+  test("does not cancel a request the payer has already paid: it is completed instead", async () => {
+    const created = await createPending();
+    const paid = horizonPayment({ memo: created.memo, amount: created.amount });
+    fetchSpy.mockResolvedValue(horizonPage([paid]));
+    const response = await cancel(created.id);
+
+    expect(response.status).toBe(409);
+    expect(response.body.error).toMatchObject({
+      code: "PAYMENT_ALREADY_COMPLETED", details: { paymentId: created.id, transactionHash: paid.transaction_hash },
+    });
+    expect(db.prepare("SELECT status FROM payment_requests WHERE id = ?").get(created.id).status).toBe("completed");
+  });
+
+  test("only pending requests can be cancelled", async () => {
+    const created = await createPending();
+    fetchSpy.mockResolvedValue(horizonPage([]));
+    expect((await cancel(created.id)).status).toBe(200);
+
+    const again = await cancel(created.id);
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe("PAYMENT_NOT_PENDING");
+
+    const completed = await createPending();
+    fetchSpy.mockResolvedValue(horizonPage([horizonPayment({ memo: completed.memo, amount: completed.amount })]));
+    await check(completed.id);
+    const done = await cancel(completed.id);
+    expect(done.status).toBe(409);
+    expect(done.body.error.code).toBe("PAYMENT_ALREADY_COMPLETED");
+  });
+
+  test("an expired request is settled as expired, not cancelled", async () => {
+    const created = await createPending();
+    expire(created.id);
+    fetchSpy.mockResolvedValue(horizonPage([]));
+    const response = await cancel(created.id);
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("PAYMENT_NOT_PENDING");
+    expect(db.prepare("SELECT status, reason FROM payment_requests WHERE id = ?").get(created.id))
+      .toEqual({ status: "failed", reason: "expired" });
+  });
+
+  test("is not cancelled when Horizon cannot be checked", async () => {
+    const created = await createPending();
+    fetchSpy.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+    const response = await cancel(created.id);
+    expect(response.status).toBe(502);
+    expect(response.body.error.code).toBe("HORIZON_UNAVAILABLE");
+    expect(db.prepare("SELECT status FROM payment_requests WHERE id = ?").get(created.id).status).toBe("pending");
+  });
+
+  test("a payment sent after cancelling does not complete the request", async () => {
+    const created = await createPending();
+    fetchSpy.mockResolvedValue(horizonPage([]));
+    await cancel(created.id);
+    fetchSpy.mockResolvedValue(horizonPage([horizonPayment({ memo: created.memo, amount: created.amount })]));
+    fetchSpy.mockClear();
+    const response = await check(created.id);
+    expect(response.body.data).toMatchObject({ status: "failed", reason: "cancelled" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  test("after cancelling, the student can create a new request for the invoice", async () => {
+    const invoiceId = addInvoice(100);
+    const first = await createPending(invoiceId);
+    fetchSpy.mockResolvedValue(horizonPage([]));
+    await cancel(first.id);
+    const second = await postPayment(invoiceId);
+    expect(second.status).toBe(201);
+    expect(second.body.data.id).not.toBe(first.id);
+  });
+
+  test("students can only cancel their own requests; admins can cancel any; instructors cannot", async () => {
+    const created = await createPending();
+    fetchSpy.mockResolvedValue(horizonPage([]));
+    const other = await cancel(created.id, await login(otherStudent.email));
+    expect(other.status).toBe(404);
+    expect(other.body.error.code).toBe("PAYMENT_NOT_FOUND");
+    expect((await cancel(created.id, await login("instructor@pluglytics.local"))).status).toBe(403);
+    expect((await request(app).post(`/api/v1/payments/${created.id}/cancel`)).status).toBe(401);
+
+    const admin = await cancel(created.id, await login("admin@pluglytics.local"));
+    expect(admin.status).toBe(200);
+    expect(admin.body.data.reason).toBe("cancelled");
+    expect((await cancel("pay_DOESNOTEXIST00")).status).toBe(404);
+  });
+
+  test("needs the sandbox settings to check Horizon before cancelling", async () => {
+    const created = await createPending();
+    delete process.env.SANDBOX_MERCHANT_PUBLIC_KEY;
+    const response = await cancel(created.id);
+    expect(response.status).toBe(503);
+    expect(db.prepare("SELECT status FROM payment_requests WHERE id = ?").get(created.id).status).toBe("pending");
+  });
+});
+
 describe("GET /api/v1/payments/:id", () => {
   test("stays pending while no payment has arrived", async () => {
     const created = await createPending();

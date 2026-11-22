@@ -420,6 +420,11 @@ main { min-width: 0; }
 .memo-warning { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
 .payment-status-line { margin: 12px 0 0; font-size: 13px; }
 .payment-status-line small { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+.payment-panel-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+.dashboard-page .cancel-payment-button { border-color: #e3a1a1; color: #a32d2d; }
+.dashboard-page .cancel-payment-button:hover { border-color: #a32d2d; background: #fdecec; }
+.dashboard-page.dark .cancel-payment-button { border-color: #7a3434; color: #ffb3b3; }
+.dashboard-page.dark .cancel-payment-button:hover { border-color: #ffb3b3; background: #4a1f1f; }
 /* Admin: invoices */
 .invoice-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
 .dashboard-page .invoice-form-grid label { font-size: 12px; }

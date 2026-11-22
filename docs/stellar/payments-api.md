@@ -313,7 +313,7 @@ To keep the examples below short, only the `data` part is shown for success resp
 | GET | `/api/v1/payments/invoices` | Student (**built**) | List your own invoices with what is still due and the latest Stellar payment request |
 | GET | `/api/v1/payments/:id` | Student (own invoice, **built**), Admin (**built**), or customer API key (own school, read-only, planned) | Get one payment request, checking Horizon first while it is pending |
 | POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
-| POST | `/api/v1/payments/:id/cancel` | Admin | Cancel a pending request |
+| POST | `/api/v1/payments/:id/cancel` | Student (own invoice, **built**), Admin (**built**) | Cancel a pending request |
 | POST | `/api/v1/payments/:id/accept-late-payment` | Admin | Record a payment that arrived after expiry as a new `completed` payment |
 | POST | `/api/v1/payments/:id/match-transaction` | Admin | Record a payment that arrived without a memo as a new `completed` payment |
 | POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
@@ -708,7 +708,13 @@ Response `200` when nothing has arrived yet: the same shape with `"status": "pen
 
 ### POST `/api/v1/payments/:id/cancel`
 
-Cancels a `pending` request. Payments sent after cancelling are not matched. Response `200` contains the request with `"status": "failed"` and `"reason": "cancelled"`.
+**Built.** Cancels a `pending` request. Students can cancel requests for their own invoices (the dashboard has a **Cancel payment request** button); admins can cancel any. Payments sent after cancelling are not matched. Response `200` contains the request with `"status": "failed"` and `"reason": "cancelled"`.
+
+- **Horizon is checked first.** If a matching payment has already arrived, the request becomes `completed` instead and the cancel is refused with `409 PAYMENT_ALREADY_COMPLETED` (`details` has `paymentId` and `transactionHash`). If the request has expired, it becomes `failed` with reason `expired` and the cancel is refused with `409 PAYMENT_NOT_PENDING`.
+- Only `pending` requests can be cancelled: a `completed` request gives `409 PAYMENT_ALREADY_COMPLETED`, and a `failed` one gives `409 PAYMENT_NOT_PENDING`.
+- If Horizon cannot be reached, nothing is cancelled (`502 HORIZON_UNAVAILABLE`). Without the sandbox settings it returns `503 STELLAR_NOT_CONFIGURED`.
+- Another student's request looks the same as a missing one (`404 PAYMENT_NOT_FOUND`). Instructors get `403`.
+- After cancelling, the student can create a new request for the invoice (with a new quote).
 
 ### POST `/api/v1/payments/:id/accept-late-payment`
 
@@ -993,7 +999,7 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 404 | `INVOICE_NOT_FOUND` | No invoice with that ID was found (for a student: none of their own) |
 | 404 | `STUDENT_NOT_FOUND` | No student has that ID |
 | 404 | `TERM_NOT_FOUND` | No term has that ID |
-| 409 | `PAYMENT_ALREADY_COMPLETED` | You tried to cancel a request that is already completed |
+| 409 | `PAYMENT_ALREADY_COMPLETED` | You tried to cancel a request that is already completed, or whose payment has already arrived |
 | 409 | `PAYMENT_NOT_PENDING` | The request is expired or cancelled |
 | 409 | `DUPLICATE_REFERENCE` | A request with the same `reference` already exists |
 | 409 | `INVOICE_NOTHING_DUE` | The invoice is fully paid, or already has a `completed` Stellar payment |

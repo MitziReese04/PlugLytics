@@ -413,4 +413,60 @@ router.get("/:id", authenticate, authorize("student", "admin"), async (req, res,
   }
 });
 
+const cancelRequest = db.prepare(`
+  UPDATE payment_requests SET status = 'failed', reason = 'cancelled'
+  WHERE id = ? AND status = 'pending'
+`);
+
+// Cancels a pending payment request: it becomes failed with reason cancelled.
+// Students can cancel requests for their own invoices; admins can cancel any.
+// Horizon is checked first, so a request the payer has already paid is
+// completed instead of cancelled (see docs/stellar/payments-api.md).
+router.post("/:id/cancel", authenticate, authorize("student", "admin"), async (req, res, next) => {
+  try {
+    const row = findRequest.get(req.params.id);
+    const ownStudentId = req.user.role === "student" ? studentIdFor(req.user.id) : null;
+    if (!row || (req.user.role === "student" && (ownStudentId === null || row.student_id !== ownStudentId))) {
+      return sendError(res, 404, "PAYMENT_NOT_FOUND", "No payment request has that ID");
+    }
+    if (row.status === "completed") {
+      return sendError(res, 409, "PAYMENT_ALREADY_COMPLETED", "This payment request is already completed and cannot be cancelled");
+    }
+    if (row.status !== "pending") {
+      return sendError(res, 409, "PAYMENT_NOT_PENDING", `This payment request is already failed (${row.reason}) and cannot be cancelled`);
+    }
+
+    let stellar;
+    try {
+      stellar = loadStellarConfig();
+    } catch (error) {
+      stellar = null;
+    }
+    if (!stellar || stellar.env !== "sandbox") {
+      return sendError(res, 503, "STELLAR_NOT_CONFIGURED", "Stellar sandbox settings are needed to check this payment before cancelling");
+    }
+
+    // Settle it first if Horizon already shows a payment (or it has expired).
+    const checked = await checkPendingRequest(row, stellar);
+    if (checked.error) return sendError(res, ...checked.error);
+    if (checked.row.status === "completed") {
+      return sendError(res, 409, "PAYMENT_ALREADY_COMPLETED", "A payment for this request has already arrived, so it cannot be cancelled", {
+        paymentId: row.id, transactionHash: checked.row.tx_hash,
+      });
+    }
+    if (checked.row.status !== "pending") {
+      return sendError(res, 409, "PAYMENT_NOT_PENDING", `This payment request is already failed (${checked.row.reason}) and cannot be cancelled`);
+    }
+
+    const result = cancelRequest.run(row.id);
+    const updated = findRequest.get(row.id);
+    if (result.changes === 0) {
+      return sendError(res, 409, "PAYMENT_NOT_PENDING", "This payment request is no longer pending");
+    }
+    return sendSuccess(res, toResponse(updated, stellar.env));
+  } catch (error) {
+    return next(error);
+  }
+});
+
 module.exports = router;

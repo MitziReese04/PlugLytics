@@ -42,6 +42,10 @@ describe("dashboard assets", () => {
     expect(html.indexOf("pricingPreview.js")).toBeLessThan(html.indexOf("app.js"));
   });
 
+  test("the student payment panel has a Cancel button", () => {
+    expect(html).toContain('id="cancelPaymentRequest"');
+  });
+
   test("the admin invoice screen is on the page", () => {
     for (const id of ["adminInvoicesSection", "invoiceForm", "invoicePreview", "newInvoiceButton"]) {
       expect(html).toContain(`id="${id}"`);

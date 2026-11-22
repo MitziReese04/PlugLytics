@@ -625,6 +625,7 @@ function showPayment(data) {
 
 function updatePaymentStatus(data) {
   payment.current = { ...payment.current, ...data };
+  byId("cancelPaymentRequest").hidden = data.status !== "pending";
   const status = byId("paymentStatus");
   status.className = `payment-status payment-status-${data.status}`;
   if (data.status === "completed") {
@@ -746,6 +747,39 @@ byId("paymentsSection").addEventListener("click", async (event) => {
     await copyText(String(payment.current[copyButton.dataset.copyField] ?? ""), copyButton);
   }
 });
+
+async function cancelPaymentRequest() {
+  if (!payment.current || payment.current.status !== "pending") return;
+  if (!window.confirm("Cancel this payment request? Do not send the payment after cancelling: it will not be matched to your invoice.")) return;
+  const button = byId("cancelPaymentRequest");
+  button.disabled = true;
+  stopPaymentPolling();
+  setPaymentsMessage("");
+  try {
+    const result = await api(`/payments/${encodeURIComponent(payment.current.id)}/cancel`, { method: "POST" });
+    updatePaymentStatus(result.data);
+    setPaymentsMessage("The payment request was cancelled. You can create a new one at any time.");
+  } catch (error) {
+    if (error.code === "PAYMENT_ALREADY_COMPLETED") {
+      setPaymentsMessage("A payment has already arrived for this request, so it was not cancelled.");
+    } else {
+      setPaymentsMessage(`Unable to cancel the payment request: ${error.message}`, true);
+    }
+    // Show the request's real status, and keep checking if it is still pending.
+    try {
+      const latest = await api(`/payments/${encodeURIComponent(payment.current.id)}`);
+      updatePaymentStatus(latest.data);
+      if (latest.data.status === "pending") startPaymentPolling();
+    } catch (refreshError) {
+      startPaymentPolling();
+    }
+  } finally {
+    button.disabled = false;
+    await loadInvoices();
+  }
+}
+
+byId("cancelPaymentRequest").addEventListener("click", cancelPaymentRequest);
 
 byId("closePaymentPanel").addEventListener("click", () => {
   stopPaymentPolling();
