@@ -72,9 +72,9 @@ describe("GET /api/v1/payments/invoices", () => {
     const invoiceId = addInvoice(75);
     db.prepare(`
       INSERT INTO payment_requests (id, invoice_id, amount, asset, memo, destination, status, tx_hash, amount_received, ledger,
-        quoted_rate, invoice_currency, invoice_amount, created_at, expires_at, completed_at)
+        quoted_rate, rate_source, invoice_currency, invoice_amount, created_at, expires_at, completed_at)
       VALUES ('pay_LISTCOMPLETED01', ?, '187.5000000', 'XLM', 'PL-LISTDONE', ?, 'completed', ?, '187.5000000', 99,
-        '2.5000000', 'USD', '75.00', '2026-11-01T10:00:00.000Z', '2026-11-01T10:30:00.000Z', '2026-11-01T10:05:00.000Z')
+        '2.5000000', 'manual', 'USD', '75.00', '2026-11-01T10:00:00.000Z', '2026-11-01T10:30:00.000Z', '2026-11-01T10:05:00.000Z')
     `).run(invoiceId, MERCHANT, "b".repeat(64));
 
     const row = (await list()).body.data.find((r) => r.id === invoiceId);

@@ -108,6 +108,13 @@ describe("checkAmountLimits", () => {
 });
 
 describe("getQuote with the payment policy", () => {
+  test("valid PAYMENT_RATE_SOURCE values are the rate sources registered in stellarQuotes", () => {
+    const { RATE_SOURCES: registry, RATE_SOURCE_NAMES } = require("../src/stellarQuotes");
+    const { RATE_SOURCES } = require("../src/paymentPolicy");
+    expect(RATE_SOURCES).toEqual(RATE_SOURCE_NAMES);
+    expect(Object.keys(registry)).toEqual(["manual"]);
+  });
+
   test("uses the configured manual rate", () => {
     const policy = loadPaymentPolicy({ PAYMENT_MANUAL_RATE_USD_XLM: "3" });
     expect(getQuote({ environment: "sandbox", asset: "XLM", invoiceCurrency: "USD", policy }))

@@ -91,6 +91,7 @@ describe("POST /api/v1/payments", () => {
       invoiceCurrency: "USD",
       invoiceAmount: "100.00",
       quotedRate: DEFAULT_MANUAL_RATES["USD:XLM"],
+      rateSource: "manual-default-testnet",
       amount: "250.0000000", // 100 USD x 2.5 XLM
       asset: "XLM",
       assetIssuer: null,
@@ -159,9 +160,9 @@ describe("POST /api/v1/payments", () => {
     const invoiceId = addInvoice(demoStudent.id, 75);
     db.prepare(`
       INSERT INTO payment_requests (id, invoice_id, amount, asset, memo, destination, status, tx_hash,
-        amount_received, ledger, quoted_rate, invoice_currency, invoice_amount, created_at, expires_at, completed_at)
+        amount_received, ledger, quoted_rate, rate_source, invoice_currency, invoice_amount, created_at, expires_at, completed_at)
       VALUES ('pay_TESTCOMPLETED01', ?, '187.5000000', 'XLM', 'PL-TESTDONE', ?, 'completed', ?,
-        '187.5000000', 1234567, '2.5000000', 'USD', '75.00', '2026-11-01T10:00:00.000Z', '2026-11-01T10:30:00.000Z', '2026-11-01T10:05:00.000Z')
+        '187.5000000', 1234567, '2.5000000', 'manual', 'USD', '75.00', '2026-11-01T10:00:00.000Z', '2026-11-01T10:30:00.000Z', '2026-11-01T10:05:00.000Z')
     `).run(invoiceId, MERCHANT, "a".repeat(64));
     const response = await pay({ invoiceId });
     expect(response.status).toBe(409);
@@ -226,7 +227,9 @@ describe("POST /api/v1/payments", () => {
     process.env.PAYMENT_MANUAL_RATE_USD_XLM = "3";
     const response = await pay({ invoiceId });
     expect(response.status).toBe(201);
-    expect(response.body.data).toMatchObject({ quotedRate: "3.0000000", amount: "300.0000000" });
+    expect(response.body.data).toMatchObject({ quotedRate: "3.0000000", rateSource: "manual", amount: "300.0000000" });
+    const row = db.prepare("SELECT quoted_rate, rate_source FROM payment_requests WHERE id = ?").get(response.body.data.id);
+    expect(row).toEqual({ quoted_rate: "3.0000000", rate_source: "manual" });
   });
 
   test("refuses amounts outside the asset's minimum and maximum", async () => {

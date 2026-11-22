@@ -56,6 +56,7 @@ describe("payment_requests table", () => {
       asset: "USDC",
       asset_issuer: USDC_TESTNET_ISSUER,
       quoted_rate: "0.0171000",
+      rate_source: "manual",
       invoice_currency: "PHP",
       invoice_amount: "2226.50",
     }));
@@ -81,15 +82,17 @@ describe("payment_requests table", () => {
     ["tx hash without amount received", { status: "completed", tx_hash: HASH(90), ledger: 5, completed_at: "2026-11-21T12:05:00.000Z" }],
     ["tx hash without ledger", { status: "completed", tx_hash: HASH(91), amount_received: "25.0000000", completed_at: "2026-11-21T12:05:00.000Z" }],
     ["amount received without 7 decimals", { status: "failed", reason: "underpaid", tx_hash: HASH(92), amount_received: "20", ledger: 5 }],
-    ["invoice amount without 2 decimals", { invoice_id: 1, quoted_rate: "1", invoice_currency: "USD", invoice_amount: "10" }],
-    ["invoice without an invoice amount", { invoice_id: 1, quoted_rate: "1", invoice_currency: "USD" }],
+    ["invoice amount without 2 decimals", { invoice_id: 1, quoted_rate: "1", rate_source: "manual", invoice_currency: "USD", invoice_amount: "10" }],
+    ["invoice without an invoice amount", { invoice_id: 1, quoted_rate: "1", rate_source: "manual", invoice_currency: "USD" }],
+    ["invoice quote without a rate source", { invoice_id: 1, quoted_rate: "1", invoice_currency: "USD", invoice_amount: "10.00" }],
+    ["rate source without an invoice", { rate_source: "manual" }],
     ["completed without completed_at", { status: "completed", tx_hash: HASH(1), amount_received: "25.0000000", ledger: 5 }],
     ["completed_at on a pending request", { completed_at: "2026-11-21T12:05:00.000Z" }],
     ["tx hash in the wrong format", { tx_hash: "XYZ", amount_received: "1.0000000", ledger: 5 }],
     ["invoice without a quoted rate", { invoice_id: 1, invoice_currency: "PHP", invoice_amount: "10.00" }],
     ["quoted rate without an invoice", { quoted_rate: "1.0000000", invoice_currency: "USD" }],
-    ["lowercase invoice currency", { invoice_id: 1, quoted_rate: "1", invoice_currency: "php", invoice_amount: "10.00" }],
-    ["zero quoted rate", { invoice_id: 1, quoted_rate: "0", invoice_currency: "USD", invoice_amount: "10.00" }],
+    ["lowercase invoice currency", { invoice_id: 1, quoted_rate: "1", rate_source: "manual", invoice_currency: "php", invoice_amount: "10.00" }],
+    ["zero quoted rate", { invoice_id: 1, quoted_rate: "0", rate_source: "manual", invoice_currency: "USD", invoice_amount: "10.00" }],
     ["expiry before creation", { created_at: "2026-11-21T12:00:00.000Z", expires_at: "2026-11-21T11:00:00.000Z" }],
     ["id without the pay_ prefix", { id: "abc123" }],
   ])("rejects %s", (_, fields) => {
@@ -125,6 +128,32 @@ describe("payment_requests table", () => {
     expect(() =>
       db.prepare("UPDATE payment_requests SET status = 'failed', reason = 'cancelled' WHERE id = ?").run(completed)
     ).toThrow(/status is final/);
+  });
+
+  test("the quote is locked: amount, asset, rate, memo and destination cannot change", () => {
+    const id = insert({
+      invoice_id: 1, quoted_rate: "2.5000000", rate_source: "manual", invoice_currency: "USD", invoice_amount: "10.00",
+    });
+    for (const [column, value] of [
+      ["amount", "30.0000000"],
+      ["asset", "USDC"],
+      ["asset_issuer", USDC_TESTNET_ISSUER],
+      ["memo", "PL-CHANGED"],
+      ["destination", "GAZ7EXAMPLEDESTINATIONACCOUNTFORTESTSONLY234567ABCDEFG"],
+      ["quoted_rate", "3.0000000"],
+      ["rate_source", "other"],
+      ["invoice_id", 2],
+      ["invoice_currency", "PHP"],
+      ["invoice_amount", "12.00"],
+    ]) {
+      expect(() => db.prepare(`UPDATE payment_requests SET ${column} = ? WHERE id = ?`).run(value, id))
+        .toThrow(/quote is locked/);
+    }
+    expect(get(id)).toMatchObject({ amount: "25.0000000", quoted_rate: "2.5000000", memo: expect.stringMatching(/^PL-T/) });
+
+    // Settling the request is still allowed.
+    db.prepare("UPDATE payment_requests SET status = 'failed', reason = 'expired' WHERE id = ?").run(id);
+    expect(get(id).status).toBe("failed");
   });
 
   test("a follow-up payment must point to a failed request", () => {

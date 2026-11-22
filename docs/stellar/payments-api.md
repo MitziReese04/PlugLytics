@@ -95,12 +95,13 @@ Invoices are priced in a normal currency (for example `PHP` or `USD`), with 2 de
 ### How the conversion works
 
 1. **Pick the asset.** The request says which asset the payer will use, for example `USDC` (see [approved-payment-methods.md](./approved-payment-methods.md)).
-2. **Get a quote.** PlugLytics gets an exchange rate for the invoice currency to that asset. The rate is written as **asset units per 1 unit of the invoice currency**. For example, if 1 PHP buys 0.0171 USDC, `quotedRate` is `"0.0171000"`.
-3. **Convert.** `amount = finalAmount x quotedRate`, rounded **half up** to 7 decimal places.
-4. **Lock the rate.** The quoted rate is fixed until the request's `expiresAt`. Market changes after that do not change what the payer owes.
-5. **Store it on the request.** The request saves `invoiceId`, `invoiceCurrency`, `invoiceAmount` (the `finalAmount`), `quotedRate`, `rateQuotedAt`, `asset`, `assetIssuer` and the converted `amount`.
+2. **Get a quote.** PlugLytics gets an exchange rate for the invoice currency to that asset, from the rate source set by `PAYMENT_RATE_SOURCE` (only `manual` so far). The rate is written as **asset units per 1 unit of the invoice currency**. For example, if 1 PHP buys 0.0171 USDC, `quotedRate` is `"0.0171000"`.
+3. **Convert.** `amount = balance due x quotedRate`, rounded **half up** to 7 decimal places. The balance due is the invoice's `finalAmount` minus payments already recorded for it, so a partly paid invoice is not charged twice. For an unpaid invoice it equals `finalAmount`.
+4. **Check the limits.** The converted `amount` must be within the asset's minimum and maximum (`XLM_MIN_AMOUNT`, `XLM_MAX_AMOUNT` and so on), or the request is refused with `400 VALIDATION_ERROR`.
+5. **Lock the rate.** The quoted rate is fixed until the request's `expiresAt`. Rate changes after that do not change what the payer owes. The database enforces this: once a request exists, its `amount`, `asset`, `assetIssuer`, `memo`, `destination`, `quotedRate`, `rateSource` and invoice fields cannot be changed (only its status can).
+6. **Store it on the request.** The request saves `invoiceId`, `invoiceCurrency`, `invoiceAmount` (the balance due that was converted), `quotedRate`, `rateSource`, `rateQuotedAt`, `asset`, `assetIssuer` and the converted `amount`.
 
-Example: an invoice with `finalAmount` 2226.50 PHP, paid in USDC at a quoted rate of 0.0171000:
+Example: an unpaid invoice with `finalAmount` 2226.50 PHP, paid in USDC at a quoted rate of 0.0171000:
 
 ```
 2226.50 x 0.0171000 = 38.0731500 USDC
@@ -114,6 +115,7 @@ The request stores:
   "invoiceCurrency": "PHP",
   "invoiceAmount": "2226.50",
   "quotedRate": "0.0171000",
+  "rateSource": "manual",
   "rateQuotedAt": "2026-11-21T12:00:00.000Z",
   "asset": "USDC",
   "assetIssuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
@@ -128,9 +130,11 @@ The request stores:
 - `quotedRate` is also a string, with up to 7 decimal places. `invoiceAmount` is a string with 2 decimal places.
 - The conversion uses whole-number (integer) math, so there are no rounding errors. See `toAssetAmount()` in `src/pricing.js`.
 - **The rate is locked only until `expiresAt`.** If the request expires, it becomes `failed` with reason `expired`. A new request for the same invoice gets a **new quote**, which may give a different asset amount.
+- **Before quoting again,** PlugLytics checks any expired request for the invoice that is still `pending` (nobody has opened it since it expired) on Horizon. If it was paid before it expired, it becomes `completed` and no new request is made (`409 INVOICE_NOTHING_DUE`). If Horizon cannot be reached, no new request is made (`502 HORIZON_UNAVAILABLE`), so the student is never asked to pay twice.
 - Matching on Horizon always uses the converted `amount` in the asset, never the invoice currency.
-- The source of exchange-rate quotes is set by `PAYMENT_RATE_SOURCE` (only `manual` so far; **TODO: group decision**, see [Payment policy settings](#payment-policy-settings)). Whatever source is used, record it with each quote for audits.
-- Requests that are not created from an invoice (for example, a pay-per-use item priced directly in the asset) have `invoiceId`, `invoiceCurrency`, `invoiceAmount`, `quotedRate` and `rateQuotedAt` set to `null`.
+- The source of exchange-rate quotes is set by `PAYMENT_RATE_SOURCE` (only `manual` so far; **TODO: group decision**, see [Payment policy settings](#payment-policy-settings)). It is recorded with each quote as `rateSource`: `manual` for configured manual rates, or `manual-default-testnet` for the built-in test rates.
+- To add a rate source later, add one function to `RATE_SOURCES` in `src/stellarQuotes.js`. Its name then becomes a valid `PAYMENT_RATE_SOURCE` value.
+- Requests that are not created from an invoice (for example, a pay-per-use item priced directly in the asset) have `invoiceId`, `invoiceCurrency`, `invoiceAmount`, `quotedRate`, `rateSource` and `rateQuotedAt` set to `null`.
 
 ## The payment flow
 
@@ -383,6 +387,7 @@ Response `201` (`data`):
   "invoiceCurrency": "USD",
   "invoiceAmount": "100.00",
   "quotedRate": "2.5000000",
+  "rateSource": "manual-default-testnet",
   "rateQuotedAt": "2026-11-22T09:00:00.000Z",
   "amount": "250.0000000",
   "asset": "XLM",

@@ -11,7 +11,7 @@ const schemaPath = path.resolve(__dirname, "../src/schema.sql");
 // finance tables from schema.sql.
 const requiredColumns = {
   invoices: ["final_amount", "currency"],
-  payment_requests: ["invoice_amount", "amount_received", "ledger"],
+  payment_requests: ["invoice_amount", "amount_received", "ledger", "rate_source"],
 };
 const isOutdated = (table, columns) => {
   const existing = db.prepare(`PRAGMA table_xinfo(${table})`).all().map((c) => c.name);
@@ -22,6 +22,7 @@ const outdatedPayments = Boolean(paymentsTable && paymentsTable.sql.includes("'s
 if (outdatedPayments || Object.entries(requiredColumns).some(([table, columns]) => isOutdated(table, columns))) {
   db.pragma("foreign_keys = OFF");
   db.exec(`
+    DROP TRIGGER IF EXISTS payment_requests_quote_locked;
     DROP TRIGGER IF EXISTS payment_requests_final_status;
     DROP TRIGGER IF EXISTS payment_requests_related_must_be_failed;
     DROP TABLE IF EXISTS payment_requests;

@@ -14,6 +14,7 @@ const HORIZON = "https://horizon-testnet.stellar.org";
 const STELLAR_VARS = [
   "STELLAR_ENV", "STELLAR_HORIZON_URL", "STELLAR_NETWORK_PASSPHRASE",
   "SANDBOX_MERCHANT_PUBLIC_KEY", "SANDBOX_MERCHANT_SECRET_KEY", "SANDBOX_WEBHOOK_SIGNING_SECRET",
+  "PAYMENT_MANUAL_RATE_USD_XLM", "XLM_MIN_AMOUNT", "XLM_MAX_AMOUNT",
 ];
 const savedEnv = {};
 function useSandbox() {
@@ -76,13 +77,14 @@ function addInvoice(amount = 100) {
 let studentToken;
 let fetchSpy;
 
+const postPayment = (invoiceId) => request(app)
+  .post("/api/v1/payments")
+  .set("Authorization", `Bearer ${studentToken}`)
+  .send({ invoiceId });
+
 // Creates a pending 100 USD (= 250 XLM) request through the API.
-async function createPending() {
-  const invoiceId = addInvoice(100);
-  const response = await request(app)
-    .post("/api/v1/payments")
-    .set("Authorization", `Bearer ${studentToken}`)
-    .send({ invoiceId });
+async function createPending(invoiceId = addInvoice(100)) {
+  const response = await postPayment(invoiceId);
   expect(response.status).toBe(201);
   return response.body.data;
 }
@@ -214,6 +216,76 @@ describe("decideOutcome", () => {
     expect(decideOutcome(usdc, [fake], beforeExpiry)).toMatchObject({ status: "failed", reason: "wrong_asset" });
     const real = horizonPayment({ memo: "m", asset: "USDC", createdAt: during });
     expect(decideOutcome(usdc, [real], beforeExpiry)).toMatchObject({ status: "completed" });
+  });
+});
+
+describe("quote locking when creating payment requests", () => {
+  test("the quoted rate stays locked while the request is pending, even if the rate changes", async () => {
+    const invoiceId = addInvoice(100);
+    const first = await createPending(invoiceId);
+    expect(first).toMatchObject({ quotedRate: "2.5000000", amount: "250.0000000" });
+
+    process.env.PAYMENT_MANUAL_RATE_USD_XLM = "4";
+    const again = await postPayment(invoiceId);
+    expect(again.status).toBe(409);
+    expect(again.body.error).toMatchObject({ code: "PAYMENT_ALREADY_PENDING", details: { paymentId: first.id } });
+
+    fetchSpy.mockResolvedValue(horizonPage([]));
+    const stored = await check(first.id);
+    expect(stored.body.data).toMatchObject({ status: "pending", quotedRate: "2.5000000", amount: "250.0000000" });
+    expect(fetchSpy).toHaveBeenCalled();
+  });
+
+  test("after expiry, an unchecked request is settled first and a new request gets a new quote", async () => {
+    const invoiceId = addInvoice(100);
+    const old = await createPending(invoiceId);
+    expire(old.id);
+    process.env.PAYMENT_MANUAL_RATE_USD_XLM = "4";
+    fetchSpy.mockResolvedValue(horizonPage([]));
+
+    const response = await postPayment(invoiceId);
+    expect(response.status).toBe(201);
+    expect(response.body.data).toMatchObject({ quotedRate: "4.0000000", rateSource: "manual", amount: "400.0000000" });
+    expect(response.body.data.id).not.toBe(old.id);
+    expect(fetchSpy.mock.calls[0][0]).toContain(`/accounts/${MERCHANT}/payments`);
+
+    const oldRow = db.prepare("SELECT status, reason, quoted_rate, amount FROM payment_requests WHERE id = ?").get(old.id);
+    expect(oldRow).toEqual({ status: "failed", reason: "expired", quoted_rate: "2.5000000", amount: "250.0000000" });
+  });
+
+  test("an expired request that was actually paid on time is completed instead of being quoted again", async () => {
+    const invoiceId = addInvoice(100);
+    const old = await createPending(invoiceId);
+    expire(old.id);
+    fetchSpy.mockResolvedValue(horizonPage([
+      horizonPayment({ memo: old.memo, amount: old.amount, createdAt: "2026-01-01T10:20:00.000Z" }),
+    ]));
+
+    const response = await postPayment(invoiceId);
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("INVOICE_NOTHING_DUE");
+    expect(db.prepare("SELECT status FROM payment_requests WHERE id = ?").get(old.id).status).toBe("completed");
+    expect(db.prepare("SELECT COUNT(*) n FROM payment_requests WHERE invoice_id = ?").get(invoiceId).n).toBe(1);
+  });
+
+  test("does not create a new quote when the expired request cannot be checked", async () => {
+    const invoiceId = addInvoice(100);
+    const old = await createPending(invoiceId);
+    expire(old.id);
+    fetchSpy.mockResolvedValue({ ok: false, status: 503, json: async () => ({}) });
+
+    const response = await postPayment(invoiceId);
+    expect(response.status).toBe(502);
+    expect(response.body.error.code).toBe("HORIZON_UNAVAILABLE");
+    expect(db.prepare("SELECT COUNT(*) n FROM payment_requests WHERE invoice_id = ?").get(invoiceId).n).toBe(1);
+    expect(db.prepare("SELECT status FROM payment_requests WHERE id = ?").get(old.id).status).toBe("pending");
+  });
+
+  test("the minimum and maximum are checked on the converted amount", async () => {
+    process.env.XLM_MAX_AMOUNT = "249.9999999";
+    const response = await postPayment(addInvoice(100)); // 250 XLM
+    expect(response.status).toBe(400);
+    expect(response.body.error.details).toMatchObject({ amount: "250.0000000", max: "249.9999999" });
   });
 });
 

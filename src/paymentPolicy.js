@@ -1,4 +1,5 @@
 require("dotenv").config();
+const { RATE_SOURCE_NAMES } = require("./stellarQuotes");
 
 // Payment policy settings (see "Payment policy settings" in docs/stellar/payments-api.md).
 // Every value here is a placeholder until the group decides it: TODO: group decision.
@@ -6,7 +7,8 @@ require("dotenv").config();
 // fails with a clear list of every invalid setting.
 
 const ASSETS = ["XLM", "USDC"];
-const RATE_SOURCES = ["manual"];
+// Valid PAYMENT_RATE_SOURCE values come from the rate sources in src/stellarQuotes.js.
+const RATE_SOURCES = RATE_SOURCE_NAMES;
 
 // Used only when no PAYMENT_MANUAL_RATE_* variable is set. These are FIXED,
 // MADE-UP testnet rates (testnet XLM has no value), not market prices.

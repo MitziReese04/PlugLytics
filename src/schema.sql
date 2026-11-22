@@ -211,6 +211,8 @@ CREATE TABLE IF NOT EXISTS payment_requests (
   reason TEXT CHECK(reason IN ('expired','cancelled','underpaid','wrong_asset')),
   tx_hash TEXT UNIQUE CHECK(tx_hash IS NULL OR (length(tx_hash) = 64 AND tx_hash NOT GLOB '*[^0-9a-f]*')),
   related_payment_id TEXT,
+  -- Where the quoted rate came from, recorded for audits (see src/stellarQuotes.js).
+  rate_source TEXT CHECK(rate_source IS NULL OR length(rate_source) BETWEEN 1 AND 40),
   quoted_rate TEXT CHECK(
     quoted_rate IS NULL OR (
       quoted_rate NOT GLOB '*[^0-9.]*'
@@ -240,8 +242,8 @@ CREATE TABLE IF NOT EXISTS payment_requests (
   CHECK(status = 'completed' OR completed_at IS NULL),
   -- Requests created from an invoice store the quoted rate and invoice currency; others store neither.
   CHECK(
-    (invoice_id IS NULL AND quoted_rate IS NULL AND invoice_currency IS NULL AND invoice_amount IS NULL)
-    OR (invoice_id IS NOT NULL AND quoted_rate IS NOT NULL AND invoice_currency IS NOT NULL AND invoice_amount IS NOT NULL)
+    (invoice_id IS NULL AND quoted_rate IS NULL AND rate_source IS NULL AND invoice_currency IS NULL AND invoice_amount IS NULL)
+    OR (invoice_id IS NOT NULL AND quoted_rate IS NOT NULL AND rate_source IS NOT NULL AND invoice_currency IS NOT NULL AND invoice_amount IS NOT NULL)
   ),
   -- A transaction is recorded together with what it delivered and its ledger.
   CHECK((tx_hash IS NULL) = (amount_received IS NULL) AND (tx_hash IS NULL) = (ledger IS NULL)),
@@ -255,6 +257,25 @@ CREATE INDEX IF NOT EXISTS idx_payment_requests_status ON payment_requests(statu
 CREATE INDEX IF NOT EXISTS idx_payment_requests_invoice ON payment_requests(invoice_id);
 
 -- completed and failed are final: once a request leaves pending, its status never changes.
+-- The quote is locked: once a request exists, what the payer was asked for
+-- (amount, asset, rate, memo, destination and the invoice it converts) never
+-- changes. A new quote means a new payment request.
+CREATE TRIGGER IF NOT EXISTS payment_requests_quote_locked
+BEFORE UPDATE ON payment_requests
+WHEN NEW.amount IS NOT OLD.amount
+  OR NEW.asset IS NOT OLD.asset
+  OR NEW.asset_issuer IS NOT OLD.asset_issuer
+  OR NEW.memo IS NOT OLD.memo
+  OR NEW.destination IS NOT OLD.destination
+  OR NEW.quoted_rate IS NOT OLD.quoted_rate
+  OR NEW.rate_source IS NOT OLD.rate_source
+  OR NEW.invoice_id IS NOT OLD.invoice_id
+  OR NEW.invoice_currency IS NOT OLD.invoice_currency
+  OR NEW.invoice_amount IS NOT OLD.invoice_amount
+BEGIN
+  SELECT RAISE(ABORT, 'payment request quote is locked; create a new payment request instead');
+END;
+
 CREATE TRIGGER IF NOT EXISTS payment_requests_final_status
 BEFORE UPDATE OF status ON payment_requests
 WHEN OLD.status IN ('completed','failed') AND NEW.status IS NOT OLD.status

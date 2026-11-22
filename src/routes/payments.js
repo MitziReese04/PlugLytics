@@ -38,7 +38,8 @@ function studentIdFor(userId) {
   return row ? row.id : null;
 }
 
-// Outstanding balance = final amount minus payments already recorded.
+// Outstanding balance = final amount minus payments already recorded. This is
+// what gets converted, so a partly paid invoice is not charged twice.
 const findInvoice = db.prepare(`
   SELECT i.id, i.student_id, i.currency, i.final_amount,
          ROUND(i.final_amount - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id), 0), 2) AS outstanding
@@ -54,13 +55,21 @@ const findOpenRequest = db.prepare(`
   LIMIT 1
 `);
 
+// Pending requests for an invoice that have passed expiresAt but have not been
+// checked on Horizon yet. They must be settled before a new quote is made.
+const findExpiredPending = db.prepare(`
+  SELECT * FROM payment_requests
+  WHERE invoice_id = ? AND status = 'pending' AND expires_at <= ?
+  ORDER BY created_at
+`);
+
 const insertRequest = db.prepare(`
   INSERT INTO payment_requests
     (id, invoice_id, amount, asset, asset_issuer, memo, destination, status,
-     quoted_rate, invoice_currency, invoice_amount, created_at, expires_at)
+     quoted_rate, rate_source, invoice_currency, invoice_amount, created_at, expires_at)
   VALUES
     (@id, @invoice_id, @amount, @asset, @asset_issuer, @memo, @destination, 'pending',
-     @quoted_rate, @invoice_currency, @invoice_amount, @created_at, @expires_at)
+     @quoted_rate, @rate_source, @invoice_currency, @invoice_amount, @created_at, @expires_at)
 `);
 
 function paymentUri({ destination, amount, memo }) {
@@ -78,6 +87,7 @@ function toResponse(row, network) {
     invoiceCurrency: row.invoice_currency,
     invoiceAmount: row.invoice_amount,
     quotedRate: row.quoted_rate,
+    rateSource: row.rate_source || null,
     rateQuotedAt: row.created_at,
     amount: row.amount,
     asset: row.asset,
@@ -112,8 +122,48 @@ const settleRequest = db.prepare(`
   WHERE id = @id AND status = 'pending'
 `);
 
+// Checks a pending request on Horizon and settles it if Horizon shows an outcome
+// (see docs/stellar/settlement.md). Returns { row } with the latest stored row,
+// or { error } with the HTTP error to send. Used by GET /:id and before a new
+// quote is made for an invoice.
+async function checkPendingRequest(row, stellar) {
+  let payments;
+  try {
+    payments = await findPaymentsWithMemo({
+      horizonUrl: stellar.horizonUrl,
+      account: row.destination,
+      memo: row.memo,
+      since: row.created_at,
+    });
+  } catch (error) {
+    if (error instanceof HorizonError) {
+      return { error: [502, "HORIZON_UNAVAILABLE", "Horizon could not be reached. Try again later."] };
+    }
+    throw error;
+  }
+  const outcome = decideOutcome(row, payments);
+  if (outcome) {
+    try {
+      settleRequest.run({ id: row.id, ...outcome });
+    } catch (error) {
+      // The same transaction is already linked to another payment request.
+      if (!String(error.message).includes("UNIQUE constraint failed")) throw error;
+      return { error: [409, "TRANSACTION_ALREADY_LINKED", "The matching transaction is already linked to another payment record"] };
+    }
+  }
+  return { row: findRequest.get(row.id) };
+}
 
-router.post("/", authenticate, authorize("student"), (req, res) => {
+
+router.post("/", authenticate, authorize("student"), async (req, res, next) => {
+  try {
+    return await createPaymentRequest(req, res);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+async function createPaymentRequest(req, res) {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
     return sendError(res, 400, "VALIDATION_ERROR", "Invalid payment request", parsed.error.flatten());
@@ -149,6 +199,14 @@ router.post("/", authenticate, authorize("student"), (req, res) => {
   const studentId = studentIdFor(req.user.id);
   if (!invoice || studentId === null || invoice.student_id !== studentId) {
     return sendError(res, 404, "INVOICE_NOT_FOUND", "No invoice with that ID was found for your account");
+  }
+
+  // A quote stays locked until its request expires. Before quoting again, settle
+  // any expired request that nobody has checked yet: the student may have paid it
+  // just before it expired, and must not be asked to pay twice.
+  for (const expired of findExpiredPending.all(invoice.id, new Date().toISOString())) {
+    const checked = await checkPendingRequest(expired, stellar);
+    if (checked.error) return sendError(res, ...checked.error);
   }
 
   const now = new Date();
@@ -192,6 +250,7 @@ router.post("/", authenticate, authorize("student"), (req, res) => {
     asset_issuer: null, // XLM is native and has no issuer
     destination: stellar.merchantPublicKey,
     quoted_rate: quote.quotedRate,
+    rate_source: quote.source,
     invoice_currency: invoice.currency,
     created_at: createdAt,
     expires_at: new Date(Date.parse(createdAt) + PAYMENT_REQUEST_TTL_MINUTES * 60 * 1000).toISOString(),
@@ -211,7 +270,7 @@ router.post("/", authenticate, authorize("student"), (req, res) => {
     }
   }
   return sendError(res, 500, "INTERNAL_ERROR", "Could not create a unique payment request");
-});
+}
 
 // Lists the signed-in student's invoices, newest first, with what is still due
 // and the latest Stellar payment request for each (so the dashboard can resume
@@ -343,31 +402,9 @@ router.get("/:id", authenticate, authorize("student", "admin"), async (req, res,
       if (!stellar || stellar.env !== "sandbox") {
         return sendError(res, 503, "STELLAR_NOT_CONFIGURED", "Stellar sandbox settings are needed to check this payment");
       }
-      let payments;
-      try {
-        payments = await findPaymentsWithMemo({
-          horizonUrl: stellar.horizonUrl,
-          account: row.destination,
-          memo: row.memo,
-          since: row.created_at,
-        });
-      } catch (error) {
-        if (error instanceof HorizonError) {
-          return sendError(res, 502, "HORIZON_UNAVAILABLE", "Horizon could not be reached. Try again later.");
-        }
-        throw error;
-      }
-      const outcome = decideOutcome(row, payments);
-      if (outcome) {
-        try {
-          settleRequest.run({ id: row.id, ...outcome });
-        } catch (error) {
-          // The same transaction is already linked to another payment request.
-          if (!String(error.message).includes("UNIQUE constraint failed")) throw error;
-          return sendError(res, 409, "TRANSACTION_ALREADY_LINKED", "The matching transaction is already linked to another payment record");
-        }
-        row = findRequest.get(row.id);
-      }
+      const checked = await checkPendingRequest(row, stellar);
+      if (checked.error) return sendError(res, ...checked.error);
+      row = { ...checked.row, student_id: row.student_id };
     }
 
     return sendSuccess(res, toResponse(row, stellar ? stellar.env : null));
