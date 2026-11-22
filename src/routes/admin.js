@@ -139,8 +139,15 @@ const finance = express.Router();
 finance.get("/overview", (req, res) => {
   const filter = termParams(req);
   const key = JSON.stringify(req.filters);
-  const data = cachedFinance(key, () => db.prepare(`
-    SELECT ROUND(SUM(i.amount), 2) AS billed,
+  // Gross billed = invoice base amounts. Net billed = final_amount, i.e. gross
+  // minus scholarships and discounts plus fees. Collection rate uses net billed.
+  // The first five fields are the ones the dashboard widget shows.
+  const totals = cachedFinance(key, () => db.prepare(`
+    SELECT ROUND(COALESCE(SUM(i.amount), 0), 2) AS grossBilled,
+           ROUND(COALESCE(SUM(i.scholarship_amount), 0), 2) AS scholarships,
+           ROUND(COALESCE(SUM(i.amount * i.discount_percent / 100.0), 0), 2) AS discounts,
+           ROUND(COALESCE(SUM(i.platform_fee + i.transaction_fee), 0), 2) AS fees,
+           ROUND(COALESCE(SUM(i.final_amount), 0), 2) AS netBilled,
            ROUND((SELECT COALESCE(SUM(p.amount), 0)
                   FROM payments p JOIN invoices pi ON pi.id = p.invoice_id
                   JOIN terms pt ON pt.id = pi.term_id
@@ -155,7 +162,16 @@ finance.get("/overview", (req, res) => {
     JOIN specializations sp ON sp.id = p.specialization_id
     WHERE 1=1 ${filter.sql}
   `).get(filter.params));
-  data.collectionRate = data.billed ? Number(((data.collected / data.billed) * 100).toFixed(1)) : 0;
+  const data = {
+    grossBilled: totals.grossBilled,
+    scholarshipsAndDiscounts: Math.round((totals.scholarships + totals.discounts) * 100) / 100,
+    netBilled: totals.netBilled,
+    collected: totals.collected,
+    collectionRate: totals.netBilled ? Number(((totals.collected / totals.netBilled) * 100).toFixed(1)) : 0,
+    scholarships: totals.scholarships,
+    discounts: totals.discounts,
+    fees: totals.fees,
+  };
   return sendTableOrCsv(req, res, [data], { filtersApplied: req.filters, total: 1 });
 });
 
@@ -181,7 +197,7 @@ finance.get("/outstanding", (req, res) => {
     SELECT CASE WHEN CAST(julianday('now') - julianday(i.due_at) AS INTEGER) <= 30 THEN '0-30'
                 WHEN CAST(julianday('now') - julianday(i.due_at) AS INTEGER) <= 60 THEN '31-60'
                 ELSE '60+' END AS agingBucket,
-           ROUND(SUM(i.amount - COALESCE((SELECT SUM(amount) FROM payments WHERE invoice_id = i.id), 0)), 2) AS outstanding
+           ROUND(SUM(i.final_amount - COALESCE((SELECT SUM(amount) FROM payments WHERE invoice_id = i.id), 0)), 2) AS outstanding
     FROM invoices i
     JOIN terms t ON t.id = i.term_id
     JOIN students st ON st.id = i.student_id

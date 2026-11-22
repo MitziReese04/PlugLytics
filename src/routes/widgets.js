@@ -21,7 +21,7 @@ const catalogs = {
   ],
   admin: [
     { id: "enrollment-summary", title: "Enrollment", description: "Enrollment, retention, and seat utilization", supportedFilters: ["term","specialization","program","yearLevel","status","granularity"], chartTypes: ["bar","line","table"] },
-    { id: "finance-overview", title: "Finance overview", description: "Billed, collected, and collection rate", supportedFilters: ["term","specialization","program","granularity","compare"], chartTypes: ["bar","line","table"] },
+    { id: "finance-overview", title: "Finance overview", description: "Gross and net billed, scholarships and discounts, collected, and collection rate", supportedFilters: ["term","specialization","program","granularity","compare"], chartTypes: ["bar","line","table"] },
     { id: "academic-quality", title: "Academic quality", description: "GPA, pass rates, and ratings", supportedFilters: ["term","specialization","program","course","granularity"], chartTypes: ["bar","table"] },
   ],
 };
