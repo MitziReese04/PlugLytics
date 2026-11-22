@@ -515,7 +515,7 @@ npm test
 
 ## CI
 
-GitHub Actions workflows are not yet present in this repository.
+[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs on every push and pull request to `main`, on Node.js 22: `npm ci`, `npm run seed`, `npm test` (API tests), and the VS Code extension tests in `pluglytics-vscode`. It does not deploy anything.
 
 ## Grant proposal
 
@@ -523,11 +523,22 @@ See [PROPOSAL.md](./PROPOSAL.md) for the PlugLytics grant proposal, Stellar Paym
 
 The current project uses synthetic payment data. Stellar **testnet** payments work (see [Try Stellar testnet payments](#try-stellar-testnet-payments)); production (real-money) payments are not enabled.
 
-See [docs/stellar/payments-api.md](./docs/stellar/payments-api.md) for the planned Stellar Payments API: the payment flow, endpoints, error codes, sandbox vs production setup, and testnet friendbot testing.
+See [docs/stellar/payments-api.md](./docs/stellar/payments-api.md) for the Stellar Payments API (Testnet endpoints built, the rest planned): the payment flow, endpoints, error codes, sandbox vs production setup, and testnet friendbot testing.
 
 ## Stellar Payments
 
-Stellar **testnet** payments work: students can pay an invoice from the dashboard, and admins can see every payment request. **Production (real-money) payments are not enabled yet.** Some features in these documents are still planned:
+Stellar **testnet** payments work. **Production (Mainnet, real-money) payments are not enabled**: the payment, confirmation and refund endpoints refuse to run unless `STELLAR_ENV=sandbox`.
+
+Built on Testnet (with Jest tests in `tests/`):
+
+- Students pay an invoice in XLM from the dashboard; the invoice amount is converted with a configurable exchange rate that is locked for 30 minutes.
+- Payments are confirmed through Horizon when a pending request is checked, by memo, asset and exact amount in stroops.
+- Admins see every payment request, can cancel pending ones, accept late payments, and match payments sent without a memo.
+- Refund requests with approval, rejection, and testnet refund payments.
+- Signed outgoing webhooks with per-customer secrets and retries; read-only, school-scoped customer API keys.
+- An admin invoice screen for scholarship, discount, fee and instructor-cost fields.
+
+Not built yet: USDC payments, anchors, subscriptions, daily/weekly reconciliation and settlement reports, and Mainnet. The documents below mark which parts are built:
 
 - [Payments API](./docs/stellar/payments-api.md): payment flow, endpoints, customer API keys, webhook registration, error codes, and sandbox vs production
 - [Webhooks](./docs/stellar/webhooks.md): event types, example payloads, signature verification, retries, and duplicate handling
@@ -566,12 +577,14 @@ The testnet is reset from time to time. After a reset, fund new accounts with Fr
 ## Roadmap
 
 - [ ] Live public deployment with HTTPS
-- [ ] Stellar Payments sandbox credentials and payment adapter
-- [ ] Live invoice and payment reconciliation
+- [x] Stellar Testnet payment adapter (payment requests, Horizon confirmation, late and memo-less matching, refunds, webhooks, customer API keys)
+- [ ] Stellar Mainnet (production) payments, USDC, and anchors
+- [ ] Daily and weekly reconciliation and settlement reports
 - [ ] Revenue forecast endpoint
 - [ ] Instructor cost and course-margin reporting
 - [ ] Provider-specific LMS integration for enrollments, courses, grades, attendance, curriculum, and events
-- [ ] Automated CI and code-quality workflow
+- [x] Automated CI (GitHub Actions: install, seed, tests)
+- [ ] Code-quality (lint) workflow
 - [ ] Complete VS Code Marketplace publication
 - [ ] Pilot institution approval and data-governance review
 - [ ] Production backup, migration, logging, and monitoring setup
@@ -605,11 +618,14 @@ The following information is needed before the README and grant materials can be
 8. Stellar Payments sandbox and production merchant credentials: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#sandbox-vs-production))
    - Still missing: real sandbox keys in `.env`, and production merchant credentials (production is not enabled).
 9. Stellar Payments API, webhook, and settlement documentation: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md), [webhooks.md](./docs/stellar/webhooks.md), [settlement.md](./docs/stellar/settlement.md))
-   - Still missing: webhooks, refunds, daily reconciliation, and other planned endpoints are not built yet.
+   - Built (Testnet): payment requests, Horizon confirmation, signed webhooks with retries, refunds, and customer API keys.
+   - Still missing: daily and weekly reconciliation, settlement reports, and the `settlement.completed` and `subscription.*` webhooks.
 10. Approved payment methods and refund/chargeback procedures: **Documented, partly built** ([approved-payment-methods.md](./docs/stellar/approved-payment-methods.md), [refunds-and-chargebacks.md](./docs/stellar/refunds-and-chargebacks.md))
-    - Still missing: the refund endpoint is not built yet; amount limits, refund windows, and the approved anchor list are placeholders.
+    - Built (Testnet): refund requests, approval, rejection, and refund payments; amount limits and the refund window are settings.
+    - Still missing: real values for amount limits, the refund window and the approved anchor list (placeholders today); disputes are not built.
 11. Scholarship, discount, fee, and instructor-cost fields: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#pricing-fields))
-    - Still missing: admins can set these fields through the API (`POST /api/v1/invoices`, `PATCH /api/v1/invoices/:id`), but no dashboard screen sets them yet.
+    - Built: admins can set these fields through the API (`POST /api/v1/invoices`, `PATCH /api/v1/invoices/:id`) and the dashboard's admin invoice screen.
+    - Still missing: course-margin reporting that uses instructor cost.
 12. Pilot budget, grant amount, milestones, and reporting dates: **Documented, partly built** ([pilot-budget-and-grant.md](./docs/stellar/pilot-budget-and-grant.md))
     - Still missing: the grant amount, budget amounts, and milestone and report dates are TODO.
 13. User-testing population and target sample size

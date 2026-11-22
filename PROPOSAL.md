@@ -34,8 +34,10 @@ The initial PlugLytics implementation provides:
 - A PlugLytics-branded login screen using the navy-and-teal visual palette and supplied mark.
 - A VS Code extension that connects to PlugLytics and opens the dashboard with a selected term or date range.
 - Realistic seeded demo data and a zero-setup SQLite database.
+- Stellar Testnet payments for invoices (XLM only), with Horizon confirmation, refunds, signed webhooks, and customer API keys. Testnet only; no real money.
+- Automated tests run in GitHub Actions on every push and pull request to `main`.
 
-The sample Software Development curriculum and upcoming demo events are served as static browser assets only; they are not included in API responses or database records. The grant-funded work would add institution-specific LMS ingestion and connect PlugLytics to Stellar Payments so institutions can use consistent academic and merchant data with explainable analytics.
+The sample Software Development curriculum and upcoming demo events are served as static browser assets only; they are not included in API responses or database records. The grant-funded work would add institution-specific LMS ingestion and take the Stellar Testnet integration to a production-ready pilot so institutions can use consistent academic and merchant data with explainable analytics.
 
 ## Current website and application
 
@@ -56,7 +58,7 @@ Potential integration scope:
 5. Produce auditable daily, weekly, and monthly financial summaries.
 6. Provide CSV and API exports for approved school accounting systems.
 
-No claim is made here that a live Stellar Payments integration exists in the current repository. The current application uses seeded, synthetic payment records. The integration is the next implementation milestone.
+The current repository includes a working Stellar **Testnet** integration: payment requests that convert invoices to XLM at a locked rate, confirmation through Horizon, late and memo-less payment matching, refunds, signed webhooks, and read-only customer API keys. It has not been used with real money: Mainnet (production) payments, USDC, anchors and settlement reports are not implemented, and no public deployment exists yet. Analytics still use seeded, synthetic records.
 
 ## Impact
 
