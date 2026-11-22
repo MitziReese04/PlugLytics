@@ -38,11 +38,17 @@ db.exec("DROP TABLE IF EXISTS scholarships;");
 
 db.exec(fs.readFileSync(schemaPath, "utf8"));
 
+// Older databases have a students table without school_id; add it in place.
+if (!db.prepare("PRAGMA table_info(students)").all().some((c) => c.name === "school_id")) {
+  db.exec("ALTER TABLE students ADD COLUMN school_id INTEGER REFERENCES schools(id)");
+}
+db.exec("CREATE INDEX IF NOT EXISTS idx_students_school ON students(school_id)");
+
 const deleteOrder = [
-  "payment_requests", "dashboard_preferences", "instructor_ratings", "refunds", "payments",
+  "api_keys", "payment_requests", "dashboard_preferences", "instructor_ratings", "refunds", "payments",
   "invoices", "activity_logs", "attendance_logs", "quiz_responses", "quiz_questions",
   "submissions", "assignments", "enrollments", "sections", "courses", "terms",
-  "students", "instructors", "programs", "specializations", "users",
+  "students", "schools", "instructors", "programs", "specializations", "users",
 ];
 db.pragma("foreign_keys = OFF");
 for (const table of deleteOrder) {
@@ -87,9 +93,13 @@ const seed = db.transaction(() => {
   const addUser = db.prepare(
     "INSERT INTO users (email, password_hash, role, name) VALUES (?, ?, ?, ?)"
   );
-  const addStudent = db.prepare(
-    "INSERT INTO students (id, user_id, program_id, year_level, student_number) VALUES (?, ?, ?, ?, ?)"
+  // One placeholder school for the demo. TODO: group decision (real school name and code).
+  const demoSchoolId = db.prepare("INSERT INTO schools (name, code) VALUES (?, ?)")
+    .run("Demo School (placeholder)", "DEMO").lastInsertRowid;
+  const addStudentRow = db.prepare(
+    "INSERT INTO students (id, user_id, program_id, year_level, student_number, school_id) VALUES (?, ?, ?, ?, ?, ?)"
   );
+  const addStudent = { run: (...values) => addStudentRow.run(...values, demoSchoolId) };
   const addInstructor = db.prepare(
     "INSERT INTO instructors (id, user_id, department) VALUES (?, ?, ?)"
   );

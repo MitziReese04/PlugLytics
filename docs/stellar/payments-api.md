@@ -302,6 +302,10 @@ To keep the examples below short, only the `data` part is shown for success resp
 | Method | Path | Who can call it | What it does |
 | --- | --- | --- | --- |
 | GET | `/api/v1/payments/config` | Any signed-in user | Show the active network and merchant public key |
+| POST | `/api/v1/api-keys` | Admin (**built**) | Create a customer API key for a school (the key is shown once) |
+| GET | `/api/v1/api-keys` | Admin (**built**) | List customer API keys (never the key itself) |
+| DELETE | `/api/v1/api-keys/:id` | Admin (**built**) | Revoke a customer API key |
+| GET | `/api/v1/api-keys/schools` | Admin (**built**) | List schools, to choose which school a key is for |
 | GET | `/api/v1/invoices` | Admin (**built**) | List invoices, filtered by student number and term, with whether each can still be edited |
 | GET | `/api/v1/invoices/:id` | Admin (**built**) | Get one invoice |
 | GET | `/api/v1/invoices/options` | Admin (**built**) | Terms (with IDs) and scholarship types, for the invoice form |
@@ -325,7 +329,7 @@ To keep the examples below short, only the `data` part is shown for success resp
 
 ### Customer API keys
 
-Schools (customers) can read their own payments without an admin login, for example to catch up after their webhook server was down.
+**Built.** Schools (customers) can read their own payments without an admin login, for example to catch up after their webhook server was down.
 
 - Send the key in the header `X-PlugLytics-Api-Key: plk_...`.
 - A key is **read-only**. It works only on:
@@ -338,6 +342,52 @@ Schools (customers) can read their own payments without an admin login, for exam
 - Using a key on any other endpoint (creating, cancelling or confirming payments, managing webhooks) returns `403` `API_KEY_READ_ONLY`.
 - A PlugLytics admin creates the key for a school. It is shown **once**, and PlugLytics stores only a hash of it (it only needs to check the key, never to read it back).
 - Keep the key on your server, in `.env` (for example `PLUGLYTICS_API_KEY`). Never put it in a browser or mobile app.
+- An invalid, badly formatted or revoked key returns `401 AUTH_INVALID`. `GET /api/v1/payments/:id` still checks Horizon for a pending request, as it does for admins.
+- `GET /api/v1/subscriptions/:id` is allowed for keys, but subscriptions are not built yet.
+
+**How keys are stored:**
+
+- A key is `plk_` followed by 43 random characters (32 random bytes).
+- PlugLytics stores only its **SHA-256 hash**, plus the first 12 characters (`keyPrefix`, for example `plk_Xy3k9Qa1`) so admins can tell keys apart. A fast hash is safe here because keys are long and random, unlike passwords.
+- Each use records `lastUsedAt`.
+
+**Schools:** each student belongs to a school (`students.school_id`), and a key sees a payment request through its invoice → student → school. The demo data has one placeholder school, `Demo School (placeholder)` (code `DEMO`), with every demo student in it. The real school name and code are **TODO: group decision**.
+
+#### POST `/api/v1/api-keys`
+
+**Admin only.** Request: `{ "schoolId": 1, "name": "Finance office" }` (`name` is a label, up to 100 characters).
+
+Response `201` (`data`):
+
+```json
+{
+  "id": "key_7K2M9QX4R8T1VW3N",
+  "schoolId": 1,
+  "schoolName": "Demo School (placeholder)",
+  "name": "Finance office",
+  "keyPrefix": "plk_EXAMPLE1",
+  "status": "active",
+  "createdAt": "2026-11-22T09:00:00.000Z",
+  "lastUsedAt": null,
+  "revokedAt": null,
+  "key": "plk_EXAMPLE..."
+}
+```
+
+- **`key` is shown only in this response.** Copy it now. It cannot be shown again; if it is lost, revoke it and create a new one.
+- Errors: `400 VALIDATION_ERROR`, `404 SCHOOL_NOT_FOUND`.
+
+#### GET `/api/v1/api-keys`
+
+**Admin only.** Lists keys, newest first, optionally `?schoolId=1`. Same fields as above, **without** `key`. The hash is never returned.
+
+#### DELETE `/api/v1/api-keys/:id`
+
+**Admin only.** Revokes a key. It stops working at once (`401 AUTH_INVALID`) and cannot be turned back on. Response `200` has the key with `"status": "revoked"` and `revokedAt`. Errors: `404 API_KEY_NOT_FOUND`, `409 API_KEY_ALREADY_REVOKED`.
+
+#### GET `/api/v1/api-keys/schools`
+
+**Admin only.** Lists schools (`id`, `name`, `code`).
 
 ### GET `/api/v1/payments/config`
 
@@ -998,11 +1048,14 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 404 | `WEBHOOK_NOT_FOUND` | No registered webhook URL has that ID |
 | 404 | `INVOICE_NOT_FOUND` | No invoice with that ID was found (for a student: none of their own) |
 | 404 | `STUDENT_NOT_FOUND` | No student has that ID |
+| 404 | `SCHOOL_NOT_FOUND` | No school has that ID |
+| 404 | `API_KEY_NOT_FOUND` | No customer API key has that ID |
 | 404 | `TERM_NOT_FOUND` | No term has that ID |
 | 409 | `PAYMENT_ALREADY_COMPLETED` | You tried to cancel a request that is already completed, or whose payment has already arrived |
 | 409 | `PAYMENT_NOT_PENDING` | The request is expired or cancelled |
 | 409 | `DUPLICATE_REFERENCE` | A request with the same `reference` already exists |
 | 409 | `INVOICE_NOTHING_DUE` | The invoice is fully paid, or already has a `completed` Stellar payment |
+| 409 | `API_KEY_ALREADY_REVOKED` | The customer API key is already revoked |
 | 409 | `INVOICE_HAS_COMPLETED_PAYMENT` | The invoice cannot be changed, because it already has a completed or recorded payment |
 | 409 | `PAYMENT_ALREADY_PENDING` | The invoice already has a `pending`, unexpired payment request |
 | 422 | `RATE_UNAVAILABLE` | No exchange-rate quote is available for this invoice currency and asset |

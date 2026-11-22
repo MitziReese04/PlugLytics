@@ -24,12 +24,22 @@ CREATE TABLE IF NOT EXISTS programs (
   FOREIGN KEY (specialization_id) REFERENCES specializations(id)
 );
 
+-- Schools (customers). Customer API keys are scoped to one school.
+-- The demo data has one placeholder school. TODO: group decision (real school name and code).
+CREATE TABLE IF NOT EXISTS schools (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE CHECK(length(trim(name)) BETWEEN 1 AND 200),
+  code TEXT NOT NULL UNIQUE CHECK(length(code) BETWEEN 2 AND 20 AND code NOT GLOB '*[^A-Z0-9-]*')
+);
+
 CREATE TABLE IF NOT EXISTS students (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL UNIQUE,
   program_id INTEGER NOT NULL,
   year_level INTEGER NOT NULL CHECK(year_level BETWEEN 1 AND 5),
   student_number TEXT NOT NULL UNIQUE,
+  -- The school the student belongs to. Nullable so older databases can add it in place.
+  school_id INTEGER REFERENCES schools(id),
   FOREIGN KEY (user_id) REFERENCES users(id),
   FOREIGN KEY (program_id) REFERENCES programs(id)
 );
@@ -295,6 +305,26 @@ WHEN NEW.related_payment_id IS NOT NULL
 BEGIN
   SELECT RAISE(ABORT, 'related_payment_id must point to a failed payment request');
 END;
+
+-- Customer (school) API keys: read-only, scoped to one school's payments
+-- (see "Customer API keys" in docs/stellar/payments-api.md). Only a SHA-256 hash
+-- of each key is stored; the key itself is shown once, when it is created.
+CREATE TABLE IF NOT EXISTS api_keys (
+  id TEXT PRIMARY KEY CHECK(id GLOB 'key_?*'),
+  school_id INTEGER NOT NULL,
+  name TEXT NOT NULL CHECK(length(trim(name)) BETWEEN 1 AND 100),
+  key_prefix TEXT NOT NULL CHECK(key_prefix GLOB 'plk_*' AND length(key_prefix) = 12),
+  key_hash TEXT NOT NULL UNIQUE CHECK(length(key_hash) = 64 AND key_hash NOT GLOB '*[^0-9a-f]*'),
+  created_by INTEGER,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  last_used_at TEXT,
+  revoked_at TEXT,
+  FOREIGN KEY (school_id) REFERENCES schools(id),
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- The index on students(school_id) is created by scripts/seed.js, after it makes
+-- sure older databases have that column.
 
 -- Scholarships are stored on each invoice (scholarship_amount, scholarship_type,
 -- scholarship_name). The old separate scholarships table was removed.

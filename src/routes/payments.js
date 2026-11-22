@@ -3,6 +3,7 @@ const express = require("express");
 const { z } = require("zod");
 const db = require("../db");
 const { authenticate, authorize } = require("../middleware/auth");
+const { authenticateOrApiKey } = require("../middleware/apiKey");
 const { sendSuccess, sendError } = require("../utils/envelope");
 const { loadStellarConfig } = require("../stellarConfig");
 const { toAssetAmount } = require("../pricing");
@@ -108,9 +109,10 @@ function toResponse(row, network) {
 }
 
 const findRequest = db.prepare(`
-  SELECT pr.*, i.student_id
+  SELECT pr.*, i.student_id, st.school_id
   FROM payment_requests pr
   LEFT JOIN invoices i ON i.id = pr.invoice_id
+  LEFT JOIN students st ON st.id = i.student_id
   WHERE pr.id = ?
 `);
 
@@ -310,7 +312,8 @@ const listSchema = z
     path: ["reason"],
   });
 
-router.get("/", authenticate, authorize("admin"), (req, res) => {
+// A customer API key sees only its own school's requests (through invoice -> student -> school).
+router.get("/", authenticateOrApiKey("admin"), (req, res) => {
   const parsed = listSchema.safeParse(req.query);
   if (!parsed.success) {
     return sendError(res, 400, "VALIDATION_ERROR", "Invalid filters", parsed.error.flatten());
@@ -318,6 +321,12 @@ router.get("/", authenticate, authorize("admin"), (req, res) => {
   const { status, reason, page } = parsed.data;
   const where = [];
   const params = { limit: LIST_PAGE_SIZE, offset: (page - 1) * LIST_PAGE_SIZE };
+  if (req.apiKey) {
+    where.push(`invoice_id IN (
+      SELECT i.id FROM invoices i JOIN students st ON st.id = i.student_id WHERE st.school_id = @schoolId
+    )`);
+    params.schoolId = req.apiKey.schoolId;
+  }
   if (status) { where.push("status = @status"); params.status = status; }
   if (reason) { where.push("status = 'failed' AND reason = @reason"); params.reason = reason; }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
@@ -382,12 +391,16 @@ router.get("/invoices", authenticate, authorize("student"), (req, res) => {
 
 // Returns a payment request. While it is pending, checks Horizon first and
 // marks it completed or failed (see docs/stellar/settlement.md).
-router.get("/:id", authenticate, authorize("student", "admin"), async (req, res, next) => {
+router.get("/:id", authenticateOrApiKey("student", "admin"), async (req, res, next) => {
   try {
     let row = findRequest.get(req.params.id);
-    // Students only see requests for their own invoices; others look missing.
-    const ownStudentId = req.user.role === "student" ? studentIdFor(req.user.id) : null;
-    if (!row || (req.user.role === "student" && (ownStudentId === null || row.student_id !== ownStudentId))) {
+    // Students only see requests for their own invoices, and API keys only their
+    // own school's; anything else looks missing.
+    const ownStudentId = req.user && req.user.role === "student" ? studentIdFor(req.user.id) : null;
+    const hidden = req.apiKey
+      ? !row || row.school_id !== req.apiKey.schoolId
+      : !row || (req.user.role === "student" && (ownStudentId === null || row.student_id !== ownStudentId));
+    if (hidden) {
       return sendError(res, 404, "PAYMENT_NOT_FOUND", "No payment request has that ID");
     }
 
@@ -404,7 +417,7 @@ router.get("/:id", authenticate, authorize("student", "admin"), async (req, res,
       }
       const checked = await checkPendingRequest(row, stellar);
       if (checked.error) return sendError(res, ...checked.error);
-      row = { ...checked.row, student_id: row.student_id };
+      row = checked.row;
     }
 
     return sendSuccess(res, toResponse(row, stellar ? stellar.env : null));
