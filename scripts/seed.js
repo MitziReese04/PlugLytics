@@ -10,7 +10,7 @@ const schemaPath = path.resolve(__dirname, "../src/schema.sql");
 // 'scholarship' method. The seed replaces all data anyway, so rebuild the
 // finance tables from schema.sql.
 const requiredColumns = {
-  invoices: ["final_amount", "currency"],
+  invoices: ["final_amount", "currency", "scholarship_name"],
   payment_requests: ["invoice_amount", "amount_received", "ledger", "rate_source"],
 };
 const isOutdated = (table, columns) => {
@@ -33,10 +33,13 @@ if (outdatedPayments || Object.entries(requiredColumns).some(([table, columns]) 
   db.pragma("foreign_keys = ON");
 }
 
+// Scholarships now live on each invoice; drop the old separate table.
+db.exec("DROP TABLE IF EXISTS scholarships;");
+
 db.exec(fs.readFileSync(schemaPath, "utf8"));
 
 const deleteOrder = [
-  "payment_requests", "dashboard_preferences", "instructor_ratings", "scholarships", "refunds", "payments",
+  "payment_requests", "dashboard_preferences", "instructor_ratings", "refunds", "payments",
   "invoices", "activity_logs", "attendance_logs", "quiz_responses", "quiz_questions",
   "submissions", "assignments", "enrollments", "sections", "courses", "terms",
   "students", "instructors", "programs", "specializations", "users",
@@ -261,29 +264,38 @@ const seed = db.transaction(() => {
   const addInvoice = db.prepare(
     "INSERT INTO invoices (student_id, term_id, amount, issued_at, due_at) VALUES (?, ?, ?, ?, ?)"
   );
+  const addScholarshipInvoice = db.prepare(`
+    INSERT INTO invoices (student_id, term_id, amount, scholarship_amount, scholarship_type, scholarship_name, issued_at, due_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const finalAmountOf = db.prepare("SELECT final_amount FROM invoices WHERE id = ?");
   const addPayment = db.prepare(
     "INSERT INTO payments (invoice_id, amount, method, paid_at) VALUES (?, ?, ?, ?)"
   );
   const addRefund = db.prepare(
     "INSERT INTO refunds (payment_id, amount, reason, refunded_at) VALUES (?, ?, ?, ?)"
   );
-  const addScholarship = db.prepare(
-    "INSERT INTO scholarships (student_id, term_id, amount, name) VALUES (?, ?, ?, ?)"
-  );
+  // Scholarships are stored on the invoice. Each name maps to a scholarship type.
+  const SCHOLARSHIP_NAME_TYPES = { "Academic Merit Scholarship": "merit" };
+  const DEMO_SCHOLARSHIP = { name: "Academic Merit Scholarship", amount: 500 };
 
   for (const term of termRows) {
     for (const student of studentRows.slice(0, 500)) {
       const amount = 2500 + ((student.id * 137) % 1500);
-      const invoiceId = addInvoice.run(
-        student.id,
-        term.id,
-        amount,
-        `${term.start_date}T09:00:00Z`,
-        `${term.start_date.slice(0, 8)}28T23:59:00Z`
-      ).lastInsertRowid;
+      const issuedAt = `${term.start_date}T09:00:00Z`;
+      const dueAt = `${term.start_date.slice(0, 8)}28T23:59:00Z`;
+      // Students whose ID is divisible by 13 have a 500 merit scholarship each term.
+      const invoiceId = student.id % 13 === 0
+        ? addScholarshipInvoice.run(
+          student.id, term.id, amount, DEMO_SCHOLARSHIP.amount,
+          SCHOLARSHIP_NAME_TYPES[DEMO_SCHOLARSHIP.name], DEMO_SCHOLARSHIP.name, issuedAt, dueAt
+        ).lastInsertRowid
+        : addInvoice.run(student.id, term.id, amount, issuedAt, dueAt).lastInsertRowid;
+      // Payments are based on the final amount (after any scholarship), so nobody is overpaid.
+      const finalAmount = finalAmountOf.get(invoiceId).final_amount;
 
       if (student.id % 8 !== 0) {
-        const paid = student.id % 10 === 0 ? amount * 0.5 : amount;
+        const paid = student.id % 10 === 0 ? finalAmount * 0.5 : finalAmount;
         const method = ["cash", "card", "bank"][student.id % 3];
         const paymentId = addPayment.run(
           invoiceId,
@@ -294,9 +306,6 @@ const seed = db.transaction(() => {
         if (student.id % 37 === 0) {
           addRefund.run(paymentId, 100, "Course withdrawal", `${term.end_date.slice(0, 10)}T10:00:00Z`);
         }
-      }
-      if (student.id % 13 === 0) {
-        addScholarship.run(student.id, term.id, 500, "Academic Merit Scholarship");
       }
     }
   }

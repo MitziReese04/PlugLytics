@@ -73,6 +73,16 @@ describe("pricingSchema", () => {
     expect(result.error.issues[0].path).toEqual(["finalAmount"]);
   });
 
+  test("accepts a scholarship name with a scholarship, and rejects one without", () => {
+    expect(pricingSchema.parse({ ...valid, scholarshipName: "Academic Merit Scholarship" }).scholarshipName)
+      .toBe("Academic Merit Scholarship");
+    const result = pricingSchema.safeParse({ basePrice: 100, scholarshipName: "Academic Merit Scholarship" });
+    expect(result.success).toBe(false);
+    expect(result.error.issues[0].path).toEqual(["scholarshipName"]);
+    expect(pricingSchema.safeParse({ ...valid, scholarshipName: "x".repeat(101) }).success).toBe(false);
+    expect(pricingSchema.safeParse({ ...valid, scholarshipName: "   " }).success).toBe(false);
+  });
+
   test("rejects unknown fields and scholarship types", () => {
     expect(pricingSchema.safeParse({ ...valid, finalAmount: 1 }).success).toBe(false);
     expect(pricingSchema.safeParse({ ...valid, scholarshipType: "lottery" }).success).toBe(false);
@@ -99,6 +109,16 @@ describe("invoices table pricing columns", () => {
 
   afterAll(() => db.close());
 
+  test("stores a scholarship name with the scholarship", () => {
+    const id = insert({ scholarship_amount: 500, scholarship_type: "merit", scholarship_name: "Academic Merit Scholarship" });
+    expect(db.prepare("SELECT scholarship_name, final_amount FROM invoices WHERE id = ?").get(id))
+      .toEqual({ scholarship_name: "Academic Merit Scholarship", final_amount: 2500 });
+  });
+
+  test("the schema no longer has a scholarships table", () => {
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'scholarships'").get()).toBeUndefined();
+  });
+
   test("final_amount matches computeFinalAmount", () => {
     const id = insert({
       scholarship_amount: 500, scholarship_type: "merit", discount_percent: 10,
@@ -118,6 +138,9 @@ describe("invoices table pricing columns", () => {
     ["negative discount", { discount_percent: -5 }],
     ["scholarship without a type", { scholarship_amount: 100 }],
     ["unknown scholarship type", { scholarship_amount: 100, scholarship_type: "lottery" }],
+    ["scholarship name without a scholarship", { scholarship_name: "Academic Merit Scholarship" }],
+    ["blank scholarship name", { scholarship_amount: 100, scholarship_type: "merit", scholarship_name: "   " }],
+    ["scholarship name over 100 characters", { scholarship_amount: 100, scholarship_type: "merit", scholarship_name: "x".repeat(101) }],
     ["negative final amount", { scholarship_amount: 2900, scholarship_type: "merit", discount_percent: 50 }],
   ])("rejects %s", (_, fields) => {
     expect(() => insert(fields)).toThrow(/CHECK constraint failed/);

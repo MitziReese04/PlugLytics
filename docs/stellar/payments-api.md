@@ -56,6 +56,7 @@ Each invoice stores how its price is built, in the invoice's own currency. A pay
 | `currency` | The invoice currency, as an ISO 4217 code such as `USD` or `PHP`. All the money fields below are in this currency. | 3 capital letters. Default `USD`. |
 | `scholarshipAmount` | Money taken off by a scholarship | 0 or more. Default `0`. |
 | `scholarshipType` | Kind of scholarship: `merit`, `need_based`, `sponsored` or `other` | Required when `scholarshipAmount` is more than 0 |
+| `scholarshipName` | The scholarship's name, for example `Academic Merit Scholarship` | Optional, up to 100 characters. Only allowed when `scholarshipAmount` is more than 0. |
 | `discountPercent` | Discount, as a percent **of the base price** | 0 to 100. Default `0`. |
 | `discountCode` | Code used for the discount, if any (for example `EARLY10`) | Optional, up to 50 characters |
 | `platformFee` | PlugLytics platform fee added to the price | 0 or more. Default `0`. |

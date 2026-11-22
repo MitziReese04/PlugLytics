@@ -157,6 +157,8 @@ CREATE TABLE IF NOT EXISTS invoices (
   currency TEXT NOT NULL DEFAULT 'USD' CHECK(length(currency) = 3 AND currency GLOB '[A-Z][A-Z][A-Z]'),
   scholarship_amount REAL NOT NULL DEFAULT 0 CHECK(scholarship_amount >= 0),
   scholarship_type TEXT CHECK(scholarship_type IN ('merit','need_based','sponsored','other')),
+  -- The scholarship's own name, for example "Academic Merit Scholarship".
+  scholarship_name TEXT CHECK(scholarship_name IS NULL OR length(trim(scholarship_name)) BETWEEN 1 AND 100),
   discount_percent REAL NOT NULL DEFAULT 0 CHECK(discount_percent BETWEEN 0 AND 100),
   discount_code TEXT,
   platform_fee REAL NOT NULL DEFAULT 0 CHECK(platform_fee >= 0),
@@ -168,6 +170,8 @@ CREATE TABLE IF NOT EXISTS invoices (
   issued_at TEXT NOT NULL,
   due_at TEXT NOT NULL,
   CHECK(scholarship_amount = 0 OR scholarship_type IS NOT NULL),
+  -- A scholarship name is only allowed when there is a scholarship.
+  CHECK(scholarship_name IS NULL OR scholarship_amount > 0),
   FOREIGN KEY (student_id) REFERENCES students(id),
   FOREIGN KEY (term_id) REFERENCES terms(id)
 );
@@ -292,15 +296,8 @@ BEGIN
   SELECT RAISE(ABORT, 'related_payment_id must point to a failed payment request');
 END;
 
-CREATE TABLE IF NOT EXISTS scholarships (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  student_id INTEGER NOT NULL,
-  term_id INTEGER NOT NULL,
-  amount REAL NOT NULL,
-  name TEXT NOT NULL,
-  FOREIGN KEY (student_id) REFERENCES students(id),
-  FOREIGN KEY (term_id) REFERENCES terms(id)
-);
+-- Scholarships are stored on each invoice (scholarship_amount, scholarship_type,
+-- scholarship_name). The old separate scholarships table was removed.
 
 CREATE TABLE IF NOT EXISTS instructor_ratings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

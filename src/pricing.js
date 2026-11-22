@@ -17,6 +17,7 @@ const pricingSchema = z
     currency: currencyCode.default("USD"),
     scholarshipAmount: nonNegativeAmount.default(0),
     scholarshipType: z.enum(SCHOLARSHIP_TYPES).nullable().default(null),
+    scholarshipName: z.string().trim().min(1).max(100).nullable().default(null),
     discountPercent: z.number().finite().min(0).max(100).default(0),
     discountCode: z.string().trim().min(1).max(50).nullable().default(null),
     platformFee: nonNegativeAmount.default(0),
@@ -33,6 +34,13 @@ const pricingSchema = z
         code: z.ZodIssueCode.custom,
         path: ["scholarshipType"],
         message: "scholarshipType is required when scholarshipAmount is greater than 0",
+      });
+    }
+    if (pricing.scholarshipName !== null && pricing.scholarshipAmount <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scholarshipName"],
+        message: "scholarshipName is only allowed when scholarshipAmount is greater than 0",
       });
     }
     if (computeFinalAmount(pricing) < 0) {
