@@ -39,13 +39,13 @@ PlugLytics is a zero-setup Learning Management System (LMS) analytics API and ro
 Built with Node.js, Express, SQLite, JWT, Zod, Chart.js, and Swagger/OpenAPI, plus a companion VS Code extension. The demo runs entirely on synthetic seeded data: 500+ students, 25 instructors, 60 courses, 6 specializations, and 4 academic terms.
 
 > [!NOTE]
-> PlugLytics is a technical demo and pilot candidate. Stellar payments run on the **Stellar Testnet**, so they can be tried end to end with free test XLM. There is no public deployment yet.
+> PlugLytics is a technical demo and pilot candidate. Stellar payments run on the **Stellar Testnet**, so they can be tried end to end with free test XLM. A public Testnet demo runs at [pluglytics.xyz](https://pluglytics.xyz).
 
 ## Project status
 
 | Area | Status |
 | --- | --- |
-| Analytics API, dashboard, and public website | Working locally |
+| Analytics API, dashboard, and public website | Working locally and on the [Vercel demo](https://pluglytics.xyz) |
 | Stellar Testnet payments, refunds, webhooks, API keys, reconciliation and settlement reports | Working on Testnet, covered by automated tests |
 | USDC, anchors, subscriptions | Planned |
 | Canvas LTI 1.3 launch (PlugLytics tab inside Canvas) | Working: tested end to end in an Instructure-hosted Canvas (Nov 22, 2026) and covered by automated tests ([install guide](./docs/pilot/canvas-lti-install.md)) |
@@ -214,10 +214,11 @@ The testnet is reset from time to time; after a reset, fund new accounts with Fr
 
 ```text
 Public website  /  browser dashboard  /  VS Code extension
+Canvas LMS (LTI 1.3 launch: PlugLytics tab inside Canvas)
                           |
                           v
                      Express API  ------------->  Stellar Horizon (Testnet)
-            JWT + RBAC + API-key middleware        payment lookup, refunds
+         JWT + RBAC + API-key + LTI middleware     payment lookup, refunds
                 Zod query validation
              analytics and payment routes  ---->  Customer webhooks (signed)
                           |
@@ -265,10 +266,11 @@ PlugLytics/
 ├── logo/                Brand assets
 ├── pluglytics-vscode/   VS Code extension source, tests, and VSIX
 ├── public/              Public website and role-aware dashboard
-├── scripts/             Seed, migrate, backup, and reconcile scripts
+├── scripts/             Seed, migrate, backup, reconcile, and LTI key/link scripts
 ├── src/
+│   ├── lti/             Canvas LTI 1.3 settings and Canvas key lookup
 │   ├── middleware/      JWT, RBAC, API keys, and query validation
-│   ├── routes/          Analytics, invoice, payment, refund, settlement, webhook, and API-key routes
+│   ├── routes/          Analytics, invoice, payment, refund, settlement, webhook, API-key, and LTI routes
 │   ├── utils/           Response envelope, CSV export, finance cache
 │   ├── stellar*.js      Stellar config, Horizon lookup, quotes, refund signer, reconciliation
 │   ├── webhook*.js      Webhook signing secrets and delivery
@@ -290,7 +292,7 @@ Create `.env` from `.env.example`. Stellar settings are described in [Stellar Te
 | `JWT_SECRET` | Signs JWTs | Development fallback | In production |
 | `JWT_EXPIRES_IN` | JWT lifetime | `8h` | No |
 | `DATABASE_PATH` | SQLite database location | `./data/pluglytics.db` | No |
-| `TRUST_PROXY` | Reverse proxies in front of the app, so rate limiting sees each visitor's IP | `0` | On Render: `1` |
+| `TRUST_PROXY` | Reverse proxies in front of the app, so rate limiting sees each visitor's IP | `0` | Behind a hosting proxy (Render, Vercel): `1` |
 | `BACKUP_DIR` | Where `npm run backup` writes copies | `backups/` next to the database | No |
 | `BACKUP_KEEP` | Backup copies to keep | `7` | No |
 | `STELLAR_ENV` | `sandbox` selects the Stellar Testnet | - | For payments |
@@ -496,7 +498,7 @@ npm test                          # API test suites (Jest + Supertest)
 cd pluglytics-vscode && npm test  # VS Code extension tests
 ```
 
-The suites in [`tests/`](./tests) cover authentication and role boundaries, filters, dashboard layouts, finance and pricing calculations, invoices, payment requests, Horizon confirmation, late and memo-less matching, refunds and the refund issuing switch, reconciliation and settlement reports, webhook registration and delivery, customer API keys, payment-policy settings, and dashboard assets. Horizon and the refund signer are replaced with test doubles, so the tests never call the real Stellar network.
+The suites in [`tests/`](./tests) cover authentication and role boundaries, filters, dashboard layouts, finance and pricing calculations, invoices, payment requests, Horizon confirmation, late and memo-less matching, refunds and the refund issuing switch, reconciliation and settlement reports, webhook registration and delivery, customer API keys, payment-policy settings, Canvas LTI 1.3 launches against a simulated Canvas, and dashboard assets. Horizon and the refund signer are replaced with test doubles, so the tests never call the real Stellar network.
 
 [GitHub Actions](./.github/workflows/ci.yml) runs install, seed, the API tests, and the extension tests on Node.js 22 for every push and pull request to `main`. CI does not deploy.
 
