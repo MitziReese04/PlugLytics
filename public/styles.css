@@ -374,6 +374,9 @@ main { min-width: 0; }
 .dashboard-page.dark .status-badge { background: #482e22; color: #ffc195; }
 .insight-value { margin-top: 22px; font-size: 23px; font-weight: 750; }
 .insight-value.needs-attention { color: #c55b43; }
+.finance-rate { margin: 12px 0 0; color: var(--text); font-size: 13px; }
+.finance-rate strong { font-size: 22px; font-weight: 750; letter-spacing: -.02em; }
+.finance-rate span { color: var(--muted); font-size: 12px; }
 .widget-card > p:not(.widget-card-heading p) { color: var(--muted); font-size: 13px; line-height: 1.55; }
 .dashboard-page .widget-card-empty { min-height: 130px; display: grid; place-items: center; color: var(--muted); }
 .widget-error { color: #b33a3a !important; }

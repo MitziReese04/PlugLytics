@@ -371,6 +371,48 @@ async function renderWidgets() {
       }
 
       const canvas = card.querySelector("canvas");
+
+      if (widget.id === "finance-overview") {
+        const chart = PlugLyticsCharts.financeOverviewChart(rows[0]);
+        if (!chart) {
+          card.innerHTML += tableHtml(rows);
+          canvas.remove();
+          continue;
+        }
+        if (chart.collectionRate !== null) {
+          // insertAdjacentHTML keeps the existing canvas element (innerHTML += would replace it).
+          canvas.insertAdjacentHTML("beforebegin", `<p class="finance-rate"><strong>${escapeHtml(chart.collectionRate.toFixed(1))}%</strong> collection rate <span>(collected / net billed)</span></p>`);
+        }
+        const styles = getComputedStyle(document.body);
+        const primary = styles.getPropertyValue("--primary").trim() || "#45a29e";
+        const muted = styles.getPropertyValue("--muted").trim();
+        state.charts.push(new Chart(canvas, {
+          type: "bar",
+          data: {
+            labels: chart.labels,
+            datasets: [{
+              label: "Amount",
+              data: chart.values,
+              backgroundColor: chart.keys.map((key) => (key === "scholarshipsAndDiscounts" ? "#d99a2b" : primary)),
+              borderRadius: 5,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: (item) => Number(item.raw).toLocaleString() } },
+            },
+            scales: {
+              x: { ticks: { color: muted } },
+              y: { beginAtZero: true, ticks: { color: muted, callback: (value) => Number(value).toLocaleString() } },
+            },
+          },
+        }));
+        continue;
+      }
+
       if (rows.length > 8) {
         card.innerHTML += tableHtml(rows);
         canvas.remove();
@@ -392,7 +434,7 @@ async function renderWidgets() {
       state.charts.push(new Chart(canvas, {
         type: "bar",
         data: {
-          labels: rows.map((row) => row[labelKey]),
+          labels: PlugLyticsCharts.chartLabels(rows, labelKey, valueKey),
           datasets: [{
             label: valueKey,
             data: rows.map((row) => row[valueKey]),
