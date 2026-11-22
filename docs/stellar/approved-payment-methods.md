@@ -32,7 +32,7 @@
 | Method | Who can use it | Minimum amount | Maximum amount | Status |
 | --- | --- | --- | --- | --- |
 | **Stellar USDC** (Circle issuer only) | School, Student | `USDC_MIN_AMOUNT` (TODO: group decision, in `.env.example`) | `USDC_MAX_AMOUNT` (TODO: group decision, in `.env.example`) | `approved` (planned default for production) |
-| **XLM** (Stellar's native asset) | School | `XLM_MIN_AMOUNT` (TODO: group decision, in `.env.example`) | `XLM_MAX_AMOUNT` (TODO: group decision, in `.env.example`) | `approved` (default for sandbox and the pilot) |
+| **XLM** (Stellar's native asset) | School; Student (sandbox and the pilot) | `XLM_MIN_AMOUNT` (TODO: group decision, in `.env.example`) | `XLM_MAX_AMOUNT` (TODO: group decision, in `.env.example`) | `approved` (default for sandbox and the pilot) |
 | **Stellar anchors** (local currency on/off-ramps) | School, Student | `ANCHOR_MIN_AMOUNT` (placeholder) | `ANCHOR_MAX_AMOUNT` (placeholder) | `pilot only` |
 
 - Instructors cannot use any method, because they never pay through PlugLytics.
@@ -58,7 +58,8 @@
 - XLM has no issuer, so in payment requests, responses and events `asset` is `XLM` and `assetIssuer` is `null`.
 - Its price changes with the market, so an amount in XLM can be worth more or less tomorrow. For that reason:
   - **Schools** can use it. It is the default asset for sandbox and the pilot.
-  - **Students** cannot use it for tuition, so they are protected from price changes. **Not enforced yet:** on testnet, students pay invoices in XLM, because USDC payment requests are not built.
+  - **Students** can use it for tuition in sandbox and the pilot, where it is the default asset. Each payment request locks its XLM amount when it is created, so the price cannot change while the student pays.
+  - In production, **USDC** is the planned default, so tuition prices stay stable.
 - XLM is the default asset for sandbox and the pilot. USDC is the planned default for production (see [payments-api.md](./payments-api.md#post-apiv1payments)).
 
 ### Stellar anchors: `pilot only`
