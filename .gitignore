@@ -24,3 +24,6 @@ coverage/
 # OS and editor files
 .DS_Store
 Thumbs.db
+
+# Duplicate of the root PROPOSAL.md (the website links to /proposal instead)
+public/PROPOSAL.md
