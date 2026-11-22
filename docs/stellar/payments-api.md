@@ -967,7 +967,7 @@ Request:
 ```
 
 - `schoolId`: required, the school (customer) the URL belongs to (see `GET /api/v1/api-keys/schools`)
-- `url`: required, must start with `https://` (plain `http://` is only allowed for `localhost` in sandbox). A URL with a username or password in it is rejected.
+- `url`: required, must start with `https://` (plain `http://` is only allowed for `localhost` in sandbox). A URL with a username or password in it is rejected, and so is one that points to a private or internal IP address (for example `10.0.0.5`, `192.168.1.1`, or the cloud metadata address `169.254.169.254`). Host names are not resolved when checking this.
 - `events`: optional, the events to send (see `GET /api/v1/webhooks/events`). Leave it out to receive every event.
 - `description`: optional, up to 200 characters
 
