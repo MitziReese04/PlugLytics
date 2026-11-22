@@ -1,6 +1,6 @@
 # PlugLytics Refunds and Chargebacks
 
-> **Status: planned.** Refunds are not implemented yet. This document describes the planned refund policy and procedure. Values in `UPPER_CASE` are placeholders to be decided before going live. See also [settlement.md](./settlement.md), [webhooks.md](./webhooks.md#refundissued) and [approved-payment-methods.md](./approved-payment-methods.md).
+> **Status: planned.** Refunds are not implemented yet. This document describes the planned refund policy and procedure. Values in `UPPER_CASE` are placeholders to be decided before going live (**TODO: group decision**). `REFUND_WINDOW_DAYS` and the approval thresholds are already settings in `.env` (see [Payment policy settings](./payments-api.md#payment-policy-settings)); the others are not settings yet. See also [settlement.md](./settlement.md), [webhooks.md](./webhooks.md#refundissued) and [approved-payment-methods.md](./approved-payment-methods.md).
 
 ## Contents
 
@@ -74,7 +74,7 @@ An admin checks:
 ### 3. Approve
 
 - The reviewer sets the status to `approved` or `rejected`, with a note explaining why.
-- **Two-person rule:** refunds above `REFUND_APPROVAL_THRESHOLD` need approval from a **second** admin, who must not be the person who requested it.
+- **Two-person rule:** refunds above the asset's approval threshold (`REFUND_APPROVAL_THRESHOLD_XLM` or `REFUND_APPROVAL_THRESHOLD_USDC`) need approval from a **second** admin, who must not be the person who requested it.
 - If `rejected`, tell the requester why. Nothing is sent.
 
 ### 4. Send the refund payment
@@ -219,7 +219,7 @@ Also:
 - [ ] Total refunded is not more than the amount received
 - [ ] Destination checked (exists, has a trustline, right memo for shared accounts)
 - [ ] No open dispute for this payment
-- [ ] Second approval for amounts above `REFUND_APPROVAL_THRESHOLD`
+- [ ] Second approval for amounts above `REFUND_APPROVAL_THRESHOLD_XLM` / `REFUND_APPROVAL_THRESHOLD_USDC`
 - [ ] Same asset and issuer as the original payment
 - [ ] Transaction hash recorded and `refund.issued` sent
 - [ ] Records kept, never deleted

@@ -31,12 +31,13 @@
 
 | Method | Who can use it | Minimum amount | Maximum amount | Status |
 | --- | --- | --- | --- | --- |
-| **Stellar USDC** (Circle issuer only) | School, Student | `USDC_MIN_AMOUNT` (placeholder) | `USDC_MAX_AMOUNT` (placeholder) | `approved` (planned default for production) |
-| **XLM** (Stellar's native asset) | School | `XLM_MIN_AMOUNT` (placeholder) | `XLM_MAX_AMOUNT` (placeholder) | `approved` (default for sandbox and the pilot) |
+| **Stellar USDC** (Circle issuer only) | School, Student | `USDC_MIN_AMOUNT` (TODO: group decision) | `USDC_MAX_AMOUNT` (TODO: group decision) | `approved` (planned default for production) |
+| **XLM** (Stellar's native asset) | School | `XLM_MIN_AMOUNT` (TODO: group decision) | `XLM_MAX_AMOUNT` (TODO: group decision) | `approved` (default for sandbox and the pilot) |
 | **Stellar anchors** (local currency on/off-ramps) | School, Student | `ANCHOR_MIN_AMOUNT` (placeholder) | `ANCHOR_MAX_AMOUNT` (placeholder) | `pilot only` |
 
 - Instructors cannot use any method, because they never pay through PlugLytics.
 - Limits apply **per payment request**. They are set separately for sandbox and production.
+- The XLM and USDC limits are real settings in `.env` (see [Payment policy settings](./payments-api.md#payment-policy-settings)). Empty means no limit. The anchor limits are not settings yet, because anchor payments are not built.
 
 ## Method details
 
@@ -66,7 +67,7 @@
   - **On-ramp:** the payer pays the anchor in local currency, and the anchor sends **USDC** to the PlugLytics merchant account.
   - **Off-ramp:** a school converts USDC it received back into local currency in its bank account.
 - To PlugLytics, an on-ramp payment is a normal **Stellar USDC** payment. It must arrive with the right memo, asset, issuer and amount, like any other payment.
-- Only anchors on an **approved anchor list** can be used. The list is not decided yet: each anchor must be checked first (licences, supported countries, fees and identity checks).
+- Only anchors on an **approved anchor list** can be used. The list is the `APPROVED_ANCHORS` setting (anchor home domains, empty by default; see [Payment policy settings](./payments-api.md#payment-policy-settings)). It is not decided yet (**TODO: group decision**): each anchor must be checked first (licences, supported countries, fees and identity checks).
 - Anchor fees are paid by the payer. The amount that reaches the merchant account must still match the payment request.
 
 ## Not accepted

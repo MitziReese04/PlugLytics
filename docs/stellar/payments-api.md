@@ -10,6 +10,7 @@
 - [From invoice to payment request](#from-invoice-to-payment-request)
 - [The payment flow](#the-payment-flow)
 - [Sandbox vs production](#sandbox-vs-production)
+- [Payment policy settings](#payment-policy-settings)
 - [API conventions](#api-conventions)
 - [Endpoints](#endpoints)
 - [How payments are detected and webhooks are sent](#how-payments-are-detected-and-webhooks-are-sent)
@@ -128,7 +129,7 @@ The request stores:
 - The conversion uses whole-number (integer) math, so there are no rounding errors. See `toAssetAmount()` in `src/pricing.js`.
 - **The rate is locked only until `expiresAt`.** If the request expires, it becomes `failed` with reason `expired`. A new request for the same invoice gets a **new quote**, which may give a different asset amount.
 - Matching on Horizon always uses the converted `amount` in the asset, never the invoice currency.
-- The source of exchange-rate quotes is not chosen yet (TODO). Whatever source is used, record it with each quote for audits.
+- The source of exchange-rate quotes is set by `PAYMENT_RATE_SOURCE` (only `manual` so far; **TODO: group decision**, see [Payment policy settings](#payment-policy-settings)). Whatever source is used, record it with each quote for audits.
 - Requests that are not created from an invoice (for example, a pay-per-use item priced directly in the asset) have `invoiceId`, `invoiceCurrency`, `invoiceAmount`, `quotedRate` and `rateQuotedAt` set to `null`.
 
 ## The payment flow
@@ -228,6 +229,26 @@ const stellar = loadStellarConfig();
 // stellar.env, stellar.horizonUrl, stellar.networkPassphrase,
 // stellar.merchantPublicKey, stellar.merchantSecretKey, stellar.webhookSigningSecret
 ```
+
+## Payment policy settings
+
+These settings live in `.env` (with placeholders in `.env.example`) and are loaded and checked by `src/paymentPolicy.js`. **Every value is a placeholder until the group decides it: TODO: group decision.**
+
+| Setting | Meaning | Default | Used by |
+| --- | --- | --- | --- |
+| `PAYMENT_RATE_SOURCE` | Where exchange-rate quotes come from. Only `manual` exists so far. **TODO: group decision.** | `manual` | Creating payment requests |
+| `PAYMENT_MANUAL_RATE_<CURRENCY>_<ASSET>` | Manual rate: asset units per 1 unit of the currency, up to 7 decimals (for example `PAYMENT_MANUAL_RATE_USD_XLM=2.5000000`). **TODO: group decision.** | If none is set: made-up testnet rates, 1 USD = 2.5 XLM and 1 PHP = 0.043 XLM | Creating payment requests |
+| `XLM_MIN_AMOUNT`, `XLM_MAX_AMOUNT`, `USDC_MIN_AMOUNT`, `USDC_MAX_AMOUNT` | Smallest and largest amount of one payment request, in that asset. **TODO: group decision.** | Empty = no limit | Creating payment requests |
+| `REFUND_WINDOW_DAYS` | Days after a payment during which a customer can ask for a refund (1 to 3650). **TODO: group decision.** | Empty = not decided; refunds must not run | Refunds (not built yet) |
+| `REFUND_APPROVAL_THRESHOLD_XLM`, `REFUND_APPROVAL_THRESHOLD_USDC` | Refunds above this amount (in that asset) need a second admin. **TODO: group decision.** | Empty = not decided | Refunds (not built yet) |
+| `APPROVED_ANCHORS` | Comma-separated anchor home domains, for example `anchor.example.com`. **TODO: group decision.** | Empty = no anchors approved | Anchor payments (not built yet) |
+
+Rules:
+
+- If **any** `PAYMENT_MANUAL_RATE_` setting is set, only the configured rates are used. The built-in test rates are not mixed in.
+- Amounts, rates and thresholds are compared in stroops (whole numbers), never as decimals.
+- If any setting is invalid, creating a payment request returns `503 PAYMENT_POLICY_INVALID`, and `details.problems` names every invalid setting. The settings hold no secrets, so naming them is safe.
+- The settings are read on each request, so a server restart picks up changes in `.env`.
 
 ## API conventions
 
@@ -346,7 +367,8 @@ What PlugLytics does:
 
 - Uses the **sandbox** (testnet) settings from `src/stellarConfig.js`. If `STELLAR_ENV` is not `sandbox`, or a sandbox credential is missing, it returns `503 STELLAR_NOT_CONFIGURED`.
 - Charges the invoice's **outstanding balance**: `finalAmount` minus payments already recorded for it.
-- Converts it to XLM with a **sandbox quote**. Sandbox rates are fixed, made-up test rates (`src/stellarQuotes.js`), because testnet XLM has no value. Real quotes are still TODO.
+- Converts it to XLM with a **sandbox quote** from the manual rates in the [payment policy](#payment-policy-settings) (`PAYMENT_MANUAL_RATE_<CURRENCY>_<ASSET>`). If none are set, fixed, made-up test rates are used, because testnet XLM has no value. Real quotes are still **TODO: group decision**.
+- Refuses amounts outside the asset's minimum and maximum (`XLM_MIN_AMOUNT` and `XLM_MAX_AMOUNT`) with `400 VALIDATION_ERROR`.
 - Creates a unique ID (`pay_` + 16 characters) and a unique memo (`PL-` + 8 characters).
 - Sets `expiresAt` to **30 minutes** after creation. The quoted rate is locked until then.
 
@@ -383,7 +405,9 @@ Errors specific to this use:
 - `404 INVOICE_NOT_FOUND`: no such invoice for this student
 - `409 INVOICE_NOTHING_DUE`: the invoice is fully paid, or already has a `completed` Stellar payment
 - `409 PAYMENT_ALREADY_PENDING`: a request for this invoice is still `pending` and not expired (`details.paymentId` is its ID)
-- `422 RATE_UNAVAILABLE`: no sandbox rate for the invoice currency (only `USD` and `PHP` so far)
+- `422 RATE_UNAVAILABLE`: no manual rate for the invoice currency and asset (by default only `USD` and `PHP` to `XLM`)
+- `400 VALIDATION_ERROR`: the converted amount is below the asset's minimum or above its maximum (`details` has `amount`, `min` and `max`)
+- `503 PAYMENT_POLICY_INVALID`: a payment policy setting is invalid (`details.problems` names each one)
 - `400 UNSUPPORTED_ASSET`, `400 VALIDATION_ERROR`, `503 STELLAR_NOT_CONFIGURED`
 - Admins and instructors get `403 FORBIDDEN` until the pay-per-use use is built.
 
@@ -875,6 +899,7 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 422 | `TRANSACTION_MISMATCH` | The transaction is not on Horizon, did not succeed, or does not match the request's memo, asset, issuer or amount (for `match-transaction`: it has a memo that belongs to another request) |
 | 502 | `HORIZON_UNAVAILABLE` | Horizon could not be reached or returned an error. Try again later. |
 | 503 | `STELLAR_NOT_CONFIGURED` | `STELLAR_ENV` or a required credential is missing on the server |
+| 503 | `PAYMENT_POLICY_INVALID` | A payment policy setting is invalid. `details.problems` names each setting. |
 | 500 | `INTERNAL_ERROR` | An unexpected server error occurred |
 
 ## Testing with the testnet friendbot

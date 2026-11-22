@@ -7,6 +7,7 @@ const { sendSuccess, sendError } = require("../utils/envelope");
 const { loadStellarConfig } = require("../stellarConfig");
 const { toAssetAmount } = require("../pricing");
 const { getQuote, RateUnavailableError } = require("../stellarQuotes");
+const { loadPaymentPolicy, checkAmountLimits } = require("../paymentPolicy");
 const { HorizonError, findPaymentsWithMemo, decideOutcome } = require("../stellarHorizon");
 
 const router = express.Router();
@@ -132,6 +133,16 @@ router.post("/", authenticate, authorize("student"), (req, res) => {
     return sendError(res, 503, "STELLAR_NOT_CONFIGURED", "Only sandbox (testnet) payment requests are enabled so far");
   }
 
+  let policy;
+  try {
+    policy = loadPaymentPolicy();
+  } catch (error) {
+    // Lists the invalid setting names only; policy settings never hold secrets.
+    return sendError(res, 503, "PAYMENT_POLICY_INVALID", "The payment policy settings on this server are invalid", {
+      problems: error.problems || [error.message],
+    });
+  }
+
   // Students can only pay their own invoices. Someone else's invoice looks the
   // same as a missing one, so its existence is not revealed.
   const invoice = findInvoice.get(invoiceId);
@@ -156,7 +167,7 @@ router.post("/", authenticate, authorize("student"), (req, res) => {
 
   let quote;
   try {
-    quote = getQuote({ environment: stellar.env, asset, invoiceCurrency: invoice.currency });
+    quote = getQuote({ environment: stellar.env, asset, invoiceCurrency: invoice.currency, policy });
   } catch (error) {
     if (error instanceof RateUnavailableError) {
       return sendError(res, 422, "RATE_UNAVAILABLE", error.message);
@@ -164,11 +175,19 @@ router.post("/", authenticate, authorize("student"), (req, res) => {
     throw error;
   }
 
+  const amount = toAssetAmount(invoice.outstanding, quote.quotedRate);
+  const outOfRange = checkAmountLimits(policy, asset, amount);
+  if (outOfRange) {
+    return sendError(res, 400, "VALIDATION_ERROR", outOfRange, {
+      amount, asset, min: policy.limits[asset].min, max: policy.limits[asset].max,
+    });
+  }
+
   const createdAt = quote.quotedAt;
   const row = {
     invoice_id: invoice.id,
     invoice_amount: invoice.outstanding.toFixed(2),
-    amount: toAssetAmount(invoice.outstanding, quote.quotedRate),
+    amount,
     asset,
     asset_issuer: null, // XLM is native and has no issuer
     destination: stellar.merchantPublicKey,

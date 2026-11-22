@@ -1,7 +1,7 @@
 const request = require("supertest");
 const app = require("../src/app");
 const db = require("../src/db");
-const { SANDBOX_XLM_RATES } = require("../src/stellarQuotes");
+const { DEFAULT_MANUAL_RATES } = require("../src/paymentPolicy");
 
 // A valid Stellar public key (generated once with Keypair.random()); public only.
 const MERCHANT = "GDOW2MNFWMSTEIEWB36Y4WOXPJ4KT7JO2S47JM7TLQCBHYUG7FDLIMK4";
@@ -12,6 +12,10 @@ const STELLAR_VARS = [
   "STELLAR_ENV", "STELLAR_HORIZON_URL", "STELLAR_NETWORK_PASSPHRASE",
   "SANDBOX_MERCHANT_PUBLIC_KEY", "SANDBOX_MERCHANT_SECRET_KEY", "SANDBOX_WEBHOOK_SIGNING_SECRET",
   "PRODUCTION_MERCHANT_PUBLIC_KEY", "PRODUCTION_MERCHANT_SECRET_KEY", "PRODUCTION_WEBHOOK_SIGNING_SECRET",
+  // Payment policy settings, so each test starts from the defaults.
+  "PAYMENT_RATE_SOURCE", "PAYMENT_MANUAL_RATE_USD_XLM", "PAYMENT_MANUAL_RATE_PHP_XLM", "PAYMENT_MANUAL_RATE_EUR_XLM",
+  "XLM_MIN_AMOUNT", "XLM_MAX_AMOUNT", "USDC_MIN_AMOUNT", "USDC_MAX_AMOUNT",
+  "REFUND_WINDOW_DAYS", "REFUND_APPROVAL_THRESHOLD_XLM", "REFUND_APPROVAL_THRESHOLD_USDC", "APPROVED_ANCHORS",
 ];
 const savedEnv = {};
 
@@ -50,6 +54,7 @@ const pay = (body, token = studentToken) =>
 
 beforeAll(async () => {
   for (const name of STELLAR_VARS) savedEnv[name] = process.env[name];
+  for (const name of STELLAR_VARS) delete process.env[name];
   useSandbox();
   studentToken = await login("student@pluglytics.local");
 });
@@ -85,7 +90,7 @@ describe("POST /api/v1/payments", () => {
       invoiceId,
       invoiceCurrency: "USD",
       invoiceAmount: "100.00",
-      quotedRate: SANDBOX_XLM_RATES.USD,
+      quotedRate: DEFAULT_MANUAL_RATES["USD:XLM"],
       amount: "250.0000000", // 100 USD x 2.5 XLM
       asset: "XLM",
       assetIssuer: null,
@@ -119,7 +124,7 @@ describe("POST /api/v1/payments", () => {
     expect(response.body.data).toMatchObject({
       invoiceAmount: "600.00",
       invoiceCurrency: "PHP",
-      quotedRate: SANDBOX_XLM_RATES.PHP,
+      quotedRate: DEFAULT_MANUAL_RATES["PHP:XLM"],
       amount: "25.8000000", // 600 PHP x 0.043 XLM
     });
   });
@@ -214,6 +219,44 @@ describe("POST /api/v1/payments", () => {
     const response = await pay({ invoiceId });
     expect(response.status).toBe(503);
     expect(response.body.error.code).toBe("STELLAR_NOT_CONFIGURED");
+  });
+
+  test("uses the manual rate from the payment policy", async () => {
+    const invoiceId = addInvoice(demoStudent.id, 100);
+    process.env.PAYMENT_MANUAL_RATE_USD_XLM = "3";
+    const response = await pay({ invoiceId });
+    expect(response.status).toBe(201);
+    expect(response.body.data).toMatchObject({ quotedRate: "3.0000000", amount: "300.0000000" });
+  });
+
+  test("refuses amounts outside the asset's minimum and maximum", async () => {
+    const invoiceId = addInvoice(demoStudent.id, 100); // 250 XLM at the default test rate
+    process.env.XLM_MAX_AMOUNT = "200";
+    const tooBig = await pay({ invoiceId });
+    expect(tooBig.status).toBe(400);
+    expect(tooBig.body.error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      details: { amount: "250.0000000", asset: "XLM", max: "200.0000000" },
+    });
+
+    delete process.env.XLM_MAX_AMOUNT;
+    process.env.XLM_MIN_AMOUNT = "300";
+    const tooSmall = await pay({ invoiceId });
+    expect(tooSmall.status).toBe(400);
+    expect(tooSmall.body.error.message).toMatch(/below the minimum of 300.0000000 XLM/);
+    expect(db.prepare("SELECT COUNT(*) n FROM payment_requests WHERE invoice_id = ?").get(invoiceId).n).toBe(0);
+  });
+
+  test("returns 503 with the setting names when the payment policy is invalid", async () => {
+    const invoiceId = addInvoice(demoStudent.id, 10);
+    process.env.REFUND_WINDOW_DAYS = "forever";
+    process.env.XLM_MIN_AMOUNT = "-5";
+    const response = await pay({ invoiceId });
+    expect(response.status).toBe(503);
+    expect(response.body.error.code).toBe("PAYMENT_POLICY_INVALID");
+    const problems = response.body.error.details.problems.join(" ");
+    expect(problems).toContain("REFUND_WINDOW_DAYS");
+    expect(problems).toContain("XLM_MIN_AMOUNT");
   });
 
   test("refuses to create requests when configured for production", async () => {
