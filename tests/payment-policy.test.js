@@ -34,6 +34,22 @@ describe("loadPaymentPolicy", () => {
     const policy = loadPaymentPolicy(example);
     expect(policy.manualRates).toEqual({ "USD:XLM": "2.5000000", "PHP:XLM": "0.0430000" });
     expect(policy.usingDefaultRates).toBe(false);
+    expect(policy.refundIssuingEnabled).toBe(false);
+  });
+
+  test("refund issuing is off unless REFUND_ISSUING_ENABLED is true", () => {
+    expect(loadPaymentPolicy({}).refundIssuingEnabled).toBe(false);
+    expect(loadPaymentPolicy({ REFUND_ISSUING_ENABLED: "false" }).refundIssuingEnabled).toBe(false);
+    expect(loadPaymentPolicy({ REFUND_ISSUING_ENABLED: " TRUE " }).refundIssuingEnabled).toBe(true);
+  });
+
+  test("the public demo on Render never sends refunds", () => {
+    const blueprint = fs.readFileSync(path.resolve(__dirname, "../render.yaml"), "utf8");
+    // The value right after the REFUND_ISSUING_ENABLED key must be "false".
+    const lines = blueprint.split(/\r?\n/).map((line) => line.trim());
+    const key = lines.indexOf("- key: REFUND_ISSUING_ENABLED");
+    expect(key).toBeGreaterThan(-1);
+    expect(lines[key + 1]).toBe('value: "false"');
   });
 
   test("reads custom settings and normalises amounts to 7 decimals", () => {
@@ -78,6 +94,7 @@ describe("loadPaymentPolicy", () => {
     ["a fractional refund window", { REFUND_WINDOW_DAYS: "7.5" }, "REFUND_WINDOW_DAYS"],
     ["a very long refund window", { REFUND_WINDOW_DAYS: "5000" }, "REFUND_WINDOW_DAYS"],
     ["a text approval threshold", { REFUND_APPROVAL_THRESHOLD_XLM: "high" }, "REFUND_APPROVAL_THRESHOLD_XLM"],
+    ["a refund issuing switch that is not true or false", { REFUND_ISSUING_ENABLED: "yes" }, "REFUND_ISSUING_ENABLED"],
     ["an anchor URL instead of a domain", { APPROVED_ANCHORS: "https://anchor.example.com" }, "APPROVED_ANCHORS"],
     ["an anchor without a dot", { APPROVED_ANCHORS: "localhost" }, "APPROVED_ANCHORS"],
   ])("rejects %s and names the setting", (_, env, name) => {

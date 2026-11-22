@@ -1,6 +1,6 @@
 # PlugLytics Refunds and Chargebacks
 
-> **Status: partly built (testnet only).** Requesting, approving, rejecting and issuing refunds is built (see [What is built](#what-is-built)). Disputes and subscription refunds are not built yet. Values in `UPPER_CASE` are placeholders to be decided before going live (**TODO: group decision**). `REFUND_WINDOW_DAYS` and the approval thresholds are already settings in `.env` (see [Payment policy settings](./payments-api.md#payment-policy-settings)); the others are not settings yet. See also [settlement.md](./settlement.md), [webhooks.md](./webhooks.md#refundissued) and [approved-payment-methods.md](./approved-payment-methods.md).
+> **Status: partly built (testnet only).** Requesting, approving, rejecting and issuing refunds is built (see [What is built](#what-is-built)). Issuing can be switched off with `REFUND_ISSUING_ENABLED` (off by default and on the public demo). What is not built yet is listed under [What is built](#what-is-built). Values in `UPPER_CASE` are placeholders to be decided before going live (**TODO: group decision**). `REFUND_WINDOW_DAYS`, `REFUND_APPROVAL_THRESHOLD_XLM`, `REFUND_APPROVAL_THRESHOLD_USDC` and `REFUND_ISSUING_ENABLED` are settings: set them in `.env`, as listed in `.env.example` (see [Payment policy settings](./payments-api.md#payment-policy-settings)). `REFUND_EXCEPTION_APPROVER`, `SUBSCRIPTION_REFUND_WINDOW_DAYS`, `SUBSCRIPTION_REFUND_RULE` and `RECORD_RETENTION_YEARS` are not settings yet and are not in `.env.example`. See also [settlement.md](./settlement.md), [webhooks.md](./webhooks.md#refundissued) and [approved-payment-methods.md](./approved-payment-methods.md).
 
 ## Contents
 
@@ -31,16 +31,25 @@ How the rules below are enforced:
 
 - **Refundable payments:** a `completed` payment, or a `failed` one with reason `underpaid` (refunding what arrived). Wrong-asset payments cannot be refunded yet, because the asset that arrived is not stored.
 - **Amount:** the total of a payment's refunds (including ones still waiting for approval, but not rejected ones) never exceeds `amountReceived` (`409 REFUND_AMOUNT_TOO_HIGH`).
-- **Window:** `customer_request` and `service_issue` must be within `REFUND_WINDOW_DAYS` of `paidAt` (`409 REFUND_WINDOW_CLOSED`). While `REFUND_WINDOW_DAYS` is not set, those reasons are refused (`409 REFUND_WINDOW_NOT_SET`, **TODO: group decision**). Operational reasons and `dispute` have no window. The `REFUND_EXCEPTION_APPROVER` exception is not built: a request outside the window is refused.
-- **Two-person rule:** a refund above the asset's `REFUND_APPROVAL_THRESHOLD_<ASSET>` needs a second admin who neither requested it nor gave the first approval (`403 SECOND_APPROVER_REQUIRED`). **While no threshold is set, every refund needs two admins** (the safe default, **TODO: group decision**). The database also refuses a second approver who is the requester or the first approver.
+- **Window:** `customer_request` and `service_issue` must be within `REFUND_WINDOW_DAYS` of `paidAt` (`409 REFUND_WINDOW_CLOSED`). While `REFUND_WINDOW_DAYS` is not set, those reasons are refused (`409 REFUND_WINDOW_NOT_SET`; **TODO: group decision**: set it in `.env`; every setting is listed in `.env.example`). Operational reasons and `dispute` have no window. The `REFUND_EXCEPTION_APPROVER` exception is not built: a request outside the window is refused.
+- **Two-person rule:** a refund above the asset's `REFUND_APPROVAL_THRESHOLD_<ASSET>` needs a second admin who neither requested it nor gave the first approval (`403 SECOND_APPROVER_REQUIRED`). **While no threshold is set, every refund needs two admins** (the safe default; **TODO: group decision**: set it in `.env`; every setting is listed in `.env.example`). The database also refuses a second approver who is the requester or the first approver.
 - **Destination:** by default the account that paid (`sourceAccount`). A destination given in writing (`destination`, optional `destinationMemo`) is stored as `destinationSource: "written"`. The refund payment's memo is `destinationMemo` if given, otherwise `RF-` plus 8 characters.
 - **Issuing:**
+  - Refused unless `REFUND_ISSUING_ENABLED=true` (`503 REFUND_ISSUING_DISABLED`). It is `false` by default and on the public demo (`render.yaml`), whose admin password is public. Requesting, approving and rejecting still work, and the dashboard shows **Send testnet refund** disabled, with a note.
   - Refused unless `STELLAR_ENV=sandbox` with the testnet network passphrase (`503 REFUNDS_TESTNET_ONLY`).
   - The destination must exist on the network (`422 DESTINATION_NOT_FOUND`) and, for non-XLM assets, have a trustline (`422 DESTINATION_NO_TRUSTLINE`).
   - The payment is built, signed with the merchant secret key and submitted by `src/stellarRefundSigner.js`, the only code that sends money. PlugLytics pays the network fee.
   - **Never paid twice:** the signed transaction's hash is saved **before** it is submitted. If Horizon rejects it (`502 REFUND_SEND_FAILED`, with the result codes), it was not applied, and the refund stays `approved` to try again. If the result is unclear (`502 REFUND_SEND_UNCONFIRMED`), the next issue first looks that hash up on Horizon: landed means `issued` without sending again; not landed yet means `409 REFUND_SEND_IN_PROGRESS`; expired without landing (after 3 minutes) means it can never apply, so a new payment is sent.
   - On success, the refund is `issued` with its `transactionHash` and `ledger`, and `refund.issued` is sent to the school's webhooks.
-- **Not built yet:** dispute records (and the "no open dispute" check), subscription refunds, and reversing an issued refund (refunds are final, like payments).
+- **Not built yet:**
+  - **Wrong-asset refunds:** a payment in the wrong asset cannot be refunded, because the asset that arrived is not stored (`409 PAYMENT_NOT_REFUNDABLE`).
+  - **Dispute records**, and the "no open dispute" check before approving a refund.
+  - **`REFUND_EXCEPTION_APPROVER`:** a customer refund outside the window is refused; there is no way to approve an exception yet.
+  - **Subscription refunds** (`SUBSCRIPTION_REFUND_WINDOW_DAYS`, `SUBSCRIPTION_REFUND_RULE`), because subscriptions are not built.
+  - **Anchor refunds:** the approved anchor list (`APPROVED_ANCHORS`) is not checked, because anchor payments are not built.
+  - **`RECORD_RETENTION_YEARS`:** records are kept and never deleted, but there is no retention setting.
+  - **Production refunds:** issuing is testnet only.
+  - Reversing an issued refund. This is by design: refunds are final, like payments.
 
 ## The most important rule
 

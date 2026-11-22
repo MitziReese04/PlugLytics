@@ -87,8 +87,8 @@ let worker = null;
 // Saves an event and queues one delivery per endpoint of the payment's school that
 // subscribed to it. Returns the event ID, or null when nobody is subscribed (then
 // nothing is stored).
-function enqueueEvent({ type, invoiceId, environment, paymentId, data }) {
-  const school = invoiceId ? schoolOfRequest.get(invoiceId) : null;
+function enqueueEvent({ type, invoiceId, schoolId, environment, paymentId = null, data }) {
+  const school = schoolId !== undefined ? { school_id: schoolId } : invoiceId ? schoolOfRequest.get(invoiceId) : null;
   if (!school || school.school_id === null) return null;
   const endpoints = endpointsForSchool.all(school.school_id, environment)
     .filter((endpoint) => JSON.parse(endpoint.events).includes(type));
@@ -107,6 +107,13 @@ function enqueueEvent({ type, invoiceId, environment, paymentId, data }) {
 // payment.pending, payment.completed and payment.failed for a payment request.
 function enqueuePaymentEvent(type, row, environment) {
   return enqueueEvent({ type, invoiceId: row.invoice_id, environment, paymentId: row.id, data: paymentEventData(type, row) });
+}
+
+// settlement.completed (docs/stellar/webhooks.md) for one school. `data` is that
+// school's share of a daily settlement report (its own payments and refunds only),
+// so a school never sees another school's payments.
+function enqueueSettlementCompleted(schoolId, data, environment) {
+  return enqueueEvent({ type: "settlement.completed", schoolId, environment, data });
 }
 
 // refund.issued (docs/stellar/webhooks.md), for the school of the refunded payment.
@@ -266,6 +273,7 @@ module.exports = {
   paymentEventData,
   enqueuePaymentEvent,
   enqueueRefundIssued,
+  enqueueSettlementCompleted,
   deliverDue,
   startWebhookWorker,
 };

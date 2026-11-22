@@ -119,6 +119,18 @@ function loadPaymentPolicy(env = process.env) {
     }
   }
 
+  // Whether refunds may be issued (sent) from this server. Only "true" turns it on;
+  // empty means off, so a server (like the public demo) never sends refunds by accident.
+  let refundIssuingEnabled = false;
+  const issuingValue = read(env, "REFUND_ISSUING_ENABLED");
+  if (issuingValue !== undefined) {
+    if (!["true", "false"].includes(issuingValue.toLowerCase())) {
+      problems.push(`REFUND_ISSUING_ENABLED must be true or false (got "${issuingValue}").`);
+    } else {
+      refundIssuingEnabled = issuingValue.toLowerCase() === "true";
+    }
+  }
+
   // Approved anchors: comma-separated home domains. Empty = no anchors approved.
   const approvedAnchors = [];
   const anchorsValue = read(env, "APPROVED_ANCHORS");
@@ -143,6 +155,7 @@ function loadPaymentPolicy(env = process.env) {
     limits: Object.freeze(limits),
     refundWindowDays,
     refundApprovalThresholds: Object.freeze(refundApprovalThresholds),
+    refundIssuingEnabled,
     approvedAnchors: Object.freeze(approvedAnchors),
   });
 }
