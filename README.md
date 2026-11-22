@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <strong><a href="https://pluglytics.vercel.app/public">Live demo</a></strong><br />
+  <strong><a href="https://pluglytics.xyz">Live demo</a></strong><br />
   Demo logins: <code>student@pluglytics.local</code>, <code>instructor@pluglytics.local</code>, or <code>admin@pluglytics.local</code> with password <code>Demo123!</code>
 </p>
 
@@ -65,7 +65,7 @@ npm run dev               # starts the server on http://localhost:3000
 
 | Surface | Localhost URL | Live URL |
 | --- | --- | --- |
-| Public website | <http://localhost:3000/public> | <https://pluglytics.vercel.app/public> |
+| Public website | <http://localhost:3000/public> | <https://pluglytics.xyz> |
 | Analytics dashboard | <http://localhost:3000/public/dashboard.html> | <https://pluglytics.vercel.app/public/dashboard.html> |
 | REST API | <http://localhost:3000/api/v1> | <https://pluglytics.vercel.app/api/v1> |
 | Swagger UI | <http://localhost:3000/docs> | <https://pluglytics.vercel.app/docs> |
@@ -75,7 +75,7 @@ Open the dashboard through the running server, not from the file system: sign-in
 
 ## Live demo on Vercel
 
-- Website: <https://pluglytics.vercel.app/public>
+- Website: <https://pluglytics.xyz>
 - Dashboard: <https://pluglytics.vercel.app/public/dashboard.html>
 - API: <https://pluglytics.vercel.app/api/v1>
 - Swagger docs: <https://pluglytics.vercel.app/docs>
