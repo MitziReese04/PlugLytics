@@ -10,6 +10,7 @@ const { toAssetAmount } = require("../pricing");
 const { getQuote, RateUnavailableError } = require("../stellarQuotes");
 const { loadPaymentPolicy, checkAmountLimits } = require("../paymentPolicy");
 const { HorizonError, findPaymentsWithMemo, decideOutcome } = require("../stellarHorizon");
+const { enqueuePaymentEvent } = require("../webhookDelivery");
 
 const router = express.Router();
 
@@ -120,7 +121,7 @@ const findRequest = db.prepare(`
 const settleRequest = db.prepare(`
   UPDATE payment_requests
   SET status = @status, reason = @reason, tx_hash = @txHash, amount_received = @amountReceived,
-      ledger = @ledger, completed_at = @completedAt
+      ledger = @ledger, source_account = @sourceAccount, completed_at = @completedAt
   WHERE id = @id AND status = 'pending'
 `);
 
@@ -145,12 +146,18 @@ async function checkPendingRequest(row, stellar) {
   }
   const outcome = decideOutcome(row, payments);
   if (outcome) {
+    let changed;
     try {
-      settleRequest.run({ id: row.id, ...outcome });
+      changed = settleRequest.run({ id: row.id, ...outcome }).changes > 0;
     } catch (error) {
       // The same transaction is already linked to another payment request.
       if (!String(error.message).includes("UNIQUE constraint failed")) throw error;
       return { error: [409, "TRANSACTION_ALREADY_LINKED", "The matching transaction is already linked to another payment record"] };
+    }
+    if (changed) {
+      const settled = findRequest.get(row.id);
+      enqueuePaymentEvent(settled.status === "completed" ? "payment.completed" : "payment.failed", settled, stellar.env);
+      return { row: settled };
     }
   }
   return { row: findRequest.get(row.id) };
@@ -266,6 +273,7 @@ async function createPaymentRequest(req, res) {
     row.memo = `PL-${randomCode(8)}`;
     try {
       insertRequest.run(row);
+      enqueuePaymentEvent("payment.pending", findRequest.get(row.id), stellar.env);
       return sendSuccess(res, toResponse(row, stellar.env), {}, 201);
     } catch (error) {
       if (!String(error.message).includes("UNIQUE constraint failed")) throw error;
@@ -476,6 +484,8 @@ router.post("/:id/cancel", authenticate, authorize("student", "admin"), async (r
     if (result.changes === 0) {
       return sendError(res, 409, "PAYMENT_NOT_PENDING", "This payment request is no longer pending");
     }
+    // A cancellation is sent as payment.failed with reason cancelled (webhooks.md).
+    enqueuePaymentEvent("payment.failed", updated, stellar.env);
     return sendSuccess(res, toResponse(updated, stellar.env));
   } catch (error) {
     return next(error);

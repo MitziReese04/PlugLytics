@@ -51,7 +51,7 @@ function webhookId() {
 
 const ENDPOINT_COLUMNS = `
   w.id, w.school_id, s.name AS school_name, w.url, w.events, w.description, w.environment,
-  w.previous_secret_expires_at, w.secret_last_rotated_at, w.created_at
+  w.previous_secret_expires_at, w.secret_last_rotated_at, w.created_at, w.disabled_at
 `;
 const findEndpoint = db.prepare(`SELECT ${ENDPOINT_COLUMNS} FROM webhook_endpoints w JOIN schools s ON s.id = w.school_id WHERE w.id = ?`);
 
@@ -70,6 +70,8 @@ function toResponse(row) {
       ? row.previous_secret_expires_at
       : null,
     createdAt: row.created_at,
+    status: row.disabled_at ? "disabled" : "active",
+    disabledAt: row.disabled_at || null,
   };
 }
 

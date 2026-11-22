@@ -11,7 +11,8 @@ const schemaPath = path.resolve(__dirname, "../src/schema.sql");
 // finance tables from schema.sql.
 const requiredColumns = {
   invoices: ["final_amount", "currency", "scholarship_name"],
-  payment_requests: ["invoice_amount", "amount_received", "ledger", "rate_source"],
+  payment_requests: ["invoice_amount", "amount_received", "ledger", "rate_source", "source_account"],
+  webhook_endpoints: ["disabled_at"],
 };
 const isOutdated = (table, columns) => {
   const existing = db.prepare(`PRAGMA table_xinfo(${table})`).all().map((c) => c.name);
@@ -22,6 +23,9 @@ const outdatedPayments = Boolean(paymentsTable && paymentsTable.sql.includes("'s
 if (outdatedPayments || Object.entries(requiredColumns).some(([table, columns]) => isOutdated(table, columns))) {
   db.pragma("foreign_keys = OFF");
   db.exec(`
+    DROP TABLE IF EXISTS webhook_deliveries;
+    DROP TABLE IF EXISTS webhook_events;
+    DROP TABLE IF EXISTS webhook_endpoints;
     DROP TRIGGER IF EXISTS payment_requests_quote_locked;
     DROP TRIGGER IF EXISTS payment_requests_final_status;
     DROP TRIGGER IF EXISTS payment_requests_related_must_be_failed;
@@ -45,7 +49,7 @@ if (!db.prepare("PRAGMA table_info(students)").all().some((c) => c.name === "sch
 db.exec("CREATE INDEX IF NOT EXISTS idx_students_school ON students(school_id)");
 
 const deleteOrder = [
-  "webhook_endpoints", "api_keys", "payment_requests", "dashboard_preferences", "instructor_ratings", "refunds", "payments",
+  "webhook_deliveries", "webhook_events", "webhook_endpoints", "api_keys", "payment_requests", "dashboard_preferences", "instructor_ratings", "refunds", "payments",
   "invoices", "activity_logs", "attendance_logs", "quiz_responses", "quiz_questions",
   "submissions", "assignments", "enrollments", "sections", "courses", "terms",
   "students", "schools", "instructors", "programs", "specializations", "users",

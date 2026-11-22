@@ -101,6 +101,8 @@ function decideOutcome(request, payments, now = new Date()) {
     txHash: record.transaction_hash,
     amountReceived: record.amount,
     ledger: (record.transaction && record.transaction.ledger) || null,
+    // Only a valid-looking Stellar account is stored; anything else becomes null.
+    sourceAccount: typeof record.from === "string" && /^G[A-Z2-7]{55}$/.test(record.from) ? record.from : null,
     completedAt: status === "completed" ? record.created_at : null,
   });
 
@@ -110,7 +112,7 @@ function decideOutcome(request, payments, now = new Date()) {
   if (rightAsset.length) return pick(rightAsset[0], "failed", "underpaid");
   if (inTime.length) return pick(inTime[0], "failed", "wrong_asset");
   if (now.getTime() > expiresMs) {
-    return { status: "failed", reason: "expired", txHash: null, amountReceived: null, ledger: null, completedAt: null };
+    return { status: "failed", reason: "expired", txHash: null, amountReceived: null, ledger: null, sourceAccount: null, completedAt: null };
   }
   return null;
 }

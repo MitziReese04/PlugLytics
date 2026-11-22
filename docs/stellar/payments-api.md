@@ -920,7 +920,7 @@ Returns the subscription, its current period and its latest payment request, in 
 
 ### Webhook endpoints
 
-**Built (registration only).** An admin registers each customer's (school's) webhook URL, and **every registered URL gets its own signing secret**. No secret is ever shared between customers. The admin dashboard has a **Webhooks** section for this. Sending the events themselves (deliveries, retries) is **not built yet**.
+**Built.** An admin registers each customer's (school's) webhook URL, and **every registered URL gets its own signing secret**. No secret is ever shared between customers. The admin dashboard has a **Webhooks** section for this. Payment events are sent, signed and retried as described in [webhooks.md](./webhooks.md#what-is-built).
 
 How PlugLytics handles the secrets:
 
@@ -966,6 +966,8 @@ Response `201` (`data`):
   "secretLastRotatedAt": "2026-11-22T09:00:00.000Z",
   "previousSecretExpiresAt": null,
   "createdAt": "2026-11-22T09:00:00.000Z",
+  "status": "active",
+  "disabledAt": null,
   "secret": "whsec_EXAMPLE..."
 }
 ```
@@ -975,7 +977,7 @@ Response `201` (`data`):
 
 ### GET `/api/v1/webhooks`
 
-Lists registered webhook URLs, newest first, optionally `?schoolId=1`. Secrets are **never** included, encrypted or not.
+Lists registered webhook URLs, newest first, optionally `?schoolId=1`. Secrets are **never** included, encrypted or not. `status` is `disabled` (with `disabledAt`) after the receiver answered `410 Gone`; nothing more is sent to it.
 
 Response `200` (`data`):
 
@@ -991,7 +993,9 @@ Response `200` (`data`):
     "environment": "sandbox",
     "secretLastRotatedAt": "2026-11-22T09:00:00.000Z",
     "previousSecretExpiresAt": null,
-    "createdAt": "2026-11-22T09:00:00.000Z"
+    "createdAt": "2026-11-22T09:00:00.000Z",
+    "status": "active",
+    "disabledAt": null
   }
 ]
 ```

@@ -1244,8 +1244,11 @@ function renderWebhookList(rows) {
     const previous = row.previousSecretExpiresAt
       ? `<small class="muted-cell">Previous secret valid until ${escapeHtml(new Date(row.previousSecretExpiresAt).toLocaleString())}</small>`
       : "";
+    const disabled = row.status === "disabled"
+      ? `<small><span class="payment-status payment-status-failed">Disabled – the receiver answered 410 Gone</span></small>`
+      : "";
     return `<tr>
-      <td class="webhook-url-cell"><code>${escapeHtml(row.url)}</code>${row.description ? `<small class="muted-cell">${escapeHtml(row.description)}</small>` : ""}</td>
+      <td class="webhook-url-cell"><code>${escapeHtml(row.url)}</code>${row.description ? `<small class="muted-cell">${escapeHtml(row.description)}</small>` : ""}${disabled}</td>
       <td>${escapeHtml(row.schoolName)}</td>
       <td class="webhook-events-cell">${escapeHtml(events)}</td>
       <td>${escapeHtml(new Date(row.secretLastRotatedAt).toLocaleString())}${previous}</td>

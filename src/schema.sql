@@ -244,6 +244,8 @@ CREATE TABLE IF NOT EXISTS payment_requests (
     amount_received GLOB '[0-9]*.[0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND amount_received NOT GLOB '*[^0-9.]*'
   )),
   ledger INTEGER CHECK(ledger IS NULL OR ledger > 0),
+  -- The Stellar account the matched payment came from (for webhooks and refunds).
+  source_account TEXT CHECK(source_account IS NULL OR (length(source_account) = 56 AND source_account GLOB 'G*')),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   expires_at TEXT NOT NULL,
   completed_at TEXT,
@@ -340,10 +342,47 @@ CREATE TABLE IF NOT EXISTS webhook_endpoints (
   secret_last_rotated_at TEXT NOT NULL,
   created_by INTEGER,
   created_at TEXT NOT NULL,
+  -- Set when the receiver answered 410 Gone: PlugLytics stops sending to this URL.
+  disabled_at TEXT,
   CHECK((previous_secret_enc IS NULL) = (previous_secret_expires_at IS NULL)),
   FOREIGN KEY (school_id) REFERENCES schools(id),
   FOREIGN KEY (created_by) REFERENCES users(id)
 );
+
+-- Webhook outbox (see docs/stellar/webhooks.md). Each event is stored once with
+-- its exact JSON body, so every retry sends the same body and event ID.
+CREATE TABLE IF NOT EXISTS webhook_events (
+  id TEXT PRIMARY KEY CHECK(id GLOB 'evt_?*'),
+  type TEXT NOT NULL,
+  school_id INTEGER,
+  environment TEXT NOT NULL CHECK(environment IN ('sandbox','production')),
+  payment_id TEXT,
+  body TEXT NOT NULL CHECK(json_valid(body)),
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (school_id) REFERENCES schools(id)
+);
+
+-- One delivery per event per endpoint. Delivery states describe whether the
+-- webhook reached the receiver, not the payment.
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id TEXT NOT NULL,
+  endpoint_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','delivered','delivery_failed')),
+  attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 8),
+  next_attempt_at TEXT,
+  last_attempt_at TEXT,
+  last_status_code INTEGER,
+  last_error TEXT,
+  delivered_at TEXT,
+  UNIQUE(event_id, endpoint_id),
+  CHECK(status <> 'pending' OR next_attempt_at IS NOT NULL),
+  CHECK(status <> 'delivered' OR delivered_at IS NOT NULL),
+  FOREIGN KEY (event_id) REFERENCES webhook_events(id) ON DELETE CASCADE,
+  FOREIGN KEY (endpoint_id) REFERENCES webhook_endpoints(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_due ON webhook_deliveries(status, next_attempt_at);
 
 -- The index on students(school_id) is created by scripts/seed.js, after it makes
 -- sure older databases have that column.

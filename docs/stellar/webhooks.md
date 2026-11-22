@@ -1,6 +1,14 @@
 # PlugLytics Payment Webhooks
 
-> **Status: planned.** Webhooks are not implemented yet. This document describes how they will work so integrations can be designed ahead of time. Details may change during implementation. See also [payments-api.md](./payments-api.md).
+> **Status: partly built (sandbox/testnet only).** Registration, signing, the outbox and retries are built, and `payment.pending`, `payment.completed` and `payment.failed` are sent. `refund.issued`, `settlement.completed` and the `subscription.*` events are described here but not sent yet, because refunds, settlement and subscriptions are not built. See also [payments-api.md](./payments-api.md).
+
+### What is built
+
+- **Outbox:** each event is saved once (`webhook_events`) with its exact JSON body, plus one delivery per subscribed endpoint (`webhook_deliveries`). Only endpoints of the payment's school, in the same environment, that chose the event are sent it. If no endpoint is subscribed, nothing is stored.
+- **Sending:** the server sends due deliveries every 15 seconds, and right after a new event (`src/webhookDelivery.js`, started by `src/server.js`).
+- **Signing:** each attempt is signed with that endpoint's own secret, as described in [Verifying the signature](#verifying-the-signature).
+- **When events are sent:** `payment.pending` when a request is created; `payment.completed` or `payment.failed` when a check on Horizon settles it; and `payment.failed` with reason `cancelled` when it is cancelled.
+- **Payment event data** also includes `invoiceId`, and `type` is `invoice` for invoice payments. `reference` is not sent yet, because payment requests have no reference field.
 
 ## Contents
 
@@ -421,9 +429,9 @@ If a delivery fails (non-`2xx` reply, timeout after 10 seconds, or connection er
 
 - That is **8 attempts over about 2 days**.
 - Each retry has the **same event `id`** and **same body**, but a **new timestamp and signature**.
-- After the last unsuccessful attempt, the event's delivery is marked `delivery_failed` and can be re-sent by hand later.
+- After the last unsuccessful attempt, the event's delivery is marked `delivery_failed`. Re-sending it by hand is not built yet.
 - Delivery states are `pending`, `delivered` and `delivery_failed`. They describe whether **the webhook reached your server**, not the payment. They are separate from the payment status `failed`.
-- A `4xx` reply is retried too, in case it was caused by a temporary bug on your side. The one exception is `410 Gone`, which tells PlugLytics to stop sending to that URL.
+- A `4xx` reply is retried too, in case it was caused by a temporary bug on your side. The one exception is `410 Gone`, which tells PlugLytics to stop sending to that URL: its delivery is marked `delivery_failed` at once, every other pending delivery to it is too, and the endpoint is **disabled** (it shows `"status": "disabled"` in `GET /api/v1/webhooks`). Register the URL again to start receiving events.
 - Being down for a while is fine: events wait and are retried. To catch up on the current status, call `GET /api/v1/payments/:id` (or `GET /api/v1/payments?status=completed`) with your school's read-only **customer API key** in the `X-PlugLytics-Api-Key` header. No admin login is needed (see [payments-api.md](./payments-api.md#customer-api-keys)).
 
 ## Idempotency: handling duplicate events
