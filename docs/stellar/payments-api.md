@@ -89,6 +89,13 @@ Example: base price 3000, merit scholarship 500, 10% discount (300), platform fe
 - A scholarship and discount that together are bigger than the base price plus fees are rejected (`VALIDATION_ERROR`), because `finalAmount` would be negative.
 - The same rules are enforced in two places: the API (`src/pricing.js`) and the database (`CHECK` constraints on the `invoices` table in `src/schema.sql`).
 
+### Scholarships
+
+- Scholarships are stored **on the invoice**, in the `scholarship_amount`, `scholarship_type` and `scholarship_name` columns (`scholarshipAmount`, `scholarshipType` and `scholarshipName` in the API). There is no separate scholarships table any more.
+- `scholarship_name` (`scholarshipName`) is the scholarship's own name, for example `Academic Merit Scholarship`. It is only allowed when `scholarship_amount` is more than 0, and a type is then required too.
+- **One scholarship per invoice.** Each invoice has one scholarship amount, one type and one name. If a student gets more than one scholarship for the same term, they cannot be stored as separate scholarships on one invoice.
+- **Multiple scholarships per invoice is a group/school decision (TODO: group decision).** If the school awards more than one scholarship on the same invoice (for example merit plus sponsored), the plan is **Option B**: a separate `invoice_scholarships` table (`invoice_id`, `type`, `name`, `amount`), with `scholarship_amount` kept equal to their total by a database rule. Until that is decided, the one-scholarship-per-invoice rule applies.
+
 ## From invoice to payment request
 
 Invoices are priced in a normal currency (for example `PHP` or `USD`), with 2 decimal places. Stellar payments are made in an asset (`XLM` or `USDC`), with 7 decimal places. When a payment request is created for an invoice, PlugLytics converts between the two.

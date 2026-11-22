@@ -421,13 +421,14 @@ A disallowed filter returns HTTP `403` with a clear `FILTER_FORBIDDEN` response.
 | Submission rate | Submitted or late submissions / enrolled students x 100 |
 | Average score | Sum of `(submission score / maximum score x 100)` / score count |
 | Gross billed | Sum of invoice base amounts |
+| Scholarships total | Sum of invoice scholarship amounts |
 | Net billed | Sum of invoice final amounts: gross billed - scholarships - discounts + fees |
-| Collection rate | Collected payments / net billed x 100 |
+| Collection rate | Collected payments / net billed (after scholarships and discounts) x 100 |
 | Retention rate | Active enrollments / total enrollments x 100 |
 | Dropout rate | Dropped or withdrawn enrollments / total enrollments x 100 |
 | Pass rate | Enrollments with final grade >= 60 / graded enrollments x 100 |
 | Seat utilization | Enrolled students / section capacity x 100 |
-| Outstanding balance | Invoice final amount (after scholarships, discounts and fees) - payments |
+| Outstanding balance | Net billed per invoice (final amount, after scholarships, discounts and fees) - payments |
 | Aging bucket | Outstanding days since due date: 0-30, 31-60, or 60+ |
 | Anonymous percentile band | Student average compared with an eligible cohort of at least five students |
 | At-risk | 2+ missing submissions and/or attendance below 75%, plus plain-language reasons |
