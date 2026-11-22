@@ -423,6 +423,8 @@ Known gaps in these definitions (for example, retention for finished terms, and 
 - Student identity derived from the signed-in account; instructor queries limited to owned sections
 - Minimum cohort size of five for privacy-sensitive aggregates
 - bcrypt password hashing, Helmet security headers, and per-IP rate limiting
+- Failed sign-ins limited to 10 per IP per 15 minutes; the server refuses to start in production without a unique `JWT_SECRET`
+- Webhook URLs must use HTTPS and cannot point to private or internal IP addresses
 - Zod validation of inputs and query parameters
 - Customer API keys stored as SHA-256 hashes; webhook secrets stored encrypted and shown once
 - Stellar secret keys read only from the environment and never logged
