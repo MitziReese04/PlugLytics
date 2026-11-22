@@ -166,4 +166,30 @@ function checkManualMatch(request, found, { mode, memoBelongsToARequest }) {
   return { ok: true, payment, transaction };
 }
 
-module.exports = { HorizonError, toStroops, findPaymentsWithMemo, decideOutcome, getTransactionWithPayments, checkManualMatch };
+// A Stellar account as Horizon sees it, or null when it does not exist (404).
+// Used to check a refund destination before sending.
+async function getAccount({ horizonUrl, accountId, fetchImpl = fetch }) {
+  const base = horizonUrl.replace(/\/+$/, "");
+  let response;
+  try {
+    response = await fetchImpl(`${base}/accounts/${encodeURIComponent(accountId)}`, {
+      headers: { Accept: "application/hal+json" }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (error) {
+    throw new HorizonError(`Horizon could not be reached: ${error.message}`);
+  }
+  if (response.status === 404) return null;
+  if (!response.ok) throw new HorizonError(`Horizon returned HTTP ${response.status}`);
+  return response.json();
+}
+
+// Whether an account can receive the asset: XLM always; any other asset needs a trustline.
+function canReceiveAsset(account, asset, assetIssuer) {
+  if (asset === "XLM") return true;
+  return (account.balances || []).some((b) => b.asset_code === asset && b.asset_issuer === assetIssuer);
+}
+
+module.exports = {
+  HorizonError, toStroops, findPaymentsWithMemo, decideOutcome, getTransactionWithPayments, checkManualMatch,
+  getAccount, canReceiveAsset,
+};

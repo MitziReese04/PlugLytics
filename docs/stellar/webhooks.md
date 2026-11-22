@@ -1,13 +1,13 @@
 # PlugLytics Payment Webhooks
 
-> **Status: partly built (sandbox/testnet only).** Registration, signing, the outbox and retries are built, and `payment.pending`, `payment.completed` and `payment.failed` are sent. `refund.issued`, `settlement.completed` and the `subscription.*` events are described here but not sent yet, because refunds, settlement and subscriptions are not built. See also [payments-api.md](./payments-api.md).
+> **Status: partly built (sandbox/testnet only).** Registration, signing, the outbox and retries are built, and `payment.pending`, `payment.completed`, `payment.failed` and `refund.issued` are sent. `settlement.completed` and the `subscription.*` events are described here but not sent yet, because settlement reports and subscriptions are not built. See also [payments-api.md](./payments-api.md).
 
 ### What is built
 
 - **Outbox:** each event is saved once (`webhook_events`) with its exact JSON body, plus one delivery per subscribed endpoint (`webhook_deliveries`). Only endpoints of the payment's school, in the same environment, that chose the event are sent it. If no endpoint is subscribed, nothing is stored.
 - **Sending:** the server sends due deliveries every 15 seconds, and right after a new event (`src/webhookDelivery.js`, started by `src/server.js`).
 - **Signing:** each attempt is signed with that endpoint's own secret, as described in [Verifying the signature](#verifying-the-signature).
-- **When events are sent:** `payment.pending` when a request is created; `payment.completed` or `payment.failed` when a check on Horizon settles it; and `payment.failed` with reason `cancelled` when it is cancelled.
+- **When events are sent:** `payment.pending` when a request is created; `payment.completed` or `payment.failed` when a check on Horizon settles it; `payment.failed` with reason `cancelled` when it is cancelled; and `refund.issued` when a refund payment is sent (its `data` also includes `destinationMemo`).
 - **Payment event data** also includes `invoiceId`, and `type` is `invoice` for invoice payments. `reference` is not sent yet, because payment requests have no reference field.
 
 ## Contents

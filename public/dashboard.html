@@ -246,6 +246,34 @@
           <span id="adminPaymentsCount" class="muted-cell" role="status" aria-live="polite"></span>
         </div>
         <p id="adminPaymentsMessage" class="payments-message"></p>
+        <section id="refundFormPanel" class="payment-panel" aria-labelledby="refundFormHeading" hidden>
+          <div class="payment-panel-heading">
+            <h3 id="refundFormHeading">Request a refund</h3>
+            <button id="cancelRefundForm" class="outline-button" type="button">Cancel</button>
+          </div>
+          <p id="refundFormIntro" class="memo-warning"></p>
+          <form id="refundForm" novalidate>
+            <div class="invoice-form-grid">
+              <label>Amount<input name="amount" inputmode="decimal" autocomplete="off"></label>
+              <label>Reason<select name="reason">
+                <option value="overpaid">Overpaid</option>
+                <option value="duplicate">Duplicate payment</option>
+                <option value="underpaid">Underpaid (not followed up)</option>
+                <option value="late_payment">Late payment not accepted</option>
+                <option value="customer_request">Customer request</option>
+                <option value="service_issue">Service issue</option>
+                <option value="dispute">Dispute (anchor or card on-ramp)</option>
+              </select></label>
+              <label>Destination <small>(leave empty for the original payer)</small><input name="destination" placeholder="G..." autocomplete="off" spellcheck="false"></label>
+              <label>Destination memo <small>(only with a destination given in writing)</small><input name="destinationMemo" maxlength="28" autocomplete="off"></label>
+              <label class="payment-fix-note">Note <small>(who asked, and why)</small><textarea name="note" rows="2" maxlength="500"></textarea></label>
+            </div>
+            <ul id="refundFormErrors" class="invoice-form-errors" role="alert"></ul>
+            <div class="invoice-form-actions">
+              <button id="submitRefundForm" type="submit">Request refund</button>
+            </div>
+          </form>
+        </section>
         <section id="paymentFixPanel" class="payment-panel" aria-labelledby="paymentFixHeading" hidden>
           <div class="payment-panel-heading">
             <h3 id="paymentFixHeading">Accept late payment</h3>
@@ -277,10 +305,40 @@
           <button id="adminPaymentsNext" class="outline-button" type="button">Next</button>
         </div>
       </section>
+      <section id="adminRefundsSection" class="widget-card payments-section" aria-labelledby="adminRefundsHeading" hidden>
+        <div class="widget-card-heading">
+          <div>
+            <h2 id="adminRefundsHeading">Refunds</h2>
+            <p>A refund is a new payment from the merchant account. Request it from a payment above, approve it, then send it.</p>
+          </div>
+          <span class="testnet-badge">TESTNET – no real money</span>
+        </div>
+        <div class="admin-payments-toolbar">
+          <label>Status
+            <select id="adminRefundStatus">
+              <option value="">All statuses</option>
+              <option value="requested">Requested</option>
+              <option value="approved">Approved</option>
+              <option value="issued">Issued</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
+          <button id="adminRefundsRefresh" class="outline-button" type="button">Refresh</button>
+        </div>
+        <p id="adminRefundsMessage" class="payments-message"></p>
+        <div class="payments-table-wrap">
+          <table class="invoice-table admin-payments-table webhook-table">
+            <thead>
+              <tr><th scope="col">Requested</th><th scope="col">Payment</th><th scope="col">Amount</th><th scope="col">Reason</th><th scope="col">Destination</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody id="adminRefundRows"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </div>
   <script src="./financeChart.js?v=1"></script>
   <script src="./pricingPreview.js?v=1"></script>
-  <script src="./app.js?v=13"></script>
+  <script src="./app.js?v=14"></script>
 </body>
 </html>

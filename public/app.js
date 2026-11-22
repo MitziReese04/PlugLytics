@@ -162,6 +162,7 @@ async function startSession() {
   if (state.role === "admin") await loadAdminInvoices();
   if (state.role === "admin") await loadAdminPayments();
   if (state.role === "admin") await loadAdminWebhooks();
+  if (state.role === "admin") await loadAdminRefunds();
 }
 
 function populateTerms(terms) {
@@ -852,14 +853,19 @@ function renderAdminPayments(rows) {
     const followUp = row.relatedPaymentId
       ? `<small class="muted-cell">Follow-up of <code>${escapeHtml(row.relatedPaymentId)}</code>${row.acceptedBy ? ` · by ${escapeHtml(row.acceptedBy)}` : ""}</small>`
       : "";
-    const actions = row.status === "failed"
+    const refundable = row.transactionHash && row.amountReceived
+      && (row.status === "completed" || (row.status === "failed" && row.reason === "underpaid"));
+    const refundButton = refundable
+      ? `<button type="button" class="outline-button" data-refund-payment="${escapeHtml(row.id)}" data-received="${escapeHtml(row.amountReceived)}" data-asset="${escapeHtml(row.asset)}" data-payer="${escapeHtml(row.sourceAccount || "")}">Refund</button>`
+      : "";
+    const actions = refundButton + (row.status === "failed"
       ? [
         row.reason === "expired"
           ? `<button type="button" class="outline-button" data-fix-payment="late" data-payment-id="${escapeHtml(row.id)}" data-memo="${escapeHtml(row.memo)}" data-amount="${escapeHtml(row.amount)}" data-asset="${escapeHtml(row.asset)}">Accept late payment</button>`
           : "",
         `<button type="button" class="outline-button" data-fix-payment="no_memo" data-payment-id="${escapeHtml(row.id)}" data-memo="${escapeHtml(row.memo)}" data-amount="${escapeHtml(row.amount)}" data-asset="${escapeHtml(row.asset)}">Match transaction</button>`,
       ].join("")
-      : "";
+      : "");
     const tx = row.transactionHash
       ? `<a href="${escapeHtml(explorerTxUrl(row.transactionHash, row.network))}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(row.transactionHash)}"><code>${escapeHtml(shortHash(row.transactionHash))}</code><span class="visually-hidden"> (opens stellar.expert in a new tab)</span></a>`
       : `<span class="muted-cell">—</span>`;
@@ -1392,4 +1398,175 @@ byId("adminWebhookRows").addEventListener("click", async (event) => {
   } catch (error) {
     setWebhooksMessage(`Unable to update the webhook: ${error.message}`, true);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Admin: refunds (request, approve, reject, send on testnet)
+// ---------------------------------------------------------------------------
+
+const refundForm = { paymentId: null };
+const REFUND_STATUS_CLASSES = {
+  requested: "payment-status-pending",
+  approved: "invoice-status-partial",
+  issued: "payment-status-completed",
+  rejected: "payment-status-failed",
+};
+
+function setRefundsMessage(text, isError = false) {
+  const message = byId("adminRefundsMessage");
+  message.textContent = text;
+  message.classList.toggle("widget-error", isError);
+}
+
+function openRefundForm(button) {
+  refundForm.paymentId = button.dataset.refundPayment;
+  const form = byId("refundForm");
+  form.reset();
+  form.elements.amount.value = button.dataset.received;
+  byId("refundFormErrors").innerHTML = "";
+  byId("refundFormIntro").textContent = `For ${refundForm.paymentId}: ${button.dataset.received} ${button.dataset.asset} arrived`
+    + `${button.dataset.payer ? ` from ${button.dataset.payer}` : " (payer not known: give the destination in writing)"}.`
+    + " The refund is sent in the same asset, after it is approved.";
+  byId("refundFormPanel").hidden = false;
+  form.elements.amount.focus();
+}
+
+function closeRefundForm() {
+  refundForm.paymentId = null;
+  byId("refundFormPanel").hidden = true;
+}
+
+async function submitRefundForm(event) {
+  event.preventDefault();
+  const form = byId("refundForm");
+  const body = {
+    paymentId: refundForm.paymentId,
+    amount: form.elements.amount.value.trim(),
+    reason: form.elements.reason.value,
+    note: form.elements.note.value.trim(),
+  };
+  const destination = form.elements.destination.value.trim();
+  const destinationMemo = form.elements.destinationMemo.value.trim();
+  if (destination) body.destination = destination;
+  if (destinationMemo) body.destinationMemo = destinationMemo;
+  const show = (list) => { byId("refundFormErrors").innerHTML = list.map((text) => `<li>${escapeHtml(text)}</li>`).join(""); };
+  const problems = [];
+  if (!body.amount) problems.push("Amount: enter the amount to refund");
+  if (!body.note) problems.push("Note: say who asked, and why");
+  if (destinationMemo && !destination) problems.push("Destination memo: only with a destination given in writing");
+  show(problems);
+  if (problems.length) return;
+
+  const button = byId("submitRefundForm");
+  button.disabled = true;
+  try {
+    const result = await api("/refunds", { method: "POST", body: JSON.stringify(body) });
+    closeRefundForm();
+    setRefundsMessage(`Refund ${result.data.id} requested (${result.data.amount} ${result.data.asset}).`
+      + (result.data.needsSecondApproval ? " It needs two admins to approve it." : " It needs one approval."));
+    await loadAdminRefunds();
+    byId("adminRefundsSection").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    const fieldErrors = error.details?.fieldErrors || {};
+    const list = Object.entries(fieldErrors).flatMap(([field, texts]) => texts.map((text) => `${field}: ${text}`));
+    show(list.length ? list : [error.message]);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function loadAdminRefunds() {
+  byId("adminRefundsSection").hidden = false;
+  const status = byId("adminRefundStatus").value;
+  try {
+    const result = await api(`/refunds${status ? `?status=${encodeURIComponent(status)}` : ""}`);
+    renderRefunds(result.data);
+  } catch (error) {
+    byId("adminRefundRows").innerHTML = "";
+    setRefundsMessage(`Unable to load refunds: ${error.message}`, true);
+  }
+}
+
+function refundStatusText(row) {
+  if (row.status === "requested" && row.needsSecondApproval && row.approvedBy) return "Requested · 1 of 2 approvals";
+  if (row.status === "requested") return row.needsSecondApproval ? "Requested · needs 2 approvals" : "Requested · needs 1 approval";
+  return row.status.charAt(0).toUpperCase() + row.status.slice(1);
+}
+
+function renderRefunds(rows) {
+  const body = byId("adminRefundRows");
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="7" class="muted-cell">No refunds yet.</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((row) => {
+    const tx = row.transactionHash
+      ? `<a href="${escapeHtml(explorerTxUrl(row.transactionHash, "sandbox"))}" target="_blank" rel="noopener noreferrer"><code>${escapeHtml(shortHash(row.transactionHash))}</code><span class="visually-hidden"> (opens stellar.expert in a new tab)</span></a>`
+      : "";
+    const people = [row.requestedBy && `requested by ${row.requestedBy}`, row.approvedBy && `approved by ${row.approvedBy}`,
+      row.secondApprovedBy && `and ${row.secondApprovedBy}`, row.rejectedBy && `rejected by ${row.rejectedBy}: ${row.rejectionNote}`]
+      .filter(Boolean).join(", ");
+    const actions = [];
+    if (row.status === "requested") {
+      actions.push(`<button type="button" class="outline-button" data-refund-action="approve" data-refund-id="${escapeHtml(row.id)}">Approve</button>`);
+    }
+    if (row.status === "approved") {
+      actions.push(`<button type="button" data-refund-action="issue" data-refund-id="${escapeHtml(row.id)}" data-amount="${escapeHtml(row.amount)}" data-asset="${escapeHtml(row.asset)}" data-destination="${escapeHtml(row.destination)}">Send testnet refund</button>`);
+    }
+    if (row.status === "requested" || (row.status === "approved" && !row.sendInProgress)) {
+      actions.push(`<button type="button" class="outline-button cancel-payment-button" data-refund-action="reject" data-refund-id="${escapeHtml(row.id)}">Reject</button>`);
+    }
+    return `<tr>
+      <td>${escapeHtml(new Date(row.requestedAt).toLocaleString())}</td>
+      <td><code>${escapeHtml(row.paymentId)}</code></td>
+      <td><code>${escapeHtml(row.amount)}</code> ${escapeHtml(row.asset)}</td>
+      <td>${escapeHtml(row.reason.replace("_", " "))}<small class="muted-cell">${escapeHtml(row.note)}</small></td>
+      <td class="webhook-url-cell"><code>${escapeHtml(shortHash(row.destination))}</code><small class="muted-cell">${row.destinationSource === "written" ? "given in writing" : "original payer"} · memo <code>${escapeHtml(row.paymentMemo)}</code></small></td>
+      <td><span class="payment-status ${REFUND_STATUS_CLASSES[row.status] || ""}">${escapeHtml(refundStatusText(row))}</span>
+        ${tx ? `<small>${tx}</small>` : ""}
+        ${row.lastError && row.status !== "issued" ? `<small class="widget-error">${escapeHtml(row.lastError)}</small>` : ""}
+        <small class="muted-cell">${escapeHtml(people)}</small></td>
+      <td class="action-cell webhook-actions">${actions.join("")}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function refundAction(button) {
+  const id = button.dataset.refundId;
+  const action = button.dataset.refundAction;
+  let body = {};
+  if (action === "reject") {
+    const note = window.prompt("Why is this refund rejected? (saved for audits)");
+    if (!note || !note.trim()) return;
+    body = { note: note.trim() };
+  }
+  if (action === "issue" && !window.confirm(
+    `Send ${button.dataset.amount} ${button.dataset.asset} on the Stellar TESTNET to ${button.dataset.destination}? This creates a new payment from the merchant account.`
+  )) return;
+
+  button.disabled = true;
+  try {
+    const result = await api(`/refunds/${encodeURIComponent(id)}/${action}`, { method: "POST", body: JSON.stringify(body) });
+    const labels = { approve: "approved", reject: "rejected", issue: "sent" };
+    setRefundsMessage(result.data.status === "issued"
+      ? `Refund ${id} sent: transaction ${shortHash(result.data.transactionHash)}.`
+      : `Refund ${id} ${labels[action]} (${refundStatusText(result.data)}).`);
+  } catch (error) {
+    setRefundsMessage(`Unable to ${action} the refund: ${error.message}`, true);
+  } finally {
+    await loadAdminRefunds();
+  }
+}
+
+byId("refundForm").addEventListener("submit", submitRefundForm);
+byId("cancelRefundForm").addEventListener("click", closeRefundForm);
+byId("adminRefundStatus").addEventListener("change", loadAdminRefunds);
+byId("adminRefundsRefresh").addEventListener("click", loadAdminRefunds);
+byId("adminRefundRows").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-refund-action]");
+  if (button) refundAction(button);
+});
+byId("adminPaymentRows").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-refund-payment]");
+  if (button) openRefundForm(button);
 });

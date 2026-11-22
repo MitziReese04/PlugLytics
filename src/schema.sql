@@ -353,6 +353,56 @@ CREATE TABLE IF NOT EXISTS webhook_endpoints (
   FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
+-- Stellar refunds (see docs/stellar/refunds-and-chargebacks.md). A refund is a NEW
+-- payment from the merchant account, linked to the original by payment_id. This
+-- is separate from the older synthetic `refunds` table used by admin finance.
+CREATE TABLE IF NOT EXISTS stellar_refunds (
+  id TEXT PRIMARY KEY CHECK(id GLOB 'ref_?*'),
+  payment_id TEXT NOT NULL,
+  amount TEXT NOT NULL CHECK(
+    amount GLOB '[0-9]*.[0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND amount NOT GLOB '*[^0-9.]*' AND CAST(amount AS REAL) > 0
+  ),
+  asset TEXT NOT NULL CHECK(asset IN ('XLM','USDC')),
+  asset_issuer TEXT,
+  reason TEXT NOT NULL CHECK(reason IN ('customer_request','service_issue','overpaid','duplicate','wrong_asset','underpaid','late_payment','dispute')),
+  note TEXT NOT NULL CHECK(length(trim(note)) BETWEEN 1 AND 500),
+  status TEXT NOT NULL DEFAULT 'requested' CHECK(status IN ('requested','approved','rejected','issued')),
+  -- Where the refund goes: the original payer by default, or a destination (and memo) given in writing.
+  destination TEXT NOT NULL CHECK(length(destination) = 56 AND destination GLOB 'G*'),
+  destination_memo TEXT CHECK(destination_memo IS NULL OR length(destination_memo) BETWEEN 1 AND 28),
+  destination_source TEXT NOT NULL CHECK(destination_source IN ('original_payer','written')),
+  -- The memo the refund payment is sent with: destination_memo if given, otherwise RF-<code>.
+  payment_memo TEXT NOT NULL CHECK(length(payment_memo) BETWEEN 1 AND 28),
+  needs_second_approval INTEGER NOT NULL CHECK(needs_second_approval IN (0, 1)),
+  requested_by INTEGER NOT NULL,
+  requested_at TEXT NOT NULL,
+  approved_by INTEGER,
+  approved_at TEXT,
+  second_approved_by INTEGER,
+  second_approved_at TEXT,
+  rejected_by INTEGER,
+  rejected_at TEXT,
+  rejection_note TEXT,
+  -- A signed transaction that was submitted but whose result is not known yet.
+  pending_tx_hash TEXT,
+  pending_tx_expires_at TEXT,
+  tx_hash TEXT UNIQUE CHECK(tx_hash IS NULL OR (length(tx_hash) = 64 AND tx_hash NOT GLOB '*[^0-9a-f]*')),
+  ledger INTEGER,
+  issued_at TEXT,
+  last_error TEXT,
+  CHECK(status <> 'issued' OR (tx_hash IS NOT NULL AND issued_at IS NOT NULL)),
+  CHECK(status <> 'rejected' OR (rejected_by IS NOT NULL AND rejection_note IS NOT NULL)),
+  CHECK(second_approved_by IS NULL OR (second_approved_by <> requested_by AND second_approved_by <> approved_by)),
+  CHECK((pending_tx_hash IS NULL) = (pending_tx_expires_at IS NULL)),
+  FOREIGN KEY (payment_id) REFERENCES payment_requests(id),
+  FOREIGN KEY (requested_by) REFERENCES users(id),
+  FOREIGN KEY (approved_by) REFERENCES users(id),
+  FOREIGN KEY (second_approved_by) REFERENCES users(id),
+  FOREIGN KEY (rejected_by) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stellar_refunds_payment ON stellar_refunds(payment_id);
+
 -- Webhook outbox (see docs/stellar/webhooks.md). Each event is stored once with
 -- its exact JSON body, so every retry sends the same body and event ID.
 CREATE TABLE IF NOT EXISTS webhook_events (

@@ -46,6 +46,10 @@ describe("dashboard assets", () => {
     for (const id of ["paymentFixPanel", "paymentFixForm", "submitPaymentFix"]) expect(html).toContain(`id="${id}"`);
   });
 
+  test("the admin screens have the refund form and the Refunds section", () => {
+    for (const id of ["refundFormPanel", "refundForm", "adminRefundsSection", "adminRefundRows"]) expect(html).toContain(`id="${id}"`);
+  });
+
   test("the student payment panel has a Cancel button", () => {
     expect(html).toContain('id="cancelPaymentRequest"');
   });

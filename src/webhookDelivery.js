@@ -84,24 +84,52 @@ function paymentEventData(type, row) {
 
 let worker = null;
 
-// Saves an event for a payment request and queues one delivery per endpoint of
-// that request's school that subscribed to the event. Returns the event ID, or
-// null when nobody is subscribed (then nothing is stored).
-function enqueuePaymentEvent(type, row, environment) {
-  const school = row.invoice_id ? schoolOfRequest.get(row.invoice_id) : null;
+// Saves an event and queues one delivery per endpoint of the payment's school that
+// subscribed to it. Returns the event ID, or null when nobody is subscribed (then
+// nothing is stored).
+function enqueueEvent({ type, invoiceId, environment, paymentId, data }) {
+  const school = invoiceId ? schoolOfRequest.get(invoiceId) : null;
   if (!school || school.school_id === null) return null;
   const endpoints = endpointsForSchool.all(school.school_id, environment)
     .filter((endpoint) => JSON.parse(endpoint.events).includes(type));
   if (!endpoints.length) return null;
   const createdAt = new Date().toISOString();
   const id = eventId();
-  const body = JSON.stringify({ id, type, createdAt, environment, data: paymentEventData(type, row) });
+  const body = JSON.stringify({ id, type, createdAt, environment, data });
   db.transaction(() => {
-    insertEvent.run({ id, type, schoolId: school.school_id, environment, paymentId: row.id, body, createdAt });
+    insertEvent.run({ id, type, schoolId: school.school_id, environment, paymentId, body, createdAt });
     for (const endpoint of endpoints) insertDelivery.run(id, endpoint.id, createdAt);
   })();
   if (worker) setImmediate(() => deliverDue().catch(() => {}));
   return id;
+}
+
+// payment.pending, payment.completed and payment.failed for a payment request.
+function enqueuePaymentEvent(type, row, environment) {
+  return enqueueEvent({ type, invoiceId: row.invoice_id, environment, paymentId: row.id, data: paymentEventData(type, row) });
+}
+
+// refund.issued (docs/stellar/webhooks.md), for the school of the refunded payment.
+function enqueueRefundIssued(refund, payment, environment) {
+  return enqueueEvent({
+    type: "refund.issued",
+    invoiceId: payment.invoice_id,
+    environment,
+    paymentId: payment.id,
+    data: {
+      refundId: refund.id,
+      paymentId: payment.id,
+      amount: refund.amount,
+      asset: refund.asset,
+      assetIssuer: refund.asset_issuer || null,
+      destination: refund.destination,
+      destinationMemo: refund.destination_memo || null,
+      reason: refund.reason,
+      transactionHash: refund.tx_hash,
+      originalTransactionHash: payment.tx_hash,
+      issuedAt: refund.issued_at,
+    },
+  });
 }
 
 const dueDeliveries = db.prepare(`
@@ -237,6 +265,7 @@ module.exports = {
   signatureHeader,
   paymentEventData,
   enqueuePaymentEvent,
+  enqueueRefundIssued,
   deliverDue,
   startWebhookWorker,
 };

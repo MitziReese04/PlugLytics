@@ -1,9 +1,10 @@
 # PlugLytics Refunds and Chargebacks
 
-> **Status: planned.** Refunds are not implemented yet. This document describes the planned refund policy and procedure. Values in `UPPER_CASE` are placeholders to be decided before going live (**TODO: group decision**). `REFUND_WINDOW_DAYS` and the approval thresholds are already settings in `.env` (see [Payment policy settings](./payments-api.md#payment-policy-settings)); the others are not settings yet. See also [settlement.md](./settlement.md), [webhooks.md](./webhooks.md#refundissued) and [approved-payment-methods.md](./approved-payment-methods.md).
+> **Status: partly built (testnet only).** Requesting, approving, rejecting and issuing refunds is built (see [What is built](#what-is-built)). Disputes and subscription refunds are not built yet. Values in `UPPER_CASE` are placeholders to be decided before going live (**TODO: group decision**). `REFUND_WINDOW_DAYS` and the approval thresholds are already settings in `.env` (see [Payment policy settings](./payments-api.md#payment-policy-settings)); the others are not settings yet. See also [settlement.md](./settlement.md), [webhooks.md](./webhooks.md#refundissued) and [approved-payment-methods.md](./approved-payment-methods.md).
 
 ## Contents
 
+- [What is built](#what-is-built)
 - [The most important rule](#the-most-important-rule)
 - [Who can request a refund](#who-can-request-a-refund)
 - [Eligibility window](#eligibility-window)
@@ -12,6 +13,34 @@
 - [Disputes and chargebacks through anchors and card on-ramps](#disputes-and-chargebacks-through-anchors-and-card-on-ramps)
 - [Record-keeping](#record-keeping)
 - [Checklist](#checklist)
+
+## What is built
+
+Admin-only endpoints under `/api/v1/refunds` (`src/routes/refunds.js`), and a **Refunds** section plus a **Refund** button on each payment in the admin dashboard's **Stellar Payments** view.
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| POST | `/api/v1/refunds` | Request a refund: `{ paymentId, amount, reason, note, destination?, destinationMemo? }` |
+| GET | `/api/v1/refunds` | List refunds (`?paymentId=`, `?status=`) |
+| GET | `/api/v1/refunds/:id` | Get one refund |
+| POST | `/api/v1/refunds/:id/approve` | Approve (first approval, or the second admin's) |
+| POST | `/api/v1/refunds/:id/reject` | Reject: `{ note }` is required |
+| POST | `/api/v1/refunds/:id/issue` | Send the refund payment (**testnet only**) |
+
+How the rules below are enforced:
+
+- **Refundable payments:** a `completed` payment, or a `failed` one with reason `underpaid` (refunding what arrived). Wrong-asset payments cannot be refunded yet, because the asset that arrived is not stored.
+- **Amount:** the total of a payment's refunds (including ones still waiting for approval, but not rejected ones) never exceeds `amountReceived` (`409 REFUND_AMOUNT_TOO_HIGH`).
+- **Window:** `customer_request` and `service_issue` must be within `REFUND_WINDOW_DAYS` of `paidAt` (`409 REFUND_WINDOW_CLOSED`). While `REFUND_WINDOW_DAYS` is not set, those reasons are refused (`409 REFUND_WINDOW_NOT_SET`, **TODO: group decision**). Operational reasons and `dispute` have no window. The `REFUND_EXCEPTION_APPROVER` exception is not built: a request outside the window is refused.
+- **Two-person rule:** a refund above the asset's `REFUND_APPROVAL_THRESHOLD_<ASSET>` needs a second admin who neither requested it nor gave the first approval (`403 SECOND_APPROVER_REQUIRED`). **While no threshold is set, every refund needs two admins** (the safe default, **TODO: group decision**). The database also refuses a second approver who is the requester or the first approver.
+- **Destination:** by default the account that paid (`sourceAccount`). A destination given in writing (`destination`, optional `destinationMemo`) is stored as `destinationSource: "written"`. The refund payment's memo is `destinationMemo` if given, otherwise `RF-` plus 8 characters.
+- **Issuing:**
+  - Refused unless `STELLAR_ENV=sandbox` with the testnet network passphrase (`503 REFUNDS_TESTNET_ONLY`).
+  - The destination must exist on the network (`422 DESTINATION_NOT_FOUND`) and, for non-XLM assets, have a trustline (`422 DESTINATION_NO_TRUSTLINE`).
+  - The payment is built, signed with the merchant secret key and submitted by `src/stellarRefundSigner.js`, the only code that sends money. PlugLytics pays the network fee.
+  - **Never paid twice:** the signed transaction's hash is saved **before** it is submitted. If Horizon rejects it (`502 REFUND_SEND_FAILED`, with the result codes), it was not applied, and the refund stays `approved` to try again. If the result is unclear (`502 REFUND_SEND_UNCONFIRMED`), the next issue first looks that hash up on Horizon: landed means `issued` without sending again; not landed yet means `409 REFUND_SEND_IN_PROGRESS`; expired without landing (after 3 minutes) means it can never apply, so a new payment is sent.
+  - On success, the refund is `issued` with its `transactionHash` and `ledger`, and `refund.issued` is sent to the school's webhooks.
+- **Not built yet:** dispute records (and the "no open dispute" check), subscription refunds, and reversing an issued refund (refunds are final, like payments).
 
 ## The most important rule
 

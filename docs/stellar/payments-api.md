@@ -252,8 +252,8 @@ These settings live in `.env` (with placeholders in `.env.example`) and are load
 | `PAYMENT_RATE_SOURCE` | Where exchange-rate quotes come from. Only `manual` exists so far. **TODO: group decision.** | `manual` | Creating payment requests |
 | `PAYMENT_MANUAL_RATE_<CURRENCY>_<ASSET>` | Manual rate: asset units per 1 unit of the currency, up to 7 decimals (for example `PAYMENT_MANUAL_RATE_USD_XLM=2.5000000`). **TODO: group decision.** | If none is set: made-up testnet rates, 1 USD = 2.5 XLM and 1 PHP = 0.043 XLM | Creating payment requests |
 | `XLM_MIN_AMOUNT`, `XLM_MAX_AMOUNT`, `USDC_MIN_AMOUNT`, `USDC_MAX_AMOUNT` | Smallest and largest amount of one payment request, in that asset. **TODO: group decision.** | Empty = no limit | Creating payment requests |
-| `REFUND_WINDOW_DAYS` | Days after a payment during which a customer can ask for a refund (1 to 3650). **TODO: group decision.** | Empty = not decided; refunds must not run | Refunds (not built yet) |
-| `REFUND_APPROVAL_THRESHOLD_XLM`, `REFUND_APPROVAL_THRESHOLD_USDC` | Refunds above this amount (in that asset) need a second admin. **TODO: group decision.** | Empty = not decided | Refunds (not built yet) |
+| `REFUND_WINDOW_DAYS` | Days after a payment during which a customer can ask for a refund (1 to 3650). **TODO: group decision.** | Empty = not decided: customer refunds (`customer_request`, `service_issue`) are refused | Requesting refunds |
+| `REFUND_APPROVAL_THRESHOLD_XLM`, `REFUND_APPROVAL_THRESHOLD_USDC` | Refunds above this amount (in that asset) need a second admin. **TODO: group decision.** | Empty = not decided: **every** refund needs two admins | Approving refunds |
 | `APPROVED_ANCHORS` | Comma-separated anchor home domains, for example `anchor.example.com`. **TODO: group decision.** | Empty = no anchors approved | Anchor payments (not built yet) |
 
 Rules:
@@ -318,6 +318,8 @@ To keep the examples below short, only the `data` part is shown for success resp
 | GET | `/api/v1/payments/:id` | Student (own invoice, **built**), Admin (**built**), or customer API key (own school, read-only, planned) | Get one payment request, checking Horizon first while it is pending |
 | POST | `/api/v1/payments/:id/confirm` | Admin | Check Horizon now and mark the payment completed if a match is found |
 | POST | `/api/v1/payments/:id/cancel` | Student (own invoice, **built**), Admin (**built**) | Cancel a pending request |
+| POST | `/api/v1/refunds` | Admin (**built**) | Request a refund for a payment (see [refunds-and-chargebacks.md](./refunds-and-chargebacks.md#what-is-built)) |
+| POST | `/api/v1/refunds/:id/approve`, `/reject`, `/issue` | Admin (**built**) | Approve, reject, or send a refund (issuing is testnet only) |
 | POST | `/api/v1/payments/:id/accept-late-payment` | Admin (**built**) | Record a payment that arrived after expiry as a new `completed` payment |
 | POST | `/api/v1/payments/:id/match-transaction` | Admin (**built**) | Record a payment that arrived without a memo as a new `completed` payment |
 | POST | `/api/v1/subscriptions` | Admin | Create a seat subscription and its first payment request |
@@ -1092,6 +1094,16 @@ PlugLytics **does not receive webhooks**. Stellar has no "payment received" call
 | 409 | `DUPLICATE_REFERENCE` | A request with the same `reference` already exists |
 | 409 | `INVOICE_NOTHING_DUE` | The invoice is fully paid, or already has a `completed` Stellar payment |
 | 409 | `API_KEY_ALREADY_REVOKED` | The customer API key is already revoked |
+| 409 | `PAYMENT_NOT_REFUNDABLE` | Nothing arrived for this payment, or it is a wrong-asset payment (not supported yet) |
+| 409 | `REFUND_AMOUNT_TOO_HIGH` | The refund would make the total refunded more than what arrived |
+| 409 | `REFUND_WINDOW_CLOSED` | A customer refund outside `REFUND_WINDOW_DAYS` |
+| 409 | `REFUND_WINDOW_NOT_SET` | `REFUND_WINDOW_DAYS` is not set yet, so customer refunds are refused |
+| 409 | `REFUND_NOT_PENDING_APPROVAL`, `REFUND_NOT_APPROVED`, `REFUND_ALREADY_ISSUED` | The refund is not in the right status for this action |
+| 409 | `REFUND_SEND_IN_PROGRESS` | An earlier refund payment may still land; try again after it expires |
+| 403 | `SECOND_APPROVER_REQUIRED` | A refund above the threshold needs a different second admin |
+| 422 | `DESTINATION_NOT_FOUND`, `DESTINATION_NO_TRUSTLINE` | The refund destination cannot receive the payment |
+| 502 | `REFUND_SEND_FAILED`, `REFUND_SEND_UNCONFIRMED` | Horizon rejected the refund payment, or its result is not known yet |
+| 503 | `REFUNDS_TESTNET_ONLY` | Issuing refunds is refused unless `STELLAR_ENV=sandbox` |
 | 409 | `INVOICE_HAS_COMPLETED_PAYMENT` | The invoice cannot be changed, because it already has a completed or recorded payment |
 | 409 | `PAYMENT_ALREADY_PENDING` | The invoice already has a `pending`, unexpired payment request |
 | 422 | `RATE_UNAVAILABLE` | No exchange-rate quote is available for this invoice currency and asset |
