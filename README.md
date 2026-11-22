@@ -524,11 +524,27 @@ See [PROPOSAL.md](./PROPOSAL.md) for the PlugLytics grant proposal, Stellar Paym
 
 The current project uses synthetic payment data. Stellar **testnet** payments work (see [Try Stellar testnet payments](#try-stellar-testnet-payments)); production (real-money) payments are not enabled.
 
-See [docs/stellar/payments-api.md](./docs/stellar/payments-api.md) for the planned Stellar Payments API: the payment flow, endpoints, error codes, sandbox vs production setup, and testnet friendbot testing.
+See [docs/stellar/payments-api.md](./docs/stellar/payments-api.md) for the Stellar Payments API (partly built, testnet only): the payment flow, endpoints, error codes, sandbox vs production setup, and testnet friendbot testing.
 
 ## Stellar Payments
 
-Stellar **testnet** payments work: students can pay an invoice from the dashboard, and admins can see every payment request. **Production (real-money) payments are not enabled yet.** Some features in these documents are still planned:
+Stellar **testnet** payments work. **Production (real-money) payments are not enabled yet.**
+
+Built (testnet only):
+
+- Students pay an invoice from the dashboard, with a locked XLM quote, and can cancel a pending request.
+- Admins create and edit invoices with pricing fields (`/api/v1/invoices` and the **Invoices** screen) and see every payment request (**Stellar Payments**).
+- Admins accept late payments and match payments that arrived without a memo.
+- Read-only customer API keys, scoped to one school.
+- Webhook registration with a secret per endpoint, and signed webhooks with retries (**Webhooks** screen).
+- Refunds: request, approval (two admins above the threshold), rejection, and testnet refund payments (**Refunds** screen). Sending can be switched off with `REFUND_ISSUING_ENABLED`, which is off by default and on the public demo.
+- Daily and weekly reconciliation with settlement reports (**Settlement reports** screen, `npm run reconcile`).
+
+Still missing: USDC payment requests, subscriptions, admin pay-per-use requests, `GET /api/v1/payments/config` and `POST /api/v1/payments/:id/confirm`, watching Horizon by streaming or polling, wrong-asset refunds, dispute records, `REFUND_EXCEPTION_APPROVER`, subscription refunds, anchor payments, and production (mainnet) support.
+
+Settings marked **TODO: group decision** (exchange rates, amount limits, refund window, approval thresholds, approved anchors) are placeholders in [`.env.example`](./.env.example); copy them into your `.env`.
+
+The documents:
 
 - [Payments API](./docs/stellar/payments-api.md): payment flow, endpoints, customer API keys, webhook registration, error codes, and sandbox vs production
 - [Webhooks](./docs/stellar/webhooks.md): event types, example payloads, signature verification, retries, and duplicate handling
@@ -567,8 +583,8 @@ The testnet is reset from time to time. After a reset, fund new accounts with Fr
 ## Roadmap
 
 - [ ] Live public deployment with HTTPS
-- [ ] Stellar Payments sandbox credentials and payment adapter
-- [ ] Live invoice and payment reconciliation
+- [x] Stellar Payments sandbox credentials and payment adapter (testnet)
+- [ ] Live invoice and payment reconciliation (built on testnet; not yet on the public network)
 - [ ] Revenue forecast endpoint
 - [ ] Instructor cost and course-margin reporting
 - [ ] LMS provider integration
@@ -607,12 +623,14 @@ The following information is needed before the README and grant materials can be
    - Still missing: real sandbox keys in `.env`, and production merchant credentials (production is not enabled).
 9. Stellar Payments API, webhook, and settlement documentation: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md), [webhooks.md](./docs/stellar/webhooks.md), [settlement.md](./docs/stellar/settlement.md))
    - Built (testnet only): payment requests, webhooks with retries, refunds, and daily and weekly reconciliation with settlement reports.
-   - Still missing: subscriptions, withdrawals as records, and production (mainnet) support.
+   - Also built: payment cancellation, customer API keys, accepting late payments and matching payments without a memo.
+   - Still missing: subscriptions, USDC payment requests, `GET /api/v1/payments/config`, `POST /api/v1/payments/:id/confirm`, streaming or polling Horizon, withdrawals as records, and production (mainnet) support.
 10. Approved payment methods and refund/chargeback procedures: **Documented, partly built** ([approved-payment-methods.md](./docs/stellar/approved-payment-methods.md), [refunds-and-chargebacks.md](./docs/stellar/refunds-and-chargebacks.md))
-    - Built (testnet only): refund requests, approval (two admins above the threshold), rejection and testnet refund payments.
-    - Still missing: dispute records; amount limits, refund windows, approval thresholds and the approved anchor list are placeholders (group decision).
+    - Built (testnet only): refund requests, approval (two admins above the threshold), rejection and testnet refund payments, and the `REFUND_ISSUING_ENABLED` switch (off on the public demo).
+    - Still missing: wrong-asset refunds, dispute records, `REFUND_EXCEPTION_APPROVER`, subscription refunds, USDC and anchor payments.
+    - Placeholders (**TODO: group decision**, in [`.env.example`](./.env.example)): amount limits, refund window, approval thresholds and the approved anchor list.
 11. Scholarship, discount, fee, and instructor-cost fields: **Documented, partly built** ([payments-api.md](./docs/stellar/payments-api.md#pricing-fields))
-    - Still missing: admins can set these fields through the API (`POST /api/v1/invoices`, `PATCH /api/v1/invoices/:id`), but no dashboard screen sets them yet.
+    - Built: admins set these fields through the API (`POST /api/v1/invoices`, `PATCH /api/v1/invoices/:id`) and the dashboard's **Invoices** screen.
 12. Pilot budget, grant amount, milestones, and reporting dates: **Documented, partly built** ([pilot-budget-and-grant.md](./docs/stellar/pilot-budget-and-grant.md))
     - Still missing: the grant amount, budget amounts, and milestone and report dates are TODO.
 13. User-testing population and target sample size

@@ -139,7 +139,7 @@ Reconciliation answers one question: **"Do our records and the Stellar network a
 
 ### Checking a single payment (built)
 
-Before daily reconciliation exists, a pending payment request is checked one at a time when someone opens it with `GET /api/v1/payments/:id`. That check uses the same matching rules as the daily run below (memo, asset code **and** issuer, amount in stroops, before `expiresAt`), and marks the request `completed` or `failed` with a reason (see [payments-api.md](./payments-api.md#get-apiv1paymentsid)). It only looks at that one request. It does not find payments without a memo, duplicates, or balance problems, which still need the daily and weekly runs.
+Besides the [daily run](#what-is-built), a pending payment request is checked on its own when someone opens it with `GET /api/v1/payments/:id`. That check uses the same matching rules as the daily run below (memo, asset code **and** issuer, amount in stroops, before `expiresAt`), and marks the request `completed` or `failed` with a reason (see [payments-api.md](./payments-api.md#get-apiv1paymentsid)). It only looks at that one request. It does not find payments without a memo, duplicates, or balance problems, which still need the daily and weekly runs.
 
 ### Daily reconciliation (automatic)
 
