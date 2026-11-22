@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/MitziReese04/PlugLytics/actions/workflows/ci.yml"><img src="https://github.com/MitziReese04/PlugLytics/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D22.12-339933?logo=node.js&logoColor=white" alt="Node.js 22.12 or newer">
-  <img src="https://img.shields.io/badge/Stellar-Testnet%20only-0b1f3a?logo=stellar&logoColor=white" alt="Stellar Testnet only">
+  <img src="https://img.shields.io/badge/Stellar-Testnet-0b1f3a?logo=stellar&logoColor=white" alt="Stellar Testnet">
   <img src="https://img.shields.io/badge/license-not%20selected-lightgrey" alt="License not selected">
 </p>
 
@@ -33,8 +33,8 @@ PlugLytics is a zero-setup Learning Management System (LMS) analytics API and ro
 
 Built with Node.js, Express, SQLite, JWT, Zod, Chart.js, and Swagger/OpenAPI, plus a companion VS Code extension. The demo runs entirely on synthetic seeded data: 500+ students, 25 instructors, 60 courses, 6 specializations, and 4 academic terms.
 
-> [!IMPORTANT]
-> PlugLytics is a technical demo and pilot candidate. Stellar payments run on **Testnet only**; Mainnet (real-money) payments are not enabled, and there is no public deployment yet.
+> [!NOTE]
+> PlugLytics is a technical demo and pilot candidate. Stellar payments run on the **Stellar Testnet**, so they can be tried end to end with free test XLM. There is no public deployment yet.
 
 ## Project status
 
@@ -42,7 +42,7 @@ Built with Node.js, Express, SQLite, JWT, Zod, Chart.js, and Swagger/OpenAPI, pl
 | --- | --- |
 | Analytics API, dashboard, and public website | Working locally |
 | Stellar Testnet payments, refunds, webhooks, API keys | Working on Testnet, covered by automated tests |
-| Stellar Mainnet, USDC, anchors, settlement reports | Not implemented |
+| USDC, anchors, settlement reports | Planned |
 | LMS provider import (Canvas) | Documented, not implemented ([plan](./docs/pilot/lms-integration.md)) |
 | Continuous integration | GitHub Actions on every push and pull request to `main` |
 | Public deployment | Planned on Render, Singapore region ([plan](./docs/pilot/deployment.md)); not deployed |
@@ -137,7 +137,7 @@ PlugLytics answers these from one role-aware analytics surface backed by a versi
 
 ## Stellar Testnet payments
 
-PlugLytics converts an invoice into a Stellar payment request, waits for the student's payment, and confirms it on Horizon. Everything below runs on the **Testnet**: the payment, confirmation, and refund endpoints refuse to run unless `STELLAR_ENV=sandbox`.
+PlugLytics converts an invoice into a Stellar payment request, waits for the student's payment, and confirms it on Horizon. All payment features run on the **Stellar Testnet** (`STELLAR_ENV=sandbox`, Horizon at `https://horizon-testnet.stellar.org`).
 
 | Capability | Status |
 | --- | --- |
@@ -147,9 +147,8 @@ PlugLytics converts an invoice into a Stellar payment request, waits for the stu
 | Refunds with approval, rejection, second-admin threshold, and testnet refund payments | Built (Testnet) |
 | Signed outgoing webhooks with per-customer secrets and automatic retries | Built (Testnet) |
 | Read-only, school-scoped customer API keys | Built |
-| USDC payments, anchors, subscriptions | Not built |
-| Daily/weekly reconciliation and settlement reports | Not built |
-| Mainnet (production) payments | Not enabled |
+| USDC payments, anchors, subscriptions | Planned |
+| Daily/weekly reconciliation and settlement reports | Planned |
 
 <details>
 <summary><strong>Try a Testnet payment end to end</strong></summary>
@@ -264,7 +263,7 @@ Create `.env` from `.env.example`. Stellar settings are described in [Stellar Te
 | `TRUST_PROXY` | Reverse proxies in front of the app, so rate limiting sees each visitor's IP | `0` | On Render: `1` |
 | `BACKUP_DIR` | Where `npm run backup` writes copies | `backups/` next to the database | No |
 | `BACKUP_KEEP` | Backup copies to keep | `7` | No |
-| `STELLAR_ENV` | `sandbox` (Testnet); `production` is read but payments are refused | - | For payments |
+| `STELLAR_ENV` | `sandbox` selects the Stellar Testnet | - | For payments |
 
 | Command | What it does |
 | --- | --- |
@@ -482,7 +481,7 @@ The suites in [`tests/`](./tests) cover authentication and role boundaries, filt
 - [x] Stellar Testnet payment adapter: payment requests, Horizon confirmation, late and memo-less matching, refunds, webhooks, customer API keys
 - [x] Automated CI with GitHub Actions
 - [ ] Live public deployment with HTTPS
-- [ ] Stellar Mainnet (production) payments, USDC, and anchors
+- [ ] USDC payments and anchors on Testnet, then a production rollout after the pilot review
 - [ ] Daily and weekly reconciliation and settlement reports
 - [ ] Provider-specific LMS integration (Canvas) for enrollments, courses, grades, attendance, and events
 - [ ] Revenue forecast and course-margin reporting
@@ -504,7 +503,7 @@ The suites in [`tests/`](./tests) cover authentication and role boundaries, filt
 | 5 | Pilot institution and contact ([template](./docs/pilot/pilot-institution.md)) | Template only | No school has agreed yet |
 | 6 | Enrollment, retention, and finance definitions ([definitions](./docs/pilot/definitions.md)) | Documented | Confirmation by the school's registrar and finance office |
 | 7 | Ledger and accounting system ([accounting](./docs/pilot/accounting-and-ledger.md)) | Documented, not decided | School's accounting system, account codes, journal export |
-| 8 | Stellar merchant credentials ([payments API](./docs/stellar/payments-api.md#sandbox-vs-production)) | Testnet supported | Real sandbox keys per deployment; production not enabled |
+| 8 | Stellar merchant credentials ([payments API](./docs/stellar/payments-api.md#sandbox-vs-production)) | Testnet supported | Testnet merchant keys per deployment |
 | 9 | Settlement and webhooks ([settlement](./docs/stellar/settlement.md), [webhooks](./docs/stellar/webhooks.md)) | Payments, webhooks, refunds built on Testnet | Reconciliation runs, settlement reports, `settlement.*` and `subscription.*` events |
 | 10 | Payment methods and refunds ([methods](./docs/stellar/approved-payment-methods.md), [refunds](./docs/stellar/refunds-and-chargebacks.md)) | Refunds built on Testnet | Real limits, refund window, anchor list; disputes |
 | 11 | Pricing fields ([payments API](./docs/stellar/payments-api.md#pricing-fields)) | Built (API and admin screen) | Course-margin reporting using instructor cost |
